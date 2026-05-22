@@ -1,0 +1,3 @@
+-- Seed data for local/dev Supabase.
+-- Populated in task P0-14: ingredient catalog + 100 starter dishes
+-- (active only after the quality checklist in docs/06_admin_operator_spec.md).

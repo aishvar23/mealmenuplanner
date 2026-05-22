@@ -28,7 +28,7 @@ phases that follow the [MVP roadmap](docs/12_mvp_roadmap.md) and reference the
 |-------|------|--------------|--------|
 | — | Product specs (`docs/`) | ✅ | Complete |
 | — | Design docs (`design/`) | ✅ | Complete |
-| P0 | Project setup & schema | 0 / 16 | Not started |
+| P0 | Project setup & schema | 1 / 16 | In progress |
 | P1 | Auth & household foundation | 0 / 8 | Not started |
 | P2 | Onboarding (save/resume) | 0 / 7 | Not started |
 | P3 | Dish admin / content | 0 / 8 | Not started |
@@ -38,17 +38,18 @@ phases that follow the [MVP roadmap](docs/12_mvp_roadmap.md) and reference the
 | P7 | Grocery & prep | 0 / 6 | Not started |
 | P8 | Notifications | 0 / 6 | Not started |
 | P9 | Beta hardening | 0 / 7 | Not started |
-| | **Total** | **0 / 82** | |
+| | **Total** | **1 / 82** | |
 
-**Suggested next task:** `P0-1` (scaffold the app), then work P0 top-to-bottom —
-the schema migration (`P0-5`..`P0-12`) is the critical path everything depends on.
+**Suggested next task:** `P0-2` (repo tooling: ESLint/Prettier/tsconfig/.env.example),
+then work P0 top-to-bottom — the schema migration (`P0-5`..`P0-12`) is the critical
+path everything depends on.
 
 ---
 
 ## P0 — Project setup & schema
 > Design: [02](design/02_system_architecture.md), [01](design/01_database_design.md) · Roadmap: Phase 1 (Foundation)
 
-- [ ] **P0-1** Scaffold Next.js (App Router) + TypeScript + Tailwind CSS + shadcn/ui; base folder layout per [design/02](design/02_system_architecture.md)
+- [x] **P0-1** Scaffold Next.js (App Router) + TypeScript + Tailwind CSS + shadcn/ui; base folder layout per [design/02](design/02_system_architecture.md)
 - [ ] **P0-2** Repo tooling: ESLint, Prettier, `tsconfig`, `.gitattributes` (normalize LF), `.env.example`
 - [ ] **P0-3** Create Supabase **dev** and **prod** projects; wire up Supabase CLI + local dev
 - [ ] **P0-4** Supabase client factories: server (RLS, per-request JWT), browser (anon), service-role (jobs only) per [design/02](design/02_system_architecture.md)
