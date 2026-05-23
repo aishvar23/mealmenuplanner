@@ -321,12 +321,15 @@ max_frequency = "5s"
 # `twitter`, `x`, `slack`, `spotify`, `workos`, `zoom`.
 
 # Google OAuth — the primary sign-in path (design/03 § 2, authorization-code + PKCE).
-# Kept disabled here so `supabase start` works without credentials; P1-1 flips `enabled = true`
-# once GOOGLE_CLIENT_ID / GOOGLE_SECRET are set in `.env` (see .env.example). Get credentials from
-# Google Cloud Console → OAuth 2.0 Client (Web), with redirect URI
-# http://localhost:54321/auth/v1/callback for local dev.
+# Enabled in P1-1. Credentials are read from env (SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID /
+# SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET, see .env.example) so no secret is committed. The CLI
+# auto-loads `.env`, so running the local stack (`supabase start`) needs those vars set. The cloud
+# dev/prod projects enable Google in the Supabase dashboard (Auth → Providers) with the same
+# credentials. Create the OAuth 2.0 Client (Web) in Google Cloud Console and register the redirect
+# URIs: http://localhost:54321/auth/v1/callback (local) and
+# https://<project-ref>.supabase.co/auth/v1/callback (cloud).
 [auth.external.google]
-enabled = false
+enabled = true
 client_id = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)"
 # DO NOT commit your OAuth provider secret to git. Use environment variable substitution instead:
 secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"

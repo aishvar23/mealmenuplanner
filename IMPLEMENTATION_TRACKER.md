@@ -29,7 +29,7 @@ phases that follow the [MVP roadmap](docs/12_mvp_roadmap.md) and reference the
 | —     | Product specs (`docs/`)     | ✅           | Complete    |
 | —     | Design docs (`design/`)     | ✅           | Complete    |
 | P0    | Project setup & schema      | 14 / 16      | In progress |
-| P1    | Auth & household foundation | 0 / 8        | Not started |
+| P1    | Auth & household foundation | 1 / 8        | In progress |
 | P2    | Onboarding (save/resume)    | 0 / 7        | Not started |
 | P3    | Dish admin / content        | 0 / 8        | Not started |
 | P4    | Recommendation engine       | 0 / 8        | Not started |
@@ -38,16 +38,19 @@ phases that follow the [MVP roadmap](docs/12_mvp_roadmap.md) and reference the
 | P7    | Grocery & prep              | 0 / 6        | Not started |
 | P8    | Notifications               | 0 / 6        | Not started |
 | P9    | Beta hardening              | 0 / 7        | Not started |
-|       | **Total**                   | **14 / 82**  |             |
+|       | **Total**                   | **15 / 82**  |             |
 
-**Suggested next task:** **P0 is effectively done** — schema + identity
-(`P0-5`..`P0-13`), `P0-15` (`lib/errors`), and `P0-16` (CI + app shell) are all
-complete and the schema is live on the cloud dev project. Only `P0-14` (seed:
+**Suggested next task:** **P1 is underway** — `P1-1` (Google OAuth sign-in +
+callback) is code-complete and CI-green; the only gap is the operator wiring
+Google credentials into the cloud project's Auth provider (an ops step, like
+`P0-3`'s prod project). **Next is `P1-3`** (server-side session resolution + SSR
+cookie refresh in route middleware + redirect-unauthenticated for the `(app)`
+shell) — it pairs with the `lib/db/server.ts` "session refresh happens in the
+route middleware (P1-3)" note and the `(app)/layout.tsx` auth-gating TODO, and
+unblocks every authenticated screen. `P1-2` (email/password + magic-link) and
+`P1-4` (`lib/auth` permission guards) follow. Still open from P0: `P0-14` (seed:
 ingredient catalog + 100 starter dishes, needs dish content authored first) and
-`P0-3`'s prod-project step remain. **Next phase is P1 (auth & household
-foundation)** — start with `P1-1` (Google OAuth sign-in + callback) and `P1-3`
-(server-side session resolution + route middleware), which build on P0-13, the
-P0-4 client factories, and the `(auth)`/`(app)` shells. The advisor is clean (security:
+`P0-3`'s prod-project step. The advisor is clean (security:
 only the 2 intended self-scoped helper WARNs; performance: 0 WARN, only expected
 INFO on the empty DB). **DB workflow proven:** author each migration as a file
 under `supabase/migrations/`, apply to the cloud dev project
@@ -84,7 +87,7 @@ the account owner creating a separate **prod** project before launch (see
 
 > Design: [03](design/03_auth_and_security_design.md), [04](design/04_api_design.md) · Roadmap: Phase 1
 
-- [ ] **P1-1** Supabase Auth: Google OAuth (PKCE) sign-in + callback
+- [x] **P1-1** Supabase Auth: Google OAuth (PKCE) sign-in + callback — _`GoogleSignInButton` (browser anon client → `signInWithOAuth({ provider: 'google', redirectTo: /auth/callback })`, PKCE) on the sign-in screen; `app/auth/callback/route.ts` exchanges the code for a session (`exchangeCodeForSession`), setting the HTTP-only auth cookies via the per-request server client, then redirects to a sanitized same-origin `next` (default `/today`); provider/exchange failures bounce to `/sign-in?error=…` (generic message, surfaced as an alert). Google provider flipped `enabled = true` in `config.toml` (env-based creds; design/03 § 2). lint · format · typecheck · test · build all green. **Operator step before live use:** create the Google OAuth 2.0 Web client and enable Google in the cloud project's Auth → Providers with those credentials + redirect URIs (mirrors the P0-3 prod-project ops gap)._
 - [ ] **P1-2** Email/password + magic-link auth
 - [ ] **P1-3** Server-side session resolution, SSR cookies, route middleware for the authenticated shell
 - [ ] **P1-4** `lib/auth` permission guards: active-membership check + `can_*` flag check, returning typed errors
