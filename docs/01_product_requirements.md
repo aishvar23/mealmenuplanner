@@ -1,9 +1,11 @@
 # Product Requirements Document
 
 ## Objective
+
 Build a household-first meal planning app that reduces daily meal decision fatigue and helps families plan meals, prep tasks, and groceries.
 
 ## Primary user problem
+
 Users frequently ask:
 
 > What should we eat today?
@@ -13,6 +15,7 @@ The app should answer this question in a way that is practical for the household
 ## Core MVP requirements
 
 ### Authentication
+
 Users should be able to sign in using:
 
 - Google OAuth
@@ -21,6 +24,7 @@ Users should be able to sign in using:
 Mobile OTP can be added later.
 
 ### Household setup
+
 Users should be able to create a household profile with:
 
 - Household name
@@ -37,6 +41,7 @@ Users should be able to create a household profile with:
 - Budget preference
 
 ### Save and resume onboarding
+
 The app should automatically save profile setup progress.
 
 Users should be able to:
@@ -47,6 +52,7 @@ Users should be able to:
 - Complete onboarding with minimum required fields.
 
 ### Meal recommendation
+
 The app should recommend meals based on:
 
 - Diet match
@@ -61,6 +67,7 @@ The app should recommend meals based on:
 - Eating-out days
 
 ### Weekly meal plan
+
 Users should be able to:
 
 - Generate a weekly plan.
@@ -71,6 +78,7 @@ Users should be able to:
 - Regenerate the plan.
 
 ### Grocery list
+
 The app should generate a grocery list based on the weekly meal plan and family size.
 
 The list should be grouped by:
@@ -85,6 +93,7 @@ The list should be grouped by:
 - Pantry staples
 
 ### Prep reminders
+
 The app should show advance-prep tasks such as:
 
 - Soak beans overnight.
@@ -95,6 +104,7 @@ The app should show advance-prep tasks such as:
 - Prepare masala paste.
 
 ### Household members
+
 Users should be able to:
 
 - Invite a permanent member.
@@ -105,6 +115,7 @@ Users should be able to:
 - Exit a household.
 
 ### Notifications
+
 Members should receive notifications when:
 
 - A meal is changed.

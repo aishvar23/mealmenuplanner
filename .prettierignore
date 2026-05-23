@@ -1,0 +1,22 @@
+# Build output & deps
+node_modules
+.next
+out
+build
+coverage
+
+# Generated
+next-env.d.ts
+*.tsbuildinfo
+
+# Lockfiles (managed by the package manager)
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# Supabase generated artifacts
+supabase/.branches
+supabase/.temp
+
+# Misc
+.vercel

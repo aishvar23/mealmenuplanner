@@ -6,17 +6,17 @@ and the schema in [doc 01](01_database_design.md).
 
 ## Stack
 
-| Layer | Choice | Why |
-|-------|--------|-----|
-| Web framework | **Next.js (App Router) + React** | Server components + server actions keep business logic on the server, close to the DB. |
-| Styling / UI | **Tailwind CSS + shadcn/ui** | Fast, consistent, accessible component primitives. |
-| Backend logic | **Next.js server actions / route handlers** | Co-located with the app; one deploy target. Heavy/scheduled work moves to Edge Functions. |
-| Database | **Supabase PostgreSQL** | Relational fit for the schema; RLS for multi-tenant isolation. |
-| Auth | **Supabase Auth** | Google OAuth + email/magic-link out of the box (`../docs/01`). |
-| Authorization | **Postgres RLS + service-layer checks** | Defense in depth (doc 03). |
-| Background jobs | **pg_cron + Supabase Edge Functions** | Guest expiry, invite expiry, prep reminders. |
-| Hosting | **Vercel** (web) + **Supabase** (DB/auth/functions) | Managed, low-ops, separate dev/prod projects. |
-| Email | **Transactional email provider** (e.g. Resend) | Invite emails (MVP); abstracted behind a notifier port. |
+| Layer           | Choice                                              | Why                                                                                       |
+| --------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Web framework   | **Next.js (App Router) + React**                    | Server components + server actions keep business logic on the server, close to the DB.    |
+| Styling / UI    | **Tailwind CSS + shadcn/ui**                        | Fast, consistent, accessible component primitives.                                        |
+| Backend logic   | **Next.js server actions / route handlers**         | Co-located with the app; one deploy target. Heavy/scheduled work moves to Edge Functions. |
+| Database        | **Supabase PostgreSQL**                             | Relational fit for the schema; RLS for multi-tenant isolation.                            |
+| Auth            | **Supabase Auth**                                   | Google OAuth + email/magic-link out of the box (`../docs/01`).                            |
+| Authorization   | **Postgres RLS + service-layer checks**             | Defense in depth (doc 03).                                                                |
+| Background jobs | **pg_cron + Supabase Edge Functions**               | Guest expiry, invite expiry, prep reminders.                                              |
+| Hosting         | **Vercel** (web) + **Supabase** (DB/auth/functions) | Managed, low-ops, separate dev/prod projects.                                             |
+| Email           | **Transactional email provider** (e.g. Resend)      | Invite emails (MVP); abstracted behind a notifier port.                                   |
 
 ## Container view
 
@@ -69,7 +69,7 @@ flowchart LR
     EV --> R
 ```
 
-Request lifecycle for a write (e.g. *change today's dinner*):
+Request lifecycle for a write (e.g. _change today's dinner_):
 
 1. Client component invokes a server action with the meal item id + new dish.
 2. Action resolves the Supabase session → `userId`; rejects if unauthenticated.
@@ -87,17 +87,17 @@ Request lifecycle for a write (e.g. *change today's dinner*):
 Each maps to a folder under `lib/services/` and to the responsibilities in
 `../docs/11_technical_architecture.md`.
 
-| Service | Owns | Primary docs |
-|---------|------|--------------|
-| `onboarding` | Draft save/resume, completion, household + owner creation | doc 06 |
-| `household` | Household CRUD, preferences, membership reads | docs 01, 04 |
-| `invite` | Token issue/validate/accept/decline/expire | docs 03, 07 |
-| `recommendation` | Hard filters, scoring, ranking, explanation | doc 05 |
-| `mealPlan` | Today/weekly generation, replace, eating-out, lock | doc 08 |
-| `grocery` | Aggregate + scale + group ingredients, regen | doc 08 |
-| `prep` | Extract prep tasks, schedule reminders | doc 08 |
-| `notification` | Create, fan-out, mark read, send email | doc 09 |
-| `admin` | Dish/ingredient/prep/pairing content management | `../docs/06` |
+| Service          | Owns                                                      | Primary docs |
+| ---------------- | --------------------------------------------------------- | ------------ |
+| `onboarding`     | Draft save/resume, completion, household + owner creation | doc 06       |
+| `household`      | Household CRUD, preferences, membership reads             | docs 01, 04  |
+| `invite`         | Token issue/validate/accept/decline/expire                | docs 03, 07  |
+| `recommendation` | Hard filters, scoring, ranking, explanation               | doc 05       |
+| `mealPlan`       | Today/weekly generation, replace, eating-out, lock        | doc 08       |
+| `grocery`        | Aggregate + scale + group ingredients, regen              | doc 08       |
+| `prep`           | Extract prep tasks, schedule reminders                    | doc 08       |
+| `notification`   | Create, fan-out, mark read, send email                    | doc 09       |
+| `admin`          | Dish/ingredient/prep/pairing content management           | `../docs/06` |
 
 Cross-cutting modules: `lib/auth` (session + guards), `lib/db` (supabase
 clients), `lib/events` (activity log + notification dispatch), `lib/errors`
@@ -163,11 +163,11 @@ flowchart LR
     P --> NT
 ```
 
-| Job | Cadence | Logic |
-|-----|---------|-------|
-| `expire_guests` | hourly | Active `temporary_guest` rows with `expires_at < now()` → `status = expired`; activity event + owner notification. Access checks also enforce expiry in real time (doc 03). |
-| `expire_invites` | daily | Pending invites past `expires_at` → `expired`. |
-| `prep_reminders` | hourly | Find `dish_prep_tasks` due before their `required_before_minutes` window for upcoming planned meals → create prep notifications (doc 08/09). |
+| Job              | Cadence | Logic                                                                                                                                                                       |
+| ---------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `expire_guests`  | hourly  | Active `temporary_guest` rows with `expires_at < now()` → `status = expired`; activity event + owner notification. Access checks also enforce expiry in real time (doc 03). |
+| `expire_invites` | daily   | Pending invites past `expires_at` → `expired`.                                                                                                                              |
+| `prep_reminders` | hourly  | Find `dish_prep_tasks` due before their `required_before_minutes` window for upcoming planned meals → create prep notifications (doc 08/09).                                |
 
 ## Environments & configuration
 

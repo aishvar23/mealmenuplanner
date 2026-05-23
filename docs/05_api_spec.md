@@ -1,11 +1,13 @@
 # API Specification
 
 ## Authentication
+
 All APIs require an authenticated user unless explicitly stated.
 
 ## Household APIs
 
 ### Create household
+
 POST /api/households
 
 Request:
@@ -25,6 +27,7 @@ Response:
 ```
 
 ### Get household
+
 GET /api/households/{householdId}
 
 Response:
@@ -39,6 +42,7 @@ Response:
 ```
 
 ### Update household preferences
+
 PATCH /api/households/{householdId}/preferences
 
 Request:
@@ -55,6 +59,7 @@ Request:
 ## Onboarding draft APIs
 
 ### Get current draft
+
 GET /api/onboarding/draft
 
 Response:
@@ -69,6 +74,7 @@ Response:
 ```
 
 ### Save draft
+
 PUT /api/onboarding/draft
 
 Request:
@@ -82,6 +88,7 @@ Request:
 ```
 
 ### Complete onboarding
+
 POST /api/onboarding/complete
 
 Request:
@@ -104,6 +111,7 @@ Response:
 ## Invite APIs
 
 ### Create invite
+
 POST /api/households/{householdId}/invites
 
 Request:
@@ -135,6 +143,7 @@ Response:
 ```
 
 ### Get invite
+
 GET /api/invites/{token}
 
 Response:
@@ -150,6 +159,7 @@ Response:
 ```
 
 ### Accept invite
+
 POST /api/invites/{token}/accept
 
 Response:
@@ -162,6 +172,7 @@ Response:
 ```
 
 ### Decline invite
+
 POST /api/invites/{token}/decline
 
 Response:
@@ -175,20 +186,25 @@ Response:
 ## Member APIs
 
 ### List members
+
 GET /api/households/{householdId}/members
 
 ### Update member permissions
+
 PATCH /api/households/{householdId}/members/{memberId}
 
 ### Remove member
+
 POST /api/households/{householdId}/members/{memberId}/remove
 
 ### Leave household
+
 POST /api/households/{householdId}/leave
 
 ## Meal plan APIs
 
 ### Generate today's meal
+
 POST /api/households/{householdId}/meal-plans/today/generate
 
 Request:
@@ -201,6 +217,7 @@ Request:
 ```
 
 ### Generate weekly plan
+
 POST /api/households/{householdId}/meal-plans/week/generate
 
 Request:
@@ -213,6 +230,7 @@ Request:
 ```
 
 ### Replace meal
+
 POST /api/meal-plan-items/{mealPlanItemId}/replace
 
 Request:
@@ -225,26 +243,33 @@ Request:
 ```
 
 ### Mark eating out
+
 POST /api/meal-plan-items/{mealPlanItemId}/eating-out
 
 ### Lock meal
+
 POST /api/meal-plan-items/{mealPlanItemId}/lock
 
 ### Unlock meal
+
 POST /api/meal-plan-items/{mealPlanItemId}/unlock
 
 ## Grocery APIs
 
 ### Get grocery list
+
 GET /api/households/{householdId}/grocery-list?mealPlanId={mealPlanId}
 
 ### Regenerate grocery list
+
 POST /api/households/{householdId}/grocery-list/regenerate
 
 ## Notification APIs
 
 ### List notifications
+
 GET /api/notifications
 
 ### Mark notification read
+
 POST /api/notifications/{notificationId}/read

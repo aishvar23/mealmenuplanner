@@ -1,9 +1,11 @@
 # Recommendation Engine Specification
 
 ## Objective
+
 Recommend practical meals for a household based on constraints, preferences, meal history, and preparation requirements.
 
 ## MVP approach
+
 Use a deterministic rule-based scoring engine.
 
 Do not start with a fully AI-based system. The first version should be explainable and controllable.
@@ -11,6 +13,7 @@ Do not start with a fully AI-based system. The first version should be explainab
 ## Inputs
 
 ### Household inputs
+
 - Diet type
 - Cuisine preferences
 - Family size
@@ -22,6 +25,7 @@ Do not start with a fully AI-based system. The first version should be explainab
 - Leftover preference
 
 ### Member inputs
+
 - Allergies
 - Disliked ingredients
 - Liked dishes
@@ -30,6 +34,7 @@ Do not start with a fully AI-based system. The first version should be explainab
 - Spice preference
 
 ### Dish inputs
+
 - Meal slot
 - Diet type
 - Cuisine
@@ -43,12 +48,14 @@ Do not start with a fully AI-based system. The first version should be explainab
 - Difficulty
 
 ### Historical inputs
+
 - Recently cooked dishes
 - Recently rejected dishes
 - Eating-out dates
 - Feedback history
 
 ## Hard filters
+
 A dish should be excluded if:
 
 - It violates diet type.
@@ -59,6 +66,7 @@ A dish should be excluded if:
 - It violates temporary guest restrictions during guest stay.
 
 ## Soft scoring
+
 A dish receives score adjustments.
 
 Example scoring:
@@ -78,6 +86,7 @@ Example scoring:
 - High difficulty on weekday: -30
 
 ## Rotation logic
+
 The app should avoid repeating the same dish within the configured variety gap.
 
 Example:
@@ -85,6 +94,7 @@ Example:
 If variety_gap_days = 7, do not recommend the same dish within 7 days unless user explicitly asks.
 
 ## Ingredient repetition
+
 In later versions, the app should also reduce repetition of the same primary ingredient.
 
 Example:
@@ -92,6 +102,7 @@ Example:
 If paneer was used yesterday, reduce score for paneer dishes today.
 
 ## Prep-aware recommendation
+
 If a dish requires advance prep and the prep was not completed, either:
 
 - Reject the dish for today's meal.
@@ -102,6 +113,7 @@ Example:
 Rajma requires soaking for 8 hours. It should not be suggested for dinner if it is already 6 PM and rajma was not soaked.
 
 ## Recommendation explanation
+
 Every recommendation should have a short explanation.
 
 Example:
@@ -139,6 +151,7 @@ getRecommendations(householdId, date, mealSlot):
 ```
 
 ## MVP output
+
 The recommendation engine should return:
 
 - dish_id

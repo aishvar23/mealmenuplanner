@@ -611,16 +611,16 @@ create table notification_preferences (
 
 ## Key invariants
 
-| Invariant | Enforced by |
-|-----------|-------------|
-| One in-progress draft per user | `uq_one_active_draft_per_user` |
-| One live (invited/active) membership per user+household | `uq_one_live_membership` |
-| Temporary guests must have an expiry | `guest_has_expiry` check |
-| One meal item per plan/date/slot | `unique (meal_plan_id, date, meal_slot)` |
-| One grocery list per meal plan | `unique (meal_plan_id)` on `grocery_lists` |
-| Invite tokens are unique | `unique (invite_token)` |
-| A dish never pairs with itself | `no_self_pair` check |
-| Plan date range is ordered | `plan_dates_ordered` check |
+| Invariant                                               | Enforced by                                |
+| ------------------------------------------------------- | ------------------------------------------ |
+| One in-progress draft per user                          | `uq_one_active_draft_per_user`             |
+| One live (invited/active) membership per user+household | `uq_one_live_membership`                   |
+| Temporary guests must have an expiry                    | `guest_has_expiry` check                   |
+| One meal item per plan/date/slot                        | `unique (meal_plan_id, date, meal_slot)`   |
+| One grocery list per meal plan                          | `unique (meal_plan_id)` on `grocery_lists` |
+| Invite tokens are unique                                | `unique (invite_token)`                    |
+| A dish never pairs with itself                          | `no_self_pair` check                       |
+| Plan date range is ordered                              | `plan_dates_ordered` check                 |
 
 ## Row-Level Security strategy
 
@@ -675,17 +675,17 @@ domain errors rather than empty result sets, and the real-time guest-expiry
 check (`expires_at > now()`) is evaluated on every access, not just by the
 scheduled job.
 
-| Table | RLS read | RLS write |
-|-------|----------|-----------|
-| `households`, `household_preferences` | active member | owner/`can_edit_household_preferences` |
-| `household_members` | active member | `can_invite_members` / `can_remove_members` / self |
-| `household_invites` | active member; token lookup is unauthenticated via RPC | `can_invite_members` |
-| `meal_plans`, `meal_plan_items` | active member | `can_change_*` per slot |
-| `grocery_lists`, `grocery_list_items` | active member | `can_manage_grocery_list` |
-| `meal_feedback` | active member | self (own feedback) |
-| `user_food_preferences` | self + household admins | self |
-| `household_activity_events`, `notifications` | active member / recipient | system only (server role) |
-| `dishes`, `ingredients`, `dish_*` | any authenticated (active rows) | admin role only |
+| Table                                        | RLS read                                               | RLS write                                          |
+| -------------------------------------------- | ------------------------------------------------------ | -------------------------------------------------- |
+| `households`, `household_preferences`        | active member                                          | owner/`can_edit_household_preferences`             |
+| `household_members`                          | active member                                          | `can_invite_members` / `can_remove_members` / self |
+| `household_invites`                          | active member; token lookup is unauthenticated via RPC | `can_invite_members`                               |
+| `meal_plans`, `meal_plan_items`              | active member                                          | `can_change_*` per slot                            |
+| `grocery_lists`, `grocery_list_items`        | active member                                          | `can_manage_grocery_list`                          |
+| `meal_feedback`                              | active member                                          | self (own feedback)                                |
+| `user_food_preferences`                      | self + household admins                                | self                                               |
+| `household_activity_events`, `notifications` | active member / recipient                              | system only (server role)                          |
+| `dishes`, `ingredients`, `dish_*`            | any authenticated (active rows)                        | admin role only                                    |
 
 ## Migrations & seeding
 

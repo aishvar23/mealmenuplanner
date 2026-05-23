@@ -1,6 +1,7 @@
 # Security, Privacy, and Permissions Specification
 
 ## Objective
+
 Protect household data, enforce permissions, and avoid inappropriate access.
 
 ## Core security principles
@@ -26,30 +27,35 @@ Before writing household data, verify relevant permission.
 Examples:
 
 ### Change today's menu
+
 Requires:
 
 - status = active
 - can_change_today_menu = true
 
 ### Change weekly schedule
+
 Requires:
 
 - status = active
 - can_change_weekly_schedule = true
 
 ### Invite members
+
 Requires:
 
 - status = active
 - can_invite_members = true
 
 ### Remove members
+
 Requires:
 
 - status = active
 - can_remove_members = true
 
 ## Invite token security
+
 Invite tokens should:
 
 - Be random and unguessable.
@@ -58,6 +64,7 @@ Invite tokens should:
 - Not expose sensitive household data before authentication.
 
 ## Temporary guest expiry
+
 A scheduled job should mark guests expired.
 
 Access checks should also verify expiry in real time.
@@ -65,6 +72,7 @@ Access checks should also verify expiry in real time.
 Do not rely only on scheduled expiry.
 
 ## Privacy considerations
+
 The app may collect sensitive dietary information.
 
 Examples:
@@ -84,11 +92,13 @@ Guidelines:
 - Allow users to delete or edit preferences.
 
 ## Medical disclaimer
+
 For health-related meal tags, include disclaimer:
 
 "This app provides meal planning assistance and is not medical advice. Please consult a qualified healthcare professional for medical dietary guidance."
 
 ## Audit logging
+
 Important household changes should write activity events.
 
 Examples:
@@ -99,6 +109,7 @@ Examples:
 - Household preferences changed
 
 ## Row-level security
+
 If using Supabase, implement row-level security policies for:
 
 - households

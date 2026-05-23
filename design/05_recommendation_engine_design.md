@@ -24,12 +24,12 @@ defined in [doc 04](04_api_design.md) (spec:
 
 ## 1. Design goals
 
-| Goal | What it means | How this design delivers it |
-|------|---------------|-----------------------------|
-| **Explainable** | A user can see *why* a dish was suggested. | Each candidate accumulates labelled positive factors; the winning factors are stitched into `reason` (§8) and persisted on `meal_plan_items.reason`. |
-| **Controllable** | Behavior is governed by visible rules, not a black box. | Hard filters (§4) and weights (§5) are explicit; nothing is learned implicitly. |
-| **Deterministic** | Same inputs → same ranked output, every time. | Pure scoring functions over loaded inputs; ties broken by a stable key (`score desc, total_time_minutes asc, dish.id asc`). No randomness, no model state. |
-| **Tunable** | Product can adjust behavior without code changes to logic. | All weights and thresholds live in a single config object (§11); scoring functions read from it. |
+| Goal              | What it means                                              | How this design delivers it                                                                                                                                |
+| ----------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Explainable**   | A user can see _why_ a dish was suggested.                 | Each candidate accumulates labelled positive factors; the winning factors are stitched into `reason` (§8) and persisted on `meal_plan_items.reason`.       |
+| **Controllable**  | Behavior is governed by visible rules, not a black box.    | Hard filters (§4) and weights (§5) are explicit; nothing is learned implicitly.                                                                            |
+| **Deterministic** | Same inputs → same ranked output, every time.              | Pure scoring functions over loaded inputs; ties broken by a stable key (`score desc, total_time_minutes asc, dish.id asc`). No randomness, no model state. |
+| **Tunable**       | Product can adjust behavior without code changes to logic. | All weights and thresholds live in a single config object (§11); scoring functions read from it.                                                           |
 
 ### Why not AI for the MVP
 
@@ -41,14 +41,14 @@ controllable."):
   (allergies, diet, prep time). A wrong AI suggestion that can't be explained
   erodes trust fast; a rule that fired wrongly can be read, fixed, and unit-tested.
 - **Hard constraints are non-negotiable.** Allergy and diet exclusions must be
-  *guaranteed*, not probabilistic. These belong in deterministic filters (§4),
+  _guaranteed_, not probabilistic. These belong in deterministic filters (§4),
   never in a ranking model.
 - **Cold start.** A new household has no interaction history to train on. Rules
   produce sensible output from day one using onboarding preferences.
 - **Cost & latency.** Generating a 7-day plan is dozens of slot evaluations; an
   in-process scoring pass is cheap and fast versus per-slot model calls.
 
-A future version can layer a learned re-ranker *on top of* the same hard filters
+A future version can layer a learned re-ranker _on top of_ the same hard filters
 and explanation contract — the filters stay deterministic regardless.
 
 ---
@@ -75,7 +75,7 @@ flowchart TD
 ```
 
 > The prep-feasibility step both adjusts score (a soft `Missing required prep:
-> -60`) **and** can hard-exclude a dish when prep can no longer be completed in
+-60`) **and** can hard-exclude a dish when prep can no longer be completed in
 > time (e.g. soaking after 6 PM). The "prep impossible today" edge feeds back into
 > the hard-filter decision; see §4 and §7.
 
@@ -150,12 +150,12 @@ Relevant `dishes` columns used by scoring: `diet_type`, `cuisine`,
 
 Computed for the household over a lookback window (≥ `variety_gap_days`):
 
-| Signal | Source | Query intent |
-|--------|--------|--------------|
-| **Recently cooked** | `meal_plan_items` | dishes scheduled/cooked within `variety_gap_days` before `date`. |
-| **Recently rejected** | `meal_plan_items` | items with `status = 'rejected'` (or `replaced`) recently. |
-| **Eating-out dates** | `meal_plan_items` | items with `status = 'eating_out'` (no dish) — those slots are skipped. |
-| **Feedback history** | `meal_feedback` | per-dish feedback, esp. `do_not_suggest_again` (hard) and `disliked` / `kids_disliked` (soft). |
+| Signal                | Source            | Query intent                                                                                   |
+| --------------------- | ----------------- | ---------------------------------------------------------------------------------------------- |
+| **Recently cooked**   | `meal_plan_items` | dishes scheduled/cooked within `variety_gap_days` before `date`.                               |
+| **Recently rejected** | `meal_plan_items` | items with `status = 'rejected'` (or `replaced`) recently.                                     |
+| **Eating-out dates**  | `meal_plan_items` | items with `status = 'eating_out'` (no dish) — those slots are skipped.                        |
+| **Feedback history**  | `meal_feedback`   | per-dish feedback, esp. `do_not_suggest_again` (hard) and `disliked` / `kids_disliked` (soft). |
 
 ```text
 -- recently cooked / rejected (uses ix_items_dish_recent)
@@ -186,14 +186,14 @@ never appear in the output). Every rule from
 [`../docs/04`](../docs/04_recommendation_engine.md) is reproduced with its data
 condition against doc-01 schema.
 
-| Exclusion rule | Data condition |
-|----------------|----------------|
-| **Violates diet type** | `dishes.diet_type` is not compatible with the effective household diet (`household_preferences.diet_type`, tightened by any stricter member `user_food_preferences.diet_type`). E.g. household `vegetarian` excludes `non_vegetarian` / `pescatarian` / `eggetarian` dishes; `vegan` excludes `vegetarian` dishes containing dairy/egg ingredients; `jain` excludes onion/garlic-containing dishes. |
-| **Contains an allergy ingredient** | A `dish_ingredients.ingredient_id` for the dish maps to an `ingredients.name`/`common_names`/`allergen_type` present in the union of active members' `user_food_preferences.allergies`. Required *and* optional ingredients are checked for allergens. |
-| **Does not match the meal slot** | `NOT ($mealSlot = ANY(dishes.meal_slots))`. (Already applied at candidate load §3.3; restated here as the canonical rule.) |
-| **Impossible prep for available time** | A `dish_prep_tasks.required_before_minutes` exceeds the minutes remaining before the slot's mealtime on `date` (see §7). E.g. an 8h soak required at 6 PM for dinner. |
-| **Marked do-not-suggest-again** | The dish has a `meal_feedback.feedback_type = 'do_not_suggest_again'` row for this household (via `meal_plan_items` join, §3.4). |
-| **Temporary-guest restriction during guest stay** | While an active `household_members.membership_type = 'temporary_guest'` member's window covers `date` (`starts_at <= date` and `expires_at > now()`), their `user_food_preferences` allergies/diet are folded into the diet and allergy rules above, so guest-incompatible dishes are excluded for the stay. |
+| Exclusion rule                                    | Data condition                                                                                                                                                                                                                                                                                                                                                                                      |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Violates diet type**                            | `dishes.diet_type` is not compatible with the effective household diet (`household_preferences.diet_type`, tightened by any stricter member `user_food_preferences.diet_type`). E.g. household `vegetarian` excludes `non_vegetarian` / `pescatarian` / `eggetarian` dishes; `vegan` excludes `vegetarian` dishes containing dairy/egg ingredients; `jain` excludes onion/garlic-containing dishes. |
+| **Contains an allergy ingredient**                | A `dish_ingredients.ingredient_id` for the dish maps to an `ingredients.name`/`common_names`/`allergen_type` present in the union of active members' `user_food_preferences.allergies`. Required _and_ optional ingredients are checked for allergens.                                                                                                                                              |
+| **Does not match the meal slot**                  | `NOT ($mealSlot = ANY(dishes.meal_slots))`. (Already applied at candidate load §3.3; restated here as the canonical rule.)                                                                                                                                                                                                                                                                          |
+| **Impossible prep for available time**            | A `dish_prep_tasks.required_before_minutes` exceeds the minutes remaining before the slot's mealtime on `date` (see §7). E.g. an 8h soak required at 6 PM for dinner.                                                                                                                                                                                                                               |
+| **Marked do-not-suggest-again**                   | The dish has a `meal_feedback.feedback_type = 'do_not_suggest_again'` row for this household (via `meal_plan_items` join, §3.4).                                                                                                                                                                                                                                                                    |
+| **Temporary-guest restriction during guest stay** | While an active `household_members.membership_type = 'temporary_guest'` member's window covers `date` (`starts_at <= date` and `expires_at > now()`), their `user_food_preferences` allergies/diet are folded into the diet and allergy rules above, so guest-incompatible dishes are excluded for the stay.                                                                                        |
 
 > **Diet compatibility** is a small fixed lookup (a matrix in config, §11), not a
 > guess. Allergy and `do_not_suggest_again` are absolute — they are intentionally
@@ -208,29 +208,29 @@ Surviving candidates accumulate the **exact** weighted factors from
 reproduced verbatim and must stay identical to that spec. Each factor records its
 label so the explanation generator (§8) can reuse the positive ones.
 
-| Factor | Weight | Data condition |
-|--------|-------:|----------------|
-| **Diet match** | **+100** | `dishes.diet_type` is compatible with the effective household diet (`household_preferences.diet_type`). (Survivors always satisfy this; the points anchor diet-correct dishes at the top.) |
-| **Meal slot match** | **+50** | `$mealSlot = ANY(dishes.meal_slots)`. |
-| **Cuisine preference match** | **+30** | `dishes.cuisine = ANY(household_preferences.preferred_cuisines)`. |
-| **Cooking time within limit** | **+30** | `dishes.total_time_minutes <= applicable cooking-time limit` (`weekday_cooking_time_minutes` or `weekend_cooking_time_minutes` per §3.1). |
-| **Not repeated recently** | **+40** | Dish has no `meal_plan_items` row for the household within `household_preferences.variety_gap_days` before `date` (§6). |
-| **Kid-friendly when kids exist** | **+20** | `dishes.kid_friendly = true` AND `household_preferences.kids_count > 0`. |
-| **Lunchbox-friendly for lunch** | **+15** | `dishes.lunchbox_friendly = true` AND `$mealSlot = 'lunch'`. |
-| **Uses preferred ingredient** | **+10** | A `dish_ingredients.ingredient_id` matches a member's liked signal (e.g. `user_food_preferences.liked_dishes` / a preferred-ingredient set). |
-| **Recently rejected** | **−80** | Dish has a recent `meal_plan_items.status = 'rejected'` (or `replaced`) for the household (§3.4). |
-| **Recently cooked within variety gap** | **−60** | Dish was scheduled/cooked within `variety_gap_days` before `date` (the negative counterpart to *Not repeated recently*; §6). |
-| **Missing required prep** | **−60** | Dish has a `dish_prep_tasks` row whose prep was not completed but is still completable in time (deferrable, not impossible — §7). |
-| **Exceeds cooking time** | **−40** | `dishes.total_time_minutes > applicable cooking-time limit`. |
-| **High difficulty on weekday** | **−30** | `dishes.difficulty = 'hard'` AND `date` is a weekday. |
+| Factor                                 |   Weight | Data condition                                                                                                                                                                             |
+| -------------------------------------- | -------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Diet match**                         | **+100** | `dishes.diet_type` is compatible with the effective household diet (`household_preferences.diet_type`). (Survivors always satisfy this; the points anchor diet-correct dishes at the top.) |
+| **Meal slot match**                    |  **+50** | `$mealSlot = ANY(dishes.meal_slots)`.                                                                                                                                                      |
+| **Cuisine preference match**           |  **+30** | `dishes.cuisine = ANY(household_preferences.preferred_cuisines)`.                                                                                                                          |
+| **Cooking time within limit**          |  **+30** | `dishes.total_time_minutes <= applicable cooking-time limit` (`weekday_cooking_time_minutes` or `weekend_cooking_time_minutes` per §3.1).                                                  |
+| **Not repeated recently**              |  **+40** | Dish has no `meal_plan_items` row for the household within `household_preferences.variety_gap_days` before `date` (§6).                                                                    |
+| **Kid-friendly when kids exist**       |  **+20** | `dishes.kid_friendly = true` AND `household_preferences.kids_count > 0`.                                                                                                                   |
+| **Lunchbox-friendly for lunch**        |  **+15** | `dishes.lunchbox_friendly = true` AND `$mealSlot = 'lunch'`.                                                                                                                               |
+| **Uses preferred ingredient**          |  **+10** | A `dish_ingredients.ingredient_id` matches a member's liked signal (e.g. `user_food_preferences.liked_dishes` / a preferred-ingredient set).                                               |
+| **Recently rejected**                  |  **−80** | Dish has a recent `meal_plan_items.status = 'rejected'` (or `replaced`) for the household (§3.4).                                                                                          |
+| **Recently cooked within variety gap** |  **−60** | Dish was scheduled/cooked within `variety_gap_days` before `date` (the negative counterpart to _Not repeated recently_; §6).                                                               |
+| **Missing required prep**              |  **−60** | Dish has a `dish_prep_tasks` row whose prep was not completed but is still completable in time (deferrable, not impossible — §7).                                                          |
+| **Exceeds cooking time**               |  **−40** | `dishes.total_time_minutes > applicable cooking-time limit`.                                                                                                                               |
+| **High difficulty on weekday**         |  **−30** | `dishes.difficulty = 'hard'` AND `date` is a weekday.                                                                                                                                      |
 
 `finalScore = Σ(applicable factors)`. Sorting is `score desc`, with a stable
 tiebreak of `total_time_minutes asc, dish.id asc` to preserve determinism.
 
 > **Disliked ingredients/dishes** (`user_food_preferences.disliked_ingredients` /
-> `disliked_dishes`) and `meal_feedback` `disliked` / `kids_disliked` are *not*
+> `disliked_dishes`) and `meal_feedback` `disliked` / `kids_disliked` are _not_
 > in the doc-04 weight table. They are folded into the existing factors (they
-> suppress the *preferred ingredient* bonus and add to the *recently rejected*
+> suppress the _preferred ingredient_ bonus and add to the _recently rejected_
 > signal) rather than introducing new weights, so the scoring contract here stays
 > identical to [`../docs/04`](../docs/04_recommendation_engine.md). Add an explicit
 > weight only if the spec adds one (§11).
@@ -245,15 +245,15 @@ The household configures `household_preferences.variety_gap_days` (default 7,
 range 0–60). A dish scheduled within that many days before `date` is treated as
 "recently cooked":
 
-- It **loses** the *Not repeated recently* `+40`, and
-- It **takes** the *Recently cooked within variety gap* `−60`.
+- It **loses** the _Not repeated recently_ `+40`, and
+- It **takes** the _Recently cooked within variety gap_ `−60`.
 
 Net swing versus a fresh dish is **−100**, which is enough to push a just-cooked
 dish well below novel alternatives without making it impossible (a user who
 explicitly asks for it can still select it — the penalty ranks, it does not
-filter). Per [`../docs/04`](../docs/04_recommendation_engine.md): *"If
+filter). Per [`../docs/04`](../docs/04_recommendation_engine.md): _"If
 variety_gap_days = 7, do not recommend the same dish within 7 days unless user
-explicitly asks."*
+explicitly asks."_
 
 ```text
 recentlyCooked(dishId, date, gap) :=
@@ -303,11 +303,11 @@ else (maxPrepLead > minutesUntilMeal):               impossible  → HARD EXCLUD
 Two outcomes, matching [`../docs/04`](../docs/04_recommendation_engine.md):
 
 - **Reject for today** when prep can no longer finish in time → the dish is
-  **hard-filtered** out of *today's* slot (§4 row "Impossible prep for available
+  **hard-filtered** out of _today's_ slot (§4 row "Impossible prep for available
   time").
 - **Defer to later with a prep task** when prep is still completable, or when
-  planning a future date → the dish stays a candidate, takes the soft *Missing
-  required prep* `−60`, and the engine emits a prep task in the output contract
+  planning a future date → the dish stays a candidate, takes the soft _Missing
+  required prep_ `−60`, and the engine emits a prep task in the output contract
   (`prepTasks`, §9) so the app can create the reminder.
 
 > **Example (rajma — from doc 04):** rajma needs an 8-hour (480-minute) soak.
@@ -329,8 +329,8 @@ Every recommendation gets a short, human-readable `reason`, composed
 (§5). The generator:
 
 1. Collects the positive factors that actually fired for the chosen dish (e.g.
-   *Diet match*, *Cooking time within limit*, *Not repeated recently*, *Meal slot
-   match*).
+   _Diet match_, _Cooking time within limit_, _Not repeated recently_, _Meal slot
+   match_).
 2. Orders them by weight (highest first) and maps each to a phrase fragment.
 3. Joins them into one sentence and persists it on
    `meal_plan_items.reason`.
@@ -343,15 +343,15 @@ Reproducing the example sentence from
 
 Mapping of that sentence to factors:
 
-| Phrase fragment | Source factor (§5) |
-|-----------------|--------------------|
-| "it is vegetarian" | Diet match (+100) |
+| Phrase fragment                      | Source factor (§5)                                                       |
+| ------------------------------------ | ------------------------------------------------------------------------ |
+| "it is vegetarian"                   | Diet match (+100)                                                        |
 | "fits your 45-minute cooking window" | Cooking time within limit (+30), using the applicable cooking-time limit |
-| "has not been repeated this week" | Not repeated recently (+40), phrased with `variety_gap_days` |
-| "works well for dinner" | Meal slot match (+50) |
+| "has not been repeated this week"    | Not repeated recently (+40), phrased with `variety_gap_days`             |
+| "works well for dinner"              | Meal slot match (+50)                                                    |
 
 Negative factors are **not** narrated in `reason` (the user is being shown an
-*accepted* suggestion); they are surfaced separately as `missingConstraints` in
+_accepted_ suggestion); they are surfaced separately as `missingConstraints` in
 the output contract (§9) so the UI can show caveats like "needs soaking" without
 muddying the positive rationale. Because the factor set is deterministic, the same
 dish/household/date always yields the same sentence.
@@ -365,31 +365,38 @@ fields (per [doc 00](00_design_index.md)):
 
 ```jsonc
 {
-  "dishId": "uuid",                 // dishes.id
-  "score": 215,                     // final summed score (§5)
+  "dishId": "uuid", // dishes.id
+  "score": 215, // final summed score (§5)
   "reason": "Suggested because it is vegetarian, fits your 45-minute cooking window, has not been repeated this week, and works well for dinner.",
-  "missingConstraints": [           // why it is less-than-ideal (soft negatives that fired)
-    { "type": "missingPrep", "label": "Needs soaking 8h ahead", "weight": -60 }
+  "missingConstraints": [
+    // why it is less-than-ideal (soft negatives that fired)
+    { "type": "missingPrep", "label": "Needs soaking 8h ahead", "weight": -60 },
   ],
-  "prepTasks": [                    // from dish_prep_tasks; drives prep reminders (§7)
-    { "taskName": "Soak rajma", "requiredBeforeMinutes": 480, "description": "Soak overnight" }
+  "prepTasks": [
+    // from dish_prep_tasks; drives prep reminders (§7)
+    {
+      "taskName": "Soak rajma",
+      "requiredBeforeMinutes": 480,
+      "description": "Soak overnight",
+    },
   ],
-  "pairedDishes": [                 // from dish_pairings where primary_dish_id = dishId
-    { "dishId": "uuid", "pairingType": "rice_pairing" }
-  ]
+  "pairedDishes": [
+    // from dish_pairings where primary_dish_id = dishId
+    { "dishId": "uuid", "pairingType": "rice_pairing" },
+  ],
 }
 ```
 
 Field provenance:
 
-| Field | Source |
-|-------|--------|
-| `dishId` | `dishes.id` |
-| `score` | sum of applicable §5 factors |
-| `reason` | §8; persisted to `meal_plan_items.reason` |
+| Field                | Source                                                                                                                 |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `dishId`             | `dishes.id`                                                                                                            |
+| `score`              | sum of applicable §5 factors                                                                                           |
+| `reason`             | §8; persisted to `meal_plan_items.reason`                                                                              |
 | `missingConstraints` | the soft negative factors that fired (recently rejected, recently cooked, missing prep, exceeds time, high difficulty) |
-| `prepTasks` | `dish_prep_tasks` rows for the dish (`taskName`, `requiredBeforeMinutes`, `description`) |
-| `pairedDishes` | `dish_pairings` where `primary_dish_id = dishId` (`paired_dish_id`, `pairing_type`) |
+| `prepTasks`          | `dish_prep_tasks` rows for the dish (`taskName`, `requiredBeforeMinutes`, `description`)                               |
+| `pairedDishes`       | `dish_pairings` where `primary_dish_id = dishId` (`paired_dish_id`, `pairing_type`)                                    |
 
 This maps doc-04's MVP output (`dish_id`, `score`, `reason`,
 `missing_constraints`, `prep_tasks`, `paired_dishes`) to camelCase per the API
@@ -480,13 +487,13 @@ export const RECOMMENDATION_CONFIG = {
 ### Pure functions are unit-testable
 
 - Each `scoreX(...)` is a **pure function** of `(dish, household, members,
-  history, date, config)` → `{ weight, label }`. No I/O, no clock except an
+history, date, config)` → `{ weight, label }`. No I/O, no clock except an
   injected `now`/`mealtime`, so tests are deterministic.
 - Hard filters are pure predicates → trivially table-tested for the six exclusion
   rules (§4).
-- Fixtures: a small library of fixture households (e.g. *vegetarian, 2 kids, 45-min
-  weekday limit, gap=7*) and fixture dishes (e.g. *rajma with an 8h prep task*,
-  *paneer paratha kid-friendly*, *hard biryani*) drives golden-output tests over
+- Fixtures: a small library of fixture households (e.g. _vegetarian, 2 kids, 45-min
+  weekday limit, gap=7_) and fixture dishes (e.g. _rajma with an 8h prep task_,
+  _paneer paratha kid-friendly_, _hard biryani_) drives golden-output tests over
   whole-pipeline runs.
 - Determinism is itself a test: run the same fixture twice, assert identical
   ranked output and identical `reason` strings.

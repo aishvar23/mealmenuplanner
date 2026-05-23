@@ -19,22 +19,22 @@ designs evolve.
 
 ## Documentation map (`docs/`)
 
-| File | Contents |
-|------|----------|
-| `00_overview.md` | Vision, MVP promise, personas, non-goals |
-| `01_product_requirements.md` | Core MVP feature requirements |
-| `02_user_flows.md` | 11 step-by-step user flows |
-| `03_data_model.md` | All tables, fields, and enum values |
-| `04_recommendation_engine.md` | Hard filters, soft scoring weights, pseudocode |
-| `05_api_spec.md` | REST endpoint shapes (request/response JSON) |
-| `06_admin_operator_spec.md` | Internal dish/ingredient content tooling |
-| `07_onboarding_save_resume_spec.md` | Draft autosave/resume, minimum fields |
-| `08_household_collaboration_spec.md` | Roles, permissions, invite/guest flows |
-| `09_notifications_spec.md` | Notification events, content, MVP scope |
-| `10_security_privacy_permissions.md` | Access control, RLS, privacy guidelines |
-| `11_technical_architecture.md` | Stack, services, scheduled jobs |
-| `12_mvp_roadmap.md` | Phased build plan (Phase 0–9) |
-| `13_success_metrics.md` | Activation/engagement/retention metrics, north star |
+| File                                 | Contents                                            |
+| ------------------------------------ | --------------------------------------------------- |
+| `00_overview.md`                     | Vision, MVP promise, personas, non-goals            |
+| `01_product_requirements.md`         | Core MVP feature requirements                       |
+| `02_user_flows.md`                   | 11 step-by-step user flows                          |
+| `03_data_model.md`                   | All tables, fields, and enum values                 |
+| `04_recommendation_engine.md`        | Hard filters, soft scoring weights, pseudocode      |
+| `05_api_spec.md`                     | REST endpoint shapes (request/response JSON)        |
+| `06_admin_operator_spec.md`          | Internal dish/ingredient content tooling            |
+| `07_onboarding_save_resume_spec.md`  | Draft autosave/resume, minimum fields               |
+| `08_household_collaboration_spec.md` | Roles, permissions, invite/guest flows              |
+| `09_notifications_spec.md`           | Notification events, content, MVP scope             |
+| `10_security_privacy_permissions.md` | Access control, RLS, privacy guidelines             |
+| `11_technical_architecture.md`       | Stack, services, scheduled jobs                     |
+| `12_mvp_roadmap.md`                  | Phased build plan (Phase 0–9)                       |
+| `13_success_metrics.md`              | Activation/engagement/retention metrics, north star |
 
 ## Intended tech stack (from `docs/11_technical_architecture.md`)
 

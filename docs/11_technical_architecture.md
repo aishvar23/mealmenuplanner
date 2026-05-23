@@ -3,12 +3,14 @@
 ## Recommended MVP stack
 
 ### Frontend
+
 - Next.js
 - React
 - Tailwind CSS
 - shadcn/ui
 
 ### Backend
+
 - Supabase
 - PostgreSQL
 - Supabase Auth
@@ -16,10 +18,12 @@
 - Supabase Edge Functions or Next.js server actions
 
 ### Hosting
+
 - Vercel for web app
 - Supabase for database and auth
 
 ### Notifications
+
 MVP:
 
 - In-app notifications
@@ -60,6 +64,7 @@ Scheduled Jobs
 ## Core backend services
 
 ### Onboarding service
+
 Responsibilities:
 
 - Save draft
@@ -69,6 +74,7 @@ Responsibilities:
 - Create owner membership
 
 ### Household service
+
 Responsibilities:
 
 - Create household
@@ -77,6 +83,7 @@ Responsibilities:
 - Enforce permissions
 
 ### Invite service
+
 Responsibilities:
 
 - Create invite
@@ -86,6 +93,7 @@ Responsibilities:
 - Expire invite
 
 ### Meal recommendation service
+
 Responsibilities:
 
 - Load preferences
@@ -95,6 +103,7 @@ Responsibilities:
 - Generate explanation
 
 ### Meal plan service
+
 Responsibilities:
 
 - Generate today plan
@@ -104,6 +113,7 @@ Responsibilities:
 - Lock/unlock meal
 
 ### Grocery service
+
 Responsibilities:
 
 - Aggregate ingredients
@@ -112,6 +122,7 @@ Responsibilities:
 - Regenerate grocery list after plan changes
 
 ### Notification service
+
 Responsibilities:
 
 - Create notifications
@@ -120,6 +131,7 @@ Responsibilities:
 - Later send push/WhatsApp
 
 ### Admin content service
+
 Responsibilities:
 
 - Create dish
@@ -132,6 +144,7 @@ Responsibilities:
 ## Scheduled jobs
 
 ### Expire guests
+
 Run daily or hourly.
 
 Logic:
@@ -142,6 +155,7 @@ Logic:
 - Notify household owner.
 
 ### Expire invites
+
 Run daily.
 
 Logic:
@@ -150,6 +164,7 @@ Logic:
 - Set status = expired.
 
 ### Prep reminders
+
 Run hourly or based on user timezone.
 
 Logic:
@@ -158,6 +173,7 @@ Logic:
 - Create notification.
 
 ## MVP deployment
+
 Use:
 
 - Vercel project
@@ -166,6 +182,7 @@ Use:
 - Separate dev and prod projects
 
 ## Future architecture
+
 If the product grows, split into:
 
 - Mobile app

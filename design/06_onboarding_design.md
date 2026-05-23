@@ -4,7 +4,7 @@ How a new user completes household setup as a resumable, autosaved wizard, and
 how that draft is promoted into real `households` / `household_preferences` /
 `household_members` rows on completion.
 
-This document is the *how* for the requirements in
+This document is the _how_ for the requirements in
 [`../docs/07_onboarding_save_resume_spec.md`](../docs/07_onboarding_save_resume_spec.md)
 and the user journeys in
 [`../docs/02_user_flows.md`](../docs/02_user_flows.md) (Flow 1 and Flow 2). It is
@@ -52,28 +52,28 @@ The **minimum required set** (a draft cannot be completed without these) is, per
 the spec: household name, family size, diet type, meals to plan, cooking time,
 cuisine preference.
 
-| # | Step (`current_step`) | Field (`camelCase`) | Target column | Required? |
-|---|------------------------|---------------------|---------------|-----------|
-| 1 | `household_basics` | `name` | `households.name` | **Required** |
-| 1 | `household_basics` | `familySize` | `household_preferences.family_size` | **Required** |
-| 1 | `household_basics` | `adultsCount` | `household_preferences.adults_count` | Optional |
-| 1 | `household_basics` | `kidsCount` | `household_preferences.kids_count` | Optional |
-| 1 | `household_basics` | `locationCountry` | `households.default_location_country` | Optional |
-| 1 | `household_basics` | `locationCity` | `households.default_location_city` | Optional |
-| 2 | `food_preferences` | `dietType` | `household_preferences.diet_type` | **Required** |
-| 2 | `food_preferences` | `preferredCuisines` | `household_preferences.preferred_cuisines` | **Required** (≥1 cuisine) |
-| 2 | `food_preferences` | `spiceLevel` | `household_preferences.spice_level` | Optional (default `'medium'`) |
-| 3 | `meal_schedule` | `mealsToPlan` | `household_preferences.meals_to_plan` | **Required** (≥1 slot) |
-| 3 | `meal_schedule` | `weekdayCookingTimeMinutes` | `household_preferences.weekday_cooking_time_minutes` | **Required** |
-| 3 | `meal_schedule` | `weekendCookingTimeMinutes` | `household_preferences.weekend_cooking_time_minutes` | Optional |
-| 3 | `meal_schedule` | `varietyGapDays` | `household_preferences.variety_gap_days` | Optional (default `7`) |
-| 3 | `meal_schedule` | `allowLeftovers` | `household_preferences.allow_leftovers` | Optional (default `true`) |
-| 4 | `allergies_health` | `allergies` | `user_food_preferences.allergies` | Optional |
-| 4 | `allergies_health` | `dislikedIngredients` | `user_food_preferences.disliked_ingredients` | Optional |
-| 4 | `allergies_health` | `healthPreferenceTags` | `user_food_preferences.health_preference_tags` | Optional |
-| 4 | `allergies_health` | `spicePreference` | `user_food_preferences.spice_preference` | Optional |
-| 5 | `budget` | `budgetPreference` | `household_preferences.budget_preference` | Optional (default `'medium'`) |
-| 6 | `review` | — (read-only confirmation) | — | n/a |
+| #   | Step (`current_step`) | Field (`camelCase`)         | Target column                                        | Required?                     |
+| --- | --------------------- | --------------------------- | ---------------------------------------------------- | ----------------------------- |
+| 1   | `household_basics`    | `name`                      | `households.name`                                    | **Required**                  |
+| 1   | `household_basics`    | `familySize`                | `household_preferences.family_size`                  | **Required**                  |
+| 1   | `household_basics`    | `adultsCount`               | `household_preferences.adults_count`                 | Optional                      |
+| 1   | `household_basics`    | `kidsCount`                 | `household_preferences.kids_count`                   | Optional                      |
+| 1   | `household_basics`    | `locationCountry`           | `households.default_location_country`                | Optional                      |
+| 1   | `household_basics`    | `locationCity`              | `households.default_location_city`                   | Optional                      |
+| 2   | `food_preferences`    | `dietType`                  | `household_preferences.diet_type`                    | **Required**                  |
+| 2   | `food_preferences`    | `preferredCuisines`         | `household_preferences.preferred_cuisines`           | **Required** (≥1 cuisine)     |
+| 2   | `food_preferences`    | `spiceLevel`                | `household_preferences.spice_level`                  | Optional (default `'medium'`) |
+| 3   | `meal_schedule`       | `mealsToPlan`               | `household_preferences.meals_to_plan`                | **Required** (≥1 slot)        |
+| 3   | `meal_schedule`       | `weekdayCookingTimeMinutes` | `household_preferences.weekday_cooking_time_minutes` | **Required**                  |
+| 3   | `meal_schedule`       | `weekendCookingTimeMinutes` | `household_preferences.weekend_cooking_time_minutes` | Optional                      |
+| 3   | `meal_schedule`       | `varietyGapDays`            | `household_preferences.variety_gap_days`             | Optional (default `7`)        |
+| 3   | `meal_schedule`       | `allowLeftovers`            | `household_preferences.allow_leftovers`              | Optional (default `true`)     |
+| 4   | `allergies_health`    | `allergies`                 | `user_food_preferences.allergies`                    | Optional                      |
+| 4   | `allergies_health`    | `dislikedIngredients`       | `user_food_preferences.disliked_ingredients`         | Optional                      |
+| 4   | `allergies_health`    | `healthPreferenceTags`      | `user_food_preferences.health_preference_tags`       | Optional                      |
+| 4   | `allergies_health`    | `spicePreference`           | `user_food_preferences.spice_preference`             | Optional                      |
+| 5   | `budget`              | `budgetPreference`          | `household_preferences.budget_preference`            | Optional (default `'medium'`) |
+| 6   | `review`              | — (read-only confirmation)  | —                                                    | n/a                           |
 
 Notes:
 
@@ -139,15 +139,15 @@ to cover every step:
 These are **first-class columns** on `household_profile_drafts`, not nested in
 `draft_data`, so resume and abandonment queries don't have to parse JSON:
 
-| Column | Type | Meaning |
-|--------|------|---------|
-| `current_step` | `text` | The step the user is on, e.g. `'meal_schedule'`. Matches a `#`/`current_step` value in §2. Used to deep-link the resume. |
-| `completion_percentage` | `int` (0–100, checked) | Progress shown in the resume prompt. |
-| `status` | `draft_status` | `'in_progress'` \| `'completed'` \| `'abandoned'`. |
-| `draft_data` | `jsonb` | The shape above. Defaults to `'{}'`. |
-| `household_id` | `uuid` (nullable) | Set if a household row was created early (e.g. Flow 1 step 5 captures the name first). Lets completion be idempotent. |
-| `last_saved_at` | `timestamptz` | Stamped on every save; drives "Last saved 2 minutes ago" and the abandonment job. |
-| `updated_at` | `timestamptz` | Maintained by the shared `set_updated_at()` trigger. |
+| Column                  | Type                   | Meaning                                                                                                                  |
+| ----------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `current_step`          | `text`                 | The step the user is on, e.g. `'meal_schedule'`. Matches a `#`/`current_step` value in §2. Used to deep-link the resume. |
+| `completion_percentage` | `int` (0–100, checked) | Progress shown in the resume prompt.                                                                                     |
+| `status`                | `draft_status`         | `'in_progress'` \| `'completed'` \| `'abandoned'`.                                                                       |
+| `draft_data`            | `jsonb`                | The shape above. Defaults to `'{}'`.                                                                                     |
+| `household_id`          | `uuid` (nullable)      | Set if a household row was created early (e.g. Flow 1 step 5 captures the name first). Lets completion be idempotent.    |
+| `last_saved_at`         | `timestamptz`          | Stamped on every save; drives "Last saved 2 minutes ago" and the abandonment job.                                        |
+| `updated_at`            | `timestamptz`          | Maintained by the shared `set_updated_at()` trigger.                                                                     |
 
 **`completion_percentage`** is computed server-side on each `PUT` from the
 minimum required set only (so finishing the optional steps never makes the bar
@@ -227,7 +227,7 @@ Transition rules:
 1. **Per-step autosave (required).** On "Next"/"Back" and on leaving a step, the
    client issues `PUT /api/onboarding/draft` with the merged `draftData`,
    `currentStep`, and `completionPercentage`. This is the guarantee in the spec:
-   *progress is saved after each step*.
+   _progress is saved after each step_.
 2. **Debounced field autosave (optional enhancement).** While editing within a
    step, field changes are buffered and flushed after ~800 ms of inactivity (and
    on blur) with the same `PUT`. This reduces loss between step boundaries; it is
@@ -243,12 +243,12 @@ draft), so a debounced flush and a step save can't conflict — last write wins 
 A single status indicator near the wizard header reflects the autosave state,
 using exactly these strings (from the spec):
 
-| State | String |
-|-------|--------|
-| Request in flight | `Saving...` |
-| Just succeeded (< 1 min ago) | `Saved just now` |
-| Succeeded earlier | `Last saved 2 minutes ago` (relative, recomputed from `lastSavedAt`) |
-| Request failed | `Save failed. Retry.` (the text is an actionable retry control) |
+| State                        | String                                                               |
+| ---------------------------- | -------------------------------------------------------------------- |
+| Request in flight            | `Saving...`                                                          |
+| Just succeeded (< 1 min ago) | `Saved just now`                                                     |
+| Succeeded earlier            | `Last saved 2 minutes ago` (relative, recomputed from `lastSavedAt`) |
+| Request failed               | `Save failed. Retry.` (the text is an actionable retry control)      |
 
 The relative time is derived client-side from the `lastSavedAt` returned by the
 last successful `PUT`/`GET`.
@@ -279,8 +279,7 @@ household), the client calls `GET /api/onboarding/draft`.
 
   > **Continue setting up your household profile?**
   > You're **45% done**. Last saved **2 minutes ago**.
-  > [ **Resume** ]   [ Start over ]
-
+  > [ **Resume** ] [ Start over ]
   - **Resume** → hydrate the wizard from `draftData` and deep-link to
     `currentStep` (Flow 2 step 8). No status change.
   - **Start over** → confirm, then atomically set the current draft to
@@ -410,13 +409,13 @@ when none exists.
 }
 ```
 
-| Response field (`camelCase`) | Column |
-|------------------------------|--------|
-| `status` | `household_profile_drafts.status` |
-| `currentStep` | `household_profile_drafts.current_step` |
-| `completionPercentage` | `household_profile_drafts.completion_percentage` |
-| `lastSavedAt` | `household_profile_drafts.last_saved_at` |
-| `draftData` | `household_profile_drafts.draft_data` |
+| Response field (`camelCase`) | Column                                           |
+| ---------------------------- | ------------------------------------------------ |
+| `status`                     | `household_profile_drafts.status`                |
+| `currentStep`                | `household_profile_drafts.current_step`          |
+| `completionPercentage`       | `household_profile_drafts.completion_percentage` |
+| `lastSavedAt`                | `household_profile_drafts.last_saved_at`         |
+| `draftData`                  | `household_profile_drafts.draft_data`            |
 
 ### `PUT /api/onboarding/draft` — autosave (§5)
 
@@ -432,11 +431,11 @@ regardless of client input.
 }
 ```
 
-| Request field | Column |
-|---------------|--------|
-| `currentStep` | `current_step` |
+| Request field          | Column                                                |
+| ---------------------- | ----------------------------------------------------- |
+| `currentStep`          | `current_step`                                        |
 | `completionPercentage` | `completion_percentage` (advisory; server recomputes) |
-| `draftData` | `draft_data` (merged/replaced per step) |
+| `draftData`            | `draft_data` (merged/replaced per step)               |
 
 ### `POST /api/onboarding/complete` — promote (§7)
 
@@ -444,16 +443,17 @@ regardless of client input.
 // request
 { "draftId": "uuid" }
 ```
+
 ```json
 // response
 { "householdId": "uuid", "status": "completed" }
 ```
 
-| Field | Source / target |
-|-------|-----------------|
-| `draftId` (req) | `household_profile_drafts.id` (must belong to `auth.uid()`, be `in_progress` or already `completed`) |
-| `householdId` (resp) | `households.id` (created or reused) |
-| `status` (resp) | `household_profile_drafts.status` after commit (`'completed'`) |
+| Field                | Source / target                                                                                      |
+| -------------------- | ---------------------------------------------------------------------------------------------------- |
+| `draftId` (req)      | `household_profile_drafts.id` (must belong to `auth.uid()`, be `in_progress` or already `completed`) |
+| `householdId` (resp) | `households.id` (created or reused)                                                                  |
+| `status` (resp)      | `household_profile_drafts.status` after commit (`'completed'`)                                       |
 
 Error cases: `422` when required fields are missing/invalid (draft stays
 `in_progress`); `404` when the `draftId` is unknown or not owned by the caller;

@@ -1,6 +1,6 @@
 # Meal Planning, Grocery & Prep Design
 
-This document specifies *how* the meal-planning, grocery, and advance-prep
+This document specifies _how_ the meal-planning, grocery, and advance-prep
 features are built. It is the implementation reference for **Phase 5 (Meal
 planning)** and **Phase 7 (Grocery & prep)** of
 [`../docs/12_mvp_roadmap.md`](../docs/12_mvp_roadmap.md).
@@ -14,7 +14,7 @@ It composes three other layers and never restates their contracts:
   doc 01 wins.
 - **[`05_recommendation_engine_design.md`](05_recommendation_engine_design.md)**
   (specified by [`../docs/04_recommendation_engine.md`](../docs/04_recommendation_engine.md))
-  — the rule-based scorer this feature *invokes* to pick dishes. We treat it as
+  — the rule-based scorer this feature _invokes_ to pick dishes. We treat it as
   a pure function `getRecommendations(householdId, date, mealSlot, opts)`.
 - **[`04_api_design.md`](04_api_design.md)** (contracts in
   [`../docs/05_api_spec.md`](../docs/05_api_spec.md)) — the endpoint surface for
@@ -23,7 +23,7 @@ It composes three other layers and never restates their contracts:
 Prep reminder fan-out and grocery/menu-change notifications are owned by
 [`09_notifications_design.md`](09_notifications_design.md) (spec:
 [`../docs/09_notifications_spec.md`](../docs/09_notifications_spec.md)); this doc
-only states *when* an event is emitted.
+only states _when_ an event is emitted.
 
 > **Conventions** (per [`00_design_index.md`](00_design_index.md)): database
 > identifiers are `snake_case`; API/JSON payloads are `camelCase`; enum values
@@ -43,21 +43,21 @@ households
               └── grocery_list_items  (one row per merged ingredient line)
 ```
 
-| Entity | Grain | Key columns (doc 01) | Notes |
-|--------|-------|----------------------|-------|
-| `meal_plans` | A date range for a household | `household_id`, `start_date`, `end_date`, `status` (`meal_plan_status`: `draft`/`active`/`archived`) | "Today" generation creates/extends a single-day-or-current plan; weekly generation creates a 7-day plan. |
-| `meal_plan_items` | One `(meal_plan_id, date, meal_slot)` cell — `unique` in doc 01 | `dish_id` (nullable), `status` (`meal_item_status`), `locked`, `reason`, `changed_by_user_id` | `dish_id` is null for an `eating_out` slot. `reason` holds the recommender explanation. |
-| `grocery_lists` | One per meal plan — `unique(meal_plan_id)` | `meal_plan_id`, `status` (`grocery_list_status`) | Regeneration replaces items in place; never creates a second list. |
-| `grocery_list_items` | One merged ingredient line | `ingredient_id` (nullable), snapshotted `name`/`category`/`unit`, `quantity`, `checked` | Snapshot fields survive catalog edits. |
-| Prep tasks | Derived, not stored per plan | sourced from `dish_prep_tasks` | Computed on read from the planned dishes; no `meal_plan_prep_tasks` table in MVP. |
+| Entity               | Grain                                                           | Key columns (doc 01)                                                                                 | Notes                                                                                                    |
+| -------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `meal_plans`         | A date range for a household                                    | `household_id`, `start_date`, `end_date`, `status` (`meal_plan_status`: `draft`/`active`/`archived`) | "Today" generation creates/extends a single-day-or-current plan; weekly generation creates a 7-day plan. |
+| `meal_plan_items`    | One `(meal_plan_id, date, meal_slot)` cell — `unique` in doc 01 | `dish_id` (nullable), `status` (`meal_item_status`), `locked`, `reason`, `changed_by_user_id`        | `dish_id` is null for an `eating_out` slot. `reason` holds the recommender explanation.                  |
+| `grocery_lists`      | One per meal plan — `unique(meal_plan_id)`                      | `meal_plan_id`, `status` (`grocery_list_status`)                                                     | Regeneration replaces items in place; never creates a second list.                                       |
+| `grocery_list_items` | One merged ingredient line                                      | `ingredient_id` (nullable), snapshotted `name`/`category`/`unit`, `quantity`, `checked`              | Snapshot fields survive catalog edits.                                                                   |
+| Prep tasks           | Derived, not stored per plan                                    | sourced from `dish_prep_tasks`                                                                       | Computed on read from the planned dishes; no `meal_plan_prep_tasks` table in MVP.                        |
 
 The relationships above mirror the ERD in
 [`01_database_design.md`](01_database_design.md#entity-relationship-diagram):
 `meal_plans ||--o{ meal_plan_items`, `meal_plans ||--|| grocery_lists`, and
 `dishes ||--o{ dish_prep_tasks`.
 
-**Design stance.** `meal_plan_items` is the authoritative record of *what was
-planned and what happened* — it doubles as the meal-history source for the
+**Design stance.** `meal_plan_items` is the authoritative record of _what was
+planned and what happened_ — it doubles as the meal-history source for the
 recommender's variety logic (Section 8). Grocery and prep are **derived
 projections** of the accepted/planned items, regenerated whenever the plan
 changes, so they never drift from the plan.
@@ -96,8 +96,8 @@ Request:
 4. **Persist the top candidate** as a `meal_plan_items` row with
    `status = 'suggested'`, `dish_id = topCandidate.dishId`, and
    `reason = topCandidate.reason` (the human-readable explanation surfaced in
-   Flow 3 step 5, e.g. *"Vegetarian, fits your 45-minute window, not repeated
-   this week, good for dinner."*). On a re-suggest, `update` the existing row.
+   Flow 3 step 5, e.g. _"Vegetarian, fits your 45-minute window, not repeated
+   this week, good for dinner."_). On a re-suggest, `update` the existing row.
 5. **Return** the item plus the runner-up candidates so the client can show
    "Suggest another" without a round trip.
 
@@ -120,11 +120,11 @@ Response (camelCase):
 
 ### Accept / Reject / Suggest-another
 
-| User action (Flow 3/4) | Server effect | Status transition |
-|------------------------|---------------|-------------------|
-| **Accept** | `update meal_plan_items set status = 'accepted', changed_by_user_id = auth.uid()` | `suggested → accepted` |
+| User action (Flow 3/4)          | Server effect                                                                                                                      | Status transition                  |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| **Accept**                      | `update meal_plan_items set status = 'accepted', changed_by_user_id = auth.uid()`                                                  | `suggested → accepted`             |
 | **Suggest another** (no reason) | Re-invoke recommender with `excludeDishIds = [currentDishId]`; rewrite the same row's `dish_id`/`reason`; status stays `suggested` | `suggested → suggested` (new dish) |
-| **Reject with reason** | Record feedback, penalize dish, then re-suggest | `suggested → suggested` (new dish) |
+| **Reject with reason**          | Record feedback, penalize dish, then re-suggest                                                                                    | `suggested → suggested` (new dish) |
 
 ### Recording rejection feedback (Flow 4 step 3–4)
 
@@ -136,14 +136,14 @@ When the user rejects with a reason, before re-suggesting:
    choice — e.g. `'too_much_effort'`, `'ingredients_unavailable'`,
    `'kids_disliked'`, or `'do_not_suggest_again'`.
 2. **Penalize the dish** for this household. The recommender (doc 05) reads
-   recent `meal_feedback` and applies the *"Recently rejected: −80"* soft
+   recent `meal_feedback` and applies the _"Recently rejected: −80"_ soft
    adjustment; a `'do_not_suggest_again'` feedback becomes a **hard filter**
    exclusion. The penalty is data-driven — we persist feedback, the scorer
    reacts — so no separate penalty table is needed.
 3. Re-invoke `getRecommendations(..., { excludeDishIds: [rejectedDishId] })` and
    overwrite the suggested item.
 
-> If the rejected item was already `accepted` (a *confirmed* meal), changing it
+> If the rejected item was already `accepted` (a _confirmed_ meal), changing it
 > follows the Replace path in Section 5 and emits the `meal_changed`
 > notification.
 
@@ -194,7 +194,7 @@ Notes:
 
 - **`excludeDishIds = chosenThisRun`** is layered on top of the recommender's own
   `variety_gap_days` rotation (Section 8 / doc 05). The two are complementary:
-  rotation looks at *history*, `chosenThisRun` looks at *this batch*.
+  rotation looks at _history_, `chosenThisRun` looks at _this batch_.
 - The whole walk runs in **one transaction** so a partial week is never
   persisted; grocery generation runs after commit (or in the same transaction
   with the list written last) for consistency.
@@ -231,19 +231,19 @@ stateDiagram-v2
     eating_out --> [*]
 ```
 
-| Transition | Trigger | API / mechanism |
-|------------|---------|-----------------|
-| `[*] → suggested` | Recommender picks a dish for the cell | `today/generate`, `week/generate` |
-| `suggested → accepted` | User accepts the suggestion | accept action on `today/generate` result |
-| `suggested → suggested` | "Suggest another" rewrites `dish_id` | re-invoke recommender, same row |
-| `suggested → rejected` | User rejects with a reason | feedback insert + re-suggest (Section 2) |
-| `rejected → replaced` | A replacement dish is written for the slot | `POST /api/meal-plan-items/{id}/replace` |
-| `accepted → replaced` | A **confirmed** meal is swapped | `POST .../replace` → `meal_changed` notify (Section 5) |
-| `replaced → accepted` | Replacement is the new confirmed dish | set by the replace handler |
-| `* → eating_out` | Slot marked eating out | `POST /api/meal-plan-items/{id}/eating-out` (Section 6) |
-| `eating_out → accepted` | Eating-out reverted, slot re-planned | replace endpoint with a `replacementDishId` |
-| `accepted → cooked` | Meal is cooked / the day rolls over | client mark-cooked, or nightly job promotes past `accepted` items |
-| `accepted → skipped` | Day passed, not cooked, not eaten out | nightly reconciliation job |
+| Transition              | Trigger                                    | API / mechanism                                                   |
+| ----------------------- | ------------------------------------------ | ----------------------------------------------------------------- |
+| `[*] → suggested`       | Recommender picks a dish for the cell      | `today/generate`, `week/generate`                                 |
+| `suggested → accepted`  | User accepts the suggestion                | accept action on `today/generate` result                          |
+| `suggested → suggested` | "Suggest another" rewrites `dish_id`       | re-invoke recommender, same row                                   |
+| `suggested → rejected`  | User rejects with a reason                 | feedback insert + re-suggest (Section 2)                          |
+| `rejected → replaced`   | A replacement dish is written for the slot | `POST /api/meal-plan-items/{id}/replace`                          |
+| `accepted → replaced`   | A **confirmed** meal is swapped            | `POST .../replace` → `meal_changed` notify (Section 5)            |
+| `replaced → accepted`   | Replacement is the new confirmed dish      | set by the replace handler                                        |
+| `* → eating_out`        | Slot marked eating out                     | `POST /api/meal-plan-items/{id}/eating-out` (Section 6)           |
+| `eating_out → accepted` | Eating-out reverted, slot re-planned       | replace endpoint with a `replacementDishId`                       |
+| `accepted → cooked`     | Meal is cooked / the day rolls over        | client mark-cooked, or nightly job promotes past `accepted` items |
+| `accepted → skipped`    | Day passed, not cooked, not eaten out      | nightly reconciliation job                                        |
 
 `cooked`, `skipped`, and `eating_out` are the **terminal** outcomes that feed
 history (Section 8). Note that `cooked` counts toward rotation penalty;
@@ -274,8 +274,8 @@ Handler steps:
    `changed_by_user_id = auth.uid()`). For a still-`suggested` item, overwrite in
    place. Implemented as: mark `old → replaced`, set new `dish_id`/`reason`,
    `status = 'accepted'`.
-6. **Notify on confirmed-meal change (Flow 4 step 6).** *Only if the old status
-   was `accepted` or `cooked`* (i.e. a confirmed meal actually changed), append a
+6. **Notify on confirmed-meal change (Flow 4 step 6).** _Only if the old status
+   was `accepted` or `cooked`_ (i.e. a confirmed meal actually changed), append a
    `household_activity_events` row and emit a `meal_changed` notification to
    active members (excluding the actor) via doc 09. A swap of a still-`suggested`
    item is silent.
@@ -295,7 +295,7 @@ Handler steps:
 1. Permission gate (`can_change_today_menu` / `can_change_weekly_schedule`).
 2. Capture the prior `dish_id` for the notification message.
 3. `update meal_plan_items set status = 'eating_out', dish_id = null,
-   changed_by_user_id = auth.uid()`. Setting `dish_id` null is allowed by doc 01
+changed_by_user_id = auth.uid()`. Setting `dish_id` null is allowed by doc 01
    (the column is nullable precisely for this case).
 4. Emit a `meal_marked_eating_out` notification (doc 09) and log the activity.
 5. **Trigger grocery recalculation** (Section 10) so the dish's ingredients drop
@@ -307,7 +307,7 @@ An `eating_out` slot is **not a cooked meal**:
 
 - It is **not counted as `cooked`**, so it never enters the
   recently-cooked history that drives the variety penalty (Section 8).
-- The dish that *would* have been cooked is therefore **not penalized in
+- The dish that _would_ have been cooked is therefore **not penalized in
   rotation** — skipping it for a restaurant night must not make it less likely
   to be suggested tomorrow. Because we null out `dish_id` and never record a
   `cooked` row, the recommender simply has no signal to penalize, which is the
@@ -332,8 +332,8 @@ Endpoints: `POST /api/meal-plan-items/{mealPlanItemId}/lock` and
 - **Unlock** sets `locked = false`, making the cell eligible for the next
   regeneration pass.
 - Locking is **orthogonal to status**: a `suggested`, `accepted`, or even
-  `eating_out` cell can be locked. Lock answers *"don't touch this on
-  regenerate"*; status answers *"what is the outcome"*.
+  `eating_out` cell can be locked. Lock answers _"don't touch this on
+  regenerate"_; status answers _"what is the outcome"_.
 - Locked dishes still contribute their ingredients to the grocery list (unless
   they are `eating_out`/`skipped`) and still produce prep tasks.
 
@@ -344,8 +344,8 @@ regeneration is needed — the planned dish set is unchanged.
 
 ## 8. Meal history (recently-cooked derivation)
 
-The recommender's variety/rotation logic (doc 05; *"Recently cooked within
-variety gap: −60"*) needs the household's recently-cooked dishes. There is no
+The recommender's variety/rotation logic (doc 05; _"Recently cooked within
+variety gap: −60"_) needs the household's recently-cooked dishes. There is no
 separate history table — **`meal_plan_items` is the history**, queried through
 the `ix_items_dish_recent` index (doc 01:
 `(household_id, dish_id, date desc) where dish_id is not null`).
@@ -373,7 +373,7 @@ How it is consumed:
   fairness rule from Flow 5 holds automatically — restaurant nights leave no
   rotation footprint.
 
-This keeps history a *projection of the plan itself*: there is exactly one place
+This keeps history a _projection of the plan itself_: there is exactly one place
 that records "this dish was on the table on this date," and both the lifecycle
 (Section 4) and the recommender read it.
 
@@ -412,7 +412,7 @@ Detail:
   and `status NOT IN ('eating_out', 'skipped')`. `suggested`, `accepted`,
   `cooked`, and locked items all contribute.
 - **Scale by family size.** `quantity = dish_ingredients.quantity_per_serving *
-  household_preferences.family_size`. (A future refinement can use
+household_preferences.family_size`. (A future refinement can use
   `adults_count`/`kids_count` for fractional kid servings; MVP uses `family_size`
   flat.)
 - **Merge.** Lines are merged on `(ingredient_id, unit)`. Same ingredient in the
@@ -424,10 +424,10 @@ Detail:
   `ingredients.category`, presented in the doc-01 / product-requirement order:
   **Vegetables, Fruits, Dairy, Grains, Lentils, Spices, Eggs/meat, Pantry
   staples** (doc 01 stores these as `vegetables, fruits, dairy, grains, lentils,
-  spices, eggs_meat, pantry`).
+spices, eggs_meat, pantry`).
 - **Snapshotting.** Each `grocery_list_items` row stores `name`, `category`, and
-  `unit` copied from the ingredient at generation time (doc 01: *"snapshotted at
-  generation time"*) so later catalog edits do not silently rewrite a printed
+  `unit` copied from the ingredient at generation time (doc 01: _"snapshotted at
+  generation time"_) so later catalog edits do not silently rewrite a printed
   list. `ingredient_id` is retained (nullable) for traceability and manual adds.
 
 ### Checking items off
@@ -445,12 +445,12 @@ there. Emits an optional `grocery_item_checked` event (doc 09).
 The grocery list is a derived projection, so it is regenerated whenever the
 inputs to Section 9 change:
 
-| Trigger | Source | Why the list changes |
-|---------|--------|----------------------|
-| **Plan change** | replace (Section 5), weekly (re)generation (Section 3) | The set of planned dishes / ingredients changed. |
-| **Eating-out marking** | Section 6 | A dish's ingredients must drop off (Flow 5 step 7). |
-| **`family_size` change** | `PATCH /api/households/{id}/preferences` | Every quantity rescales. |
-| **Manual** | `POST /api/households/{householdId}/grocery-list/regenerate` | User-initiated refresh. |
+| Trigger                  | Source                                                       | Why the list changes                                |
+| ------------------------ | ------------------------------------------------------------ | --------------------------------------------------- |
+| **Plan change**          | replace (Section 5), weekly (re)generation (Section 3)       | The set of planned dishes / ingredients changed.    |
+| **Eating-out marking**   | Section 6                                                    | A dish's ingredients must drop off (Flow 5 step 7). |
+| **`family_size` change** | `PATCH /api/households/{id}/preferences`                     | Every quantity rescales.                            |
+| **Manual**               | `POST /api/households/{householdId}/grocery-list/regenerate` | User-initiated refresh.                             |
 
 **Idempotent regen, one list per plan.** Because doc 01 enforces
 `unique(meal_plan_id)` on `grocery_lists`, regeneration **never creates a second
@@ -513,15 +513,15 @@ is `task_name = 'Soak chickpeas'`, `required_before_minutes = 480` (8 hours).
 
 - `mealDatetime = tomorrow 12:30 PM`
 - `prepDeadline = 12:30 PM − 480 min = tomorrow 04:30 AM`, so the soak must start
-  the **evening before**. The dashboard shows *"Soak chickpeas by 9 PM tonight
-  for tomorrow's Chole Rice"* (matching the prep-reminder example in
+  the **evening before**. The dashboard shows _"Soak chickpeas by 9 PM tonight
+  for tomorrow's Chole Rice"_ (matching the prep-reminder example in
   [`../docs/09_notifications_spec.md`](../docs/09_notifications_spec.md)).
 
 ### Showing on dashboard + scheduling reminders
 
 - **Dashboard.** The Today screen renders the derived list above, sorted by
   `prepDeadline`, with overdue items highlighted. This is the MVP delivery path
-  (doc 09: *"Prep reminders shown on dashboard"*).
+  (doc 09: _"Prep reminders shown on dashboard"_).
 - **Scheduled reminders.** The `prep_reminders` Edge Function — invoked **hourly,
   timezone-aware** by `pg_cron` per
   [`02_system_architecture.md`](02_system_architecture.md#scheduled-jobs) —
@@ -532,7 +532,7 @@ is `task_name = 'Soak chickpeas'`, `required_before_minutes = 480` (8 hours).
   replacing the dish (Sections 5–6) automatically cancels its prep reminder — no
   separate cleanup is needed.
 - **Prep-aware recommendation tie-in.** The recommender already refuses to
-  suggest a dish whose prep is infeasible for the chosen time (doc 05: *"Missing
-  required prep: −60"* / the 6 PM rajma example). This design closes the loop:
-  once such a dish *is* planned for a future slot, its prep task surfaces here
+  suggest a dish whose prep is infeasible for the chosen time (doc 05: _"Missing
+  required prep: −60"_ / the 6 PM rajma example). This design closes the loop:
+  once such a dish _is_ planned for a future slot, its prep task surfaces here
   with a concrete deadline.

@@ -24,12 +24,12 @@ quoted exactly as declared in doc 01.
 
 ## 1. Concepts
 
-| Concept | Definition | Backed by |
-|---------|------------|-----------|
-| **Household** | The **tenancy boundary**. Almost every domain row carries a `household_id`; access is keyed off active membership in that household. Meal plans, preferences, grocery lists, prep tasks, the activity feed, and notifications all live inside one household. | `households` |
-| **Member** | A user with a row in `household_members` for a household. A *permanent* member (`membership_type = 'permanent'`) has long-term access — spouse, parent, roommate, cook. | `household_members` |
-| **Guest** | A user invited for a bounded date range (`membership_type = 'temporary_guest'`). Access exists only between `starts_at` and `expires_at`. | `household_members` |
-| **Owner** | The household creator (`households.created_by_user_id`) or the user a previous owner transferred ownership to. Exactly one active `role = 'owner'` member per household. | `household_members.role = 'owner'` |
+| Concept       | Definition                                                                                                                                                                                                                                                   | Backed by                          |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------- |
+| **Household** | The **tenancy boundary**. Almost every domain row carries a `household_id`; access is keyed off active membership in that household. Meal plans, preferences, grocery lists, prep tasks, the activity feed, and notifications all live inside one household. | `households`                       |
+| **Member**    | A user with a row in `household_members` for a household. A _permanent_ member (`membership_type = 'permanent'`) has long-term access — spouse, parent, roommate, cook.                                                                                      | `household_members`                |
+| **Guest**     | A user invited for a bounded date range (`membership_type = 'temporary_guest'`). Access exists only between `starts_at` and `expires_at`.                                                                                                                    | `household_members`                |
+| **Owner**     | The household creator (`households.created_by_user_id`) or the user a previous owner transferred ownership to. Exactly one active `role = 'owner'` member per household.                                                                                     | `household_members.role = 'owner'` |
 
 The tenancy boundary is enforced at the database layer: RLS on every
 household-scoped table calls `is_active_member(household_id)`, which checks for a
@@ -52,16 +52,16 @@ read-only).
 Default permission matrix (consistent with `../docs/08` "Roles" and "Permission
 flags"):
 
-| `can_*` flag | `owner` | `admin` | `member` | `viewer` |
-|--------------|:------:|:------:|:-------:|:-------:|
-| `can_view_plan` | ✅ | ✅ | ✅ | ✅ |
-| `can_suggest_meals` | ✅ | ✅ | ✅ | ❌ |
-| `can_change_today_menu` | ✅ | ✅ | ❌¹ | ❌ |
-| `can_change_weekly_schedule` | ✅ | ✅ | ❌¹ | ❌ |
-| `can_manage_grocery_list` | ✅ | ✅ | ❌¹ | ❌ |
-| `can_invite_members` | ✅ | ❌¹ | ❌ | ❌ |
-| `can_remove_members` | ✅ | ❌¹ | ❌ | ❌ |
-| `can_edit_household_preferences` | ✅ | ✅² | ❌ | ❌ |
+| `can_*` flag                     | `owner` | `admin` | `member` | `viewer` |
+| -------------------------------- | :-----: | :-----: | :------: | :------: |
+| `can_view_plan`                  |   ✅    |   ✅    |    ✅    |    ✅    |
+| `can_suggest_meals`              |   ✅    |   ✅    |    ✅    |    ❌    |
+| `can_change_today_menu`          |   ✅    |   ✅    |   ❌¹    |    ❌    |
+| `can_change_weekly_schedule`     |   ✅    |   ✅    |   ❌¹    |    ❌    |
+| `can_manage_grocery_list`        |   ✅    |   ✅    |   ❌¹    |    ❌    |
+| `can_invite_members`             |   ✅    |   ❌¹   |    ❌    |    ❌    |
+| `can_remove_members`             |   ✅    |   ❌¹   |    ❌    |    ❌    |
+| `can_edit_household_preferences` |   ✅    |   ✅²   |    ❌    |    ❌    |
 
 ¹ Toggleable per member by an owner (or an admin acting within their own
 authority). The column defaults in doc 01 match the **`member` / `viewer`**
@@ -77,7 +77,7 @@ Rules:
   owner's flags are not individually toggleable — demoting an owner means a role
   change.
 - **Admin** mirrors the owner's day-to-day editing capability but defaults
-  *without* `can_invite_members` / `can_remove_members`; an owner may grant
+  _without_ `can_invite_members` / `can_remove_members`; an owner may grant
   those per admin.
 - **Member** can view and suggest by default; editing capabilities are opt-in
   per member.
@@ -121,7 +121,7 @@ Notes:
 
 - **`invited → active`** sets `joined_at = now()` and is the only path that grants
   access. Triggered by `POST /api/invites/{token}/accept`.
-- **`active → removed`** is an admin/owner action (§10). The row is *not* deleted
+- **`active → removed`** is an admin/owner action (§10). The row is _not_ deleted
   — soft state preserves historical attribution.
 - **`active → left`** is self-service (§11); owners must transfer first.
 - **`active → expired`** applies only to `temporary_guest` rows whose
@@ -177,12 +177,12 @@ Notes:
 
 `membership_type` distinguishes the two membership shapes:
 
-| | `permanent` | `temporary_guest` |
-|---|---|---|
-| `starts_at` | `now()` at accept (immediate) | inviter-selected window start |
-| `expires_at` | `null` (no expiry) | **required**, non-null |
-| Access window | indefinite while `active` | `starts_at ≤ now() ≤ expires_at` |
-| DB constraint | — | `guest_has_expiry` |
+|               | `permanent`                   | `temporary_guest`                |
+| ------------- | ----------------------------- | -------------------------------- |
+| `starts_at`   | `now()` at accept (immediate) | inviter-selected window start    |
+| `expires_at`  | `null` (no expiry)            | **required**, non-null           |
+| Access window | indefinite while `active`     | `starts_at ≤ now() ≤ expires_at` |
+| DB constraint | —                             | `guest_has_expiry`               |
 
 The `guest_has_expiry` check on `household_members` enforces the invariant at the
 database layer:
@@ -300,14 +300,14 @@ the **`expire_guests` job** (durable state + cleanup).
 Every `active` member (gated by `is_active_member`) sees one consistent household
 view (`../docs/08` "Shared view"):
 
-| Surface | Data source | Visible to | Action gate |
-|---------|-------------|-----------|-------------|
-| Today's meal | `meal_plan_items` (today, by slot) | all active members (`can_view_plan`) | `can_change_today_menu` |
-| Weekly plan | `meal_plans` + `meal_plan_items` | all active members | `can_change_weekly_schedule` |
-| Prep tasks | `dish_prep_tasks` for planned dishes | all active members | (derived from plan changes) |
-| Grocery list | `grocery_lists` + `grocery_list_items` | all active members | `can_manage_grocery_list` |
-| Activity feed | `household_activity_events` | all active members | read-only |
-| Members | `household_members` | all active members | `can_invite_members` / `can_remove_members` |
+| Surface       | Data source                            | Visible to                           | Action gate                                 |
+| ------------- | -------------------------------------- | ------------------------------------ | ------------------------------------------- |
+| Today's meal  | `meal_plan_items` (today, by slot)     | all active members (`can_view_plan`) | `can_change_today_menu`                     |
+| Weekly plan   | `meal_plans` + `meal_plan_items`       | all active members                   | `can_change_weekly_schedule`                |
+| Prep tasks    | `dish_prep_tasks` for planned dishes   | all active members                   | (derived from plan changes)                 |
+| Grocery list  | `grocery_lists` + `grocery_list_items` | all active members                   | `can_manage_grocery_list`                   |
+| Activity feed | `household_activity_events`            | all active members                   | read-only                                   |
+| Members       | `household_members`                    | all active members                   | `can_invite_members` / `can_remove_members` |
 
 The **view** is the same for everyone with `can_view_plan`; only the **actions**
 exposed on it differ by permission. The client reads `currentUserPermissions`
@@ -413,8 +413,8 @@ in MVP — ownership always lands on a remaining member.
 
 Per `../docs/08` "Guest preference impact", whether a guest's food preferences
 should influence the household's meal planning is a **V2** feature. When
-inviting a guest, V2 will ask: *"Should this guest's food preferences affect
-meal planning?"*
+inviting a guest, V2 will ask: _"Should this guest's food preferences affect
+meal planning?"_
 
 For the **MVP**, this is skipped — the planner does not blend guest preferences
 into recommendations. At most, the MVP may **collect the guest's diet type

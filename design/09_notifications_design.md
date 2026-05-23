@@ -17,7 +17,7 @@ It builds directly on:
   service, the cross-cutting `lib/events` module (activity log + notification
   dispatch), and the `pg_cron` + Edge Function scheduled jobs (`prep_reminders`).
 - [`07_household_collaboration_design.md`](07_household_collaboration_design.md) —
-  member roles, statuses, and the *actor* concept reused here.
+  member roles, statuses, and the _actor_ concept reused here.
 - [`08_meal_planning_grocery_prep_design.md`](08_meal_planning_grocery_prep_design.md)
   — prep-task extraction that feeds prep reminders.
 
@@ -43,14 +43,14 @@ system) made, without forcing anyone to poll the app.
 
 ### Channels
 
-| Channel | MVP status | Used for (MVP) |
-|---------|------------|----------------|
-| **In-app** | ✅ MVP | All event types — always created. |
-| **Email** | ✅ MVP | Invites only (`member_invited`). |
-| **Dashboard prep reminders** | ✅ MVP | `prep_task_due` rendered on the dashboard from in-app rows. |
-| **Push** | ⏳ Later | No-op adapter in MVP. |
-| **WhatsApp** | ⏳ Later | No-op adapter in MVP. |
-| **SMS** | ⏳ Later | No-op adapter in MVP. |
+| Channel                      | MVP status | Used for (MVP)                                              |
+| ---------------------------- | ---------- | ----------------------------------------------------------- |
+| **In-app**                   | ✅ MVP     | All event types — always created.                           |
+| **Email**                    | ✅ MVP     | Invites only (`member_invited`).                            |
+| **Dashboard prep reminders** | ✅ MVP     | `prep_task_due` rendered on the dashboard from in-app rows. |
+| **Push**                     | ⏳ Later   | No-op adapter in MVP.                                       |
+| **WhatsApp**                 | ⏳ Later   | No-op adapter in MVP.                                       |
+| **SMS**                      | ⏳ Later   | No-op adapter in MVP.                                       |
 
 ### Channel abstraction — a notifier port with pluggable adapters
 
@@ -66,7 +66,7 @@ export interface NotificationPayload {
   householdId: string;
   recipientUserId: string;
   actorUserId: string | null;
-  eventType: string;        // matches notifications.event_type
+  eventType: string; // matches notifications.event_type
   title: string;
   message: string;
 }
@@ -85,7 +85,7 @@ export interface Notifier {
   (registered, return immediately) so wiring exists before providers do.
 
 A `NotifierRegistry` maps `Channel → Notifier`. The router (§5) decides which
-channels fire; the registry decides *how*. Adding push later means registering one
+channels fire; the registry decides _how_. Adding push later means registering one
 adapter and flipping it on in routing — no domain code changes. This is the
 extraction seam called out in [doc 02 “Future scaling”](02_system_architecture.md).
 
@@ -96,52 +96,52 @@ extraction seam called out in [doc 02 “Future scaling”](02_system_architectu
 All event identifiers below are written verbatim into
 `household_activity_events.event_type` and `notifications.event_type` (both `text`
 columns in [doc 01](01_database_design.md)). "Default channels" describes MVP
-behavior; channels marked *(later)* are no-ops today.
+behavior; channels marked _(later)_ are no-ops today.
 
 ### Meal events
 
-| event_type | trigger | default channels | recipients |
-|------------|---------|------------------|------------|
-| `meal_changed` | A member changes a planned dish for a slot (`meal_plan_items.dish_id` updated) | in-app | active members except actor |
-| `meal_rejected` | A member rejects a suggested item (`status` → `rejected`) | in-app | active members except actor |
-| `meal_marked_eating_out` | Slot marked eating out (`status` → `eating_out`) | in-app | active members except actor |
-| `meal_locked` | Item locked (`locked` → true) | in-app | active members except actor |
-| `meal_unlocked` | Item unlocked (`locked` → false) | in-app | active members except actor |
-| `weekly_plan_generated` | A new weekly `meal_plans` row reaches `active` | in-app | active members except actor |
-| `weekly_plan_updated` | Regeneration / bulk edit of an active plan | in-app | active members except actor |
+| event_type               | trigger                                                                        | default channels | recipients                  |
+| ------------------------ | ------------------------------------------------------------------------------ | ---------------- | --------------------------- |
+| `meal_changed`           | A member changes a planned dish for a slot (`meal_plan_items.dish_id` updated) | in-app           | active members except actor |
+| `meal_rejected`          | A member rejects a suggested item (`status` → `rejected`)                      | in-app           | active members except actor |
+| `meal_marked_eating_out` | Slot marked eating out (`status` → `eating_out`)                               | in-app           | active members except actor |
+| `meal_locked`            | Item locked (`locked` → true)                                                  | in-app           | active members except actor |
+| `meal_unlocked`          | Item unlocked (`locked` → false)                                               | in-app           | active members except actor |
+| `weekly_plan_generated`  | A new weekly `meal_plans` row reaches `active`                                 | in-app           | active members except actor |
+| `weekly_plan_updated`    | Regeneration / bulk edit of an active plan                                     | in-app           | active members except actor |
 
 ### Prep events
 
-| event_type | trigger | default channels | recipients |
-|------------|---------|------------------|------------|
-| `prep_task_due` | `prep_reminders` job finds a `dish_prep_tasks` item entering its `required_before_minutes` window (§8) | in-app (dashboard) | active members (system actor) |
-| `prep_task_completed` | A member marks a prep task done | in-app | active members except actor |
-| `prep_task_missed` | Prep window elapses with the task incomplete | in-app | active members (system actor) |
+| event_type            | trigger                                                                                                | default channels   | recipients                    |
+| --------------------- | ------------------------------------------------------------------------------------------------------ | ------------------ | ----------------------------- |
+| `prep_task_due`       | `prep_reminders` job finds a `dish_prep_tasks` item entering its `required_before_minutes` window (§8) | in-app (dashboard) | active members (system actor) |
+| `prep_task_completed` | A member marks a prep task done                                                                        | in-app             | active members except actor   |
+| `prep_task_missed`    | Prep window elapses with the task incomplete                                                           | in-app             | active members (system actor) |
 
 ### Grocery events
 
-| event_type | trigger | default channels | recipients |
-|------------|---------|------------------|------------|
-| `grocery_list_generated` | A `grocery_lists` row is created/activated for a plan | in-app | active members except actor |
-| `grocery_list_updated` | List regenerated or items bulk-edited | in-app | active members except actor |
-| `grocery_item_checked` | A `grocery_list_items.checked` flips to true | in-app | active members except actor |
+| event_type               | trigger                                               | default channels | recipients                  |
+| ------------------------ | ----------------------------------------------------- | ---------------- | --------------------------- |
+| `grocery_list_generated` | A `grocery_lists` row is created/activated for a plan | in-app           | active members except actor |
+| `grocery_list_updated`   | List regenerated or items bulk-edited                 | in-app           | active members except actor |
+| `grocery_item_checked`   | A `grocery_list_items.checked` flips to true          | in-app           | active members except actor |
 
 ### Household events
 
-| event_type | trigger | default channels | recipients |
-|------------|---------|------------------|------------|
-| `member_invited` | An invite is issued (`household_invites` created) | in-app + **email** | invited person (email) + active members except actor (in-app) |
-| `invite_accepted` | Invitee accepts (`member_status` → `active`) | in-app | active members except actor |
-| `invite_declined` | Invitee declines (`invite_status` → `declined`) | in-app | active members except actor |
-| `member_removed` | Member removed by an admin (`member_status` → `removed`) | in-app | active members except actor + the removed user |
-| `member_left` | Member leaves voluntarily (`member_status` → `left`) | in-app | active members except actor |
-| `guest_expiring` | Guest within the expiry warning window | in-app | owner / admins |
-| `guest_expired` | `expire_guests` job sets `member_status` → `expired` | in-app | owner / admins (system actor) |
-| `role_changed` | `household_members.role` changed | in-app | active members except actor + the affected member |
-| `permissions_changed` | Any `can_*` flag on `household_members` changed | in-app | the affected member + active members except actor |
+| event_type            | trigger                                                  | default channels   | recipients                                                    |
+| --------------------- | -------------------------------------------------------- | ------------------ | ------------------------------------------------------------- |
+| `member_invited`      | An invite is issued (`household_invites` created)        | in-app + **email** | invited person (email) + active members except actor (in-app) |
+| `invite_accepted`     | Invitee accepts (`member_status` → `active`)             | in-app             | active members except actor                                   |
+| `invite_declined`     | Invitee declines (`invite_status` → `declined`)          | in-app             | active members except actor                                   |
+| `member_removed`      | Member removed by an admin (`member_status` → `removed`) | in-app             | active members except actor + the removed user                |
+| `member_left`         | Member leaves voluntarily (`member_status` → `left`)     | in-app             | active members except actor                                   |
+| `guest_expiring`      | Guest within the expiry warning window                   | in-app             | owner / admins                                                |
+| `guest_expired`       | `expire_guests` job sets `member_status` → `expired`     | in-app             | owner / admins (system actor)                                 |
+| `role_changed`        | `household_members.role` changed                         | in-app             | active members except actor + the affected member             |
+| `permissions_changed` | Any `can_*` flag on `household_members` changed          | in-app             | the affected member + active members except actor             |
 
 > **Recipient note.** `member_removed` and `role_changed`/`permissions_changed`
-> intentionally include the *affected* member even though they are not the actor —
+> intentionally include the _affected_ member even though they are not the actor —
 > they must learn that they were removed or had their access changed.
 
 ---
@@ -150,14 +150,14 @@ behavior; channels marked *(later)* are no-ops today.
 
 Two tables, two purposes, **one actor**:
 
-| | `household_activity_events` | `notifications` |
-|---|---|---|
-| Purpose | Append-only **audit log** of *what changed* | Per-recipient **inbox** of *who should be told* |
-| Cardinality per change | Exactly **1** | **0..N** (one per recipient) |
-| Scope | Whole household | A single `recipient_user_id` |
-| Holds before/after | Yes — `old_value`, `new_value` (jsonb) | No — only `title` + `message` |
-| Read tracking | No | Yes — `read_at` |
-| Lifetime of actor ref | `actor_user_id` is `set null` on user delete (history survives) | `actor_user_id` is `set null` likewise |
+|                        | `household_activity_events`                                     | `notifications`                                 |
+| ---------------------- | --------------------------------------------------------------- | ----------------------------------------------- |
+| Purpose                | Append-only **audit log** of _what changed_                     | Per-recipient **inbox** of _who should be told_ |
+| Cardinality per change | Exactly **1**                                                   | **0..N** (one per recipient)                    |
+| Scope                  | Whole household                                                 | A single `recipient_user_id`                    |
+| Holds before/after     | Yes — `old_value`, `new_value` (jsonb)                          | No — only `title` + `message`                   |
+| Read tracking          | No                                                              | Yes — `read_at`                                 |
+| Lifetime of actor ref  | `actor_user_id` is `set null` on user delete (history survives) | `actor_user_id` is `set null` likewise          |
 
 Both rows are written from the same domain transaction and carry the **same**
 `household_id`, `actor_user_id`, and `event_type`, so any notification can be traced
@@ -192,17 +192,17 @@ which performs the spec's creation rules
    matches `is_active_member()` from [doc 01](01_database_design.md) and is served
    by the partial index `ix_members_household_active`.
 3. **Exclude the actor** — drop the row whose `user_id = actor_user_id`.
-   *(System-generated events such as `prep_task_due` / `guest_expired` have
-   `actor_user_id = null`, so nobody is excluded.)*
+   _(System-generated events such as `prep_task_due` / `guest_expired` have
+   `actor_user_id = null`, so nobody is excluded.)_
 4. **(V2) Apply preferences** — for each remaining recipient, consult
    `notification_preferences` (§10) to gate channels. **In MVP this step is
    skipped** — everything is on.
-5. **Add special recipients** — events in §2 that target the *affected* member or
-   the *invited* person (e.g. `member_removed`, `member_invited`) add those user
+5. **Add special recipients** — events in §2 that target the _affected_ member or
+   the _invited_ person (e.g. `member_removed`, `member_invited`) add those user
    ids even if they are not active members of the in-app audience.
 6. **Insert one `notifications` row per recipient** in a single batch insert,
    inside the same transaction as step 1.
-7. **Dispatch external channels** — *after commit*, hand each row to the router
+7. **Dispatch external channels** — _after commit_, hand each row to the router
    (§5). External sends are best-effort and out of the transaction (§9).
 
 ### Sequence
@@ -288,38 +288,42 @@ module renders them against a variable bag and writes the results into
 
 ### Variables available to templates
 
-| Variable | Source |
-|----------|--------|
-| `{{actorName}}` | `users.display_name` of `actor_user_id` |
-| `{{fromDish}}` / `{{toDish}}` | `dishes.name` (old/new), from the audit `old_value` / `new_value` |
-| `{{dish}}` | `dishes.name` of the affected `meal_plan_items.dish_id` |
-| `{{slotLabel}}` | `meal_plan_items.meal_slot` (e.g. "dinner") + day word ("tonight", weekday) derived from `date` |
-| `{{date}}` / `{{dueTime}}` | formatted `meal_plan_items.date` / prep due clock time |
-| `{{householdName}}` | `households.name` |
-| `{{memberName}}` | invited/affected `users.display_name` |
-| `{{guestUntil}}` | formatted `household_members.expires_at` |
+| Variable                      | Source                                                                                          |
+| ----------------------------- | ----------------------------------------------------------------------------------------------- |
+| `{{actorName}}`               | `users.display_name` of `actor_user_id`                                                         |
+| `{{fromDish}}` / `{{toDish}}` | `dishes.name` (old/new), from the audit `old_value` / `new_value`                               |
+| `{{dish}}`                    | `dishes.name` of the affected `meal_plan_items.dish_id`                                         |
+| `{{slotLabel}}`               | `meal_plan_items.meal_slot` (e.g. "dinner") + day word ("tonight", weekday) derived from `date` |
+| `{{date}}` / `{{dueTime}}`    | formatted `meal_plan_items.date` / prep due clock time                                          |
+| `{{householdName}}`           | `households.name`                                                                               |
+| `{{memberName}}`              | invited/affected `users.display_name`                                                           |
+| `{{guestUntil}}`              | formatted `household_members.expires_at`                                                        |
 
 ### Key templates (verbatim spec examples)
 
 **`meal_changed`**
+
 - Title: `Dinner changed`
 - Message: `{{actorName}} changed {{slotLabel}} from {{fromDish}} to {{toDish}}.`
-- Rendered: *"Aishvarya changed tonight's dinner from Rajma Rice to Paneer Bhurji."*
+- Rendered: _"Aishvarya changed tonight's dinner from Rajma Rice to Paneer Bhurji."_
 
 **`meal_marked_eating_out`**
+
 - Title: `Meal marked as eating out`
 - Message: `{{actorName}} marked {{slotLabel}} as eating out.`
-- Rendered: *"Riya marked Saturday dinner as eating out."*
+- Rendered: _"Riya marked Saturday dinner as eating out."_
 
 **`invite_accepted`**
+
 - Title: `New household member`
 - Message: `{{memberName}} joined {{householdName}} as a guest until {{guestUntil}}.`
-- Rendered: *"Rahul joined Suhane Household as a guest until May 26."*
+- Rendered: _"Rahul joined Suhane Household as a guest until May 26."_
 
 **`prep_task_due`**
+
 - Title: `Prep needed tonight`
 - Message: `{{prepTaskName}} by {{dueTime}} for tomorrow's {{dish}}.`
-- Rendered: *"Soak chickpeas by 9 PM for tomorrow's Chole Rice."*
+- Rendered: _"Soak chickpeas by 9 PM for tomorrow's Chole Rice."_
 - Actor is the system (`actor_user_id = null`), so `{{actorName}}` is unused.
 
 ### Interpolation
@@ -365,11 +369,11 @@ Query params: `unreadOnly` (boolean, default `false`), `cursor`, `limit` (defaul
       "title": "Dinner changed",
       "message": "Aishvarya changed tonight's dinner from Rajma Rice to Paneer Bhurji.",
       "readAt": null,
-      "createdAt": "2026-05-22T13:05:00Z"
-    }
+      "createdAt": "2026-05-22T13:05:00Z",
+    },
   ],
   "unreadCount": 3,
-  "nextCursor": "…"
+  "nextCursor": "…",
 }
 ```
 
@@ -461,17 +465,17 @@ Deferred per [`../docs/09_notifications_spec.md`](../docs/09_notifications_spec.
 and sketched in [doc 01](01_database_design.md). The table is keyed by
 `(user_id, household_id)` so preferences are per-membership:
 
-| Column | Type | Default | Gates |
-|--------|------|---------|-------|
-| `user_id` | uuid (PK) | — | — |
-| `household_id` | uuid (PK) | — | — |
-| `in_app_enabled` | boolean | `true` | the in-app channel (§5) |
-| `email_enabled` | boolean | `true` | the email channel |
-| `push_enabled` | boolean | `false` | the push channel |
-| `whatsapp_enabled` | boolean | `false` | the WhatsApp channel |
-| `prep_reminders_enabled` | boolean | `true` | `prep_task_*` event group |
-| `menu_change_enabled` | boolean | `true` | meal events group (§2) |
-| `grocery_updates_enabled` | boolean | `true` | grocery events group (§2) |
+| Column                    | Type      | Default | Gates                     |
+| ------------------------- | --------- | ------- | ------------------------- |
+| `user_id`                 | uuid (PK) | —       | —                         |
+| `household_id`            | uuid (PK) | —       | —                         |
+| `in_app_enabled`          | boolean   | `true`  | the in-app channel (§5)   |
+| `email_enabled`           | boolean   | `true`  | the email channel         |
+| `push_enabled`            | boolean   | `false` | the push channel          |
+| `whatsapp_enabled`        | boolean   | `false` | the WhatsApp channel      |
+| `prep_reminders_enabled`  | boolean   | `true`  | `prep_task_*` event group |
+| `menu_change_enabled`     | boolean   | `true`  | meal events group (§2)    |
+| `grocery_updates_enabled` | boolean   | `true`  | grocery events group (§2) |
 
 How they gate (V2): the fan-out step 4 (§4) drops a recipient from an **event group**
 when its `*_enabled` flag is false, then the router (§5) drops individual **channels**
@@ -491,13 +495,13 @@ no backfill.
 Mapping to the **MVP notification rules** in
 [`../docs/09_notifications_spec.md`](../docs/09_notifications_spec.md):
 
-| Spec MVP rule | Covered by | In scope |
-|---------------|-----------|----------|
-| In-app notifications for menu/schedule changes | §2 meal events, §4 fan-out, §6 templates | ✅ |
-| Email invite notification | §1 channels, §5 routing (`member_invited` → email), §9 retry | ✅ |
-| In-app notifications for member joined/left | §2 household events (`invite_accepted`, `member_left`, etc.) | ✅ |
-| Prep reminders shown on dashboard | §8 `prep_reminders` job → `prep_task_due` in-app rows | ✅ |
-| Push notifications can wait | §1 + §5 no-op adapters; §10 `push_enabled` default `false` | ✅ (deferred) |
+| Spec MVP rule                                  | Covered by                                                   | In scope      |
+| ---------------------------------------------- | ------------------------------------------------------------ | ------------- |
+| In-app notifications for menu/schedule changes | §2 meal events, §4 fan-out, §6 templates                     | ✅            |
+| Email invite notification                      | §1 channels, §5 routing (`member_invited` → email), §9 retry | ✅            |
+| In-app notifications for member joined/left    | §2 household events (`invite_accepted`, `member_left`, etc.) | ✅            |
+| Prep reminders shown on dashboard              | §8 `prep_reminders` job → `prep_task_due` in-app rows        | ✅            |
+| Push notifications can wait                    | §1 + §5 no-op adapters; §10 `push_enabled` default `false`   | ✅ (deferred) |
 
 Also in MVP, beyond the literal rule list:
 

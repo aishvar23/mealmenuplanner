@@ -1,28 +1,35 @@
 # Household Collaboration Specification
 
 ## Objective
+
 Allow multiple household members to share the same meal plan, receive updates, and collaborate with controlled permissions.
 
 ## Core concepts
 
 ### Household
+
 A shared space where meal plans, preferences, grocery lists, and prep tasks live.
 
 ### Member
+
 A permanent user with access to the household.
 
 ### Guest
+
 A temporary user with access for a specific date range.
 
 ### Owner
+
 The household creator or transferred owner.
 
 ## Member types
 
 ### Permanent
+
 Used for long-term members such as spouse, parent, roommate, or cook.
 
 ### Temporary guest
+
 Used for someone staying for a limited period.
 
 Fields:
@@ -34,6 +41,7 @@ Fields:
 ## Roles
 
 ### Owner
+
 Can:
 
 - Edit household preferences
@@ -46,6 +54,7 @@ Can:
 - Transfer ownership
 
 ### Admin
+
 Can:
 
 - Invite members if permission is enabled
@@ -54,6 +63,7 @@ Can:
 - Edit some household preferences
 
 ### Member
+
 Can:
 
 - View plans
@@ -62,12 +72,14 @@ Can:
 - Receive notifications
 
 ### Viewer
+
 Can:
 
 - View meal plan
 - Receive notifications if enabled
 
 ## Permission flags
+
 MVP permissions:
 
 - can_view_plan
@@ -100,6 +112,7 @@ MVP permissions:
 6. Scheduled job marks guest expired after expiry.
 
 ## Shared view
+
 All active members should see:
 
 - Today’s meal
@@ -112,6 +125,7 @@ All active members should see:
 Actions depend on permissions.
 
 ## Notifications
+
 When a household member changes the menu or schedule:
 
 1. App updates the data.
@@ -120,11 +134,13 @@ When a household member changes the menu or schedule:
 4. Members see notification in-app.
 
 ## Conflict handling
+
 MVP should use last-write-wins.
 
 Every change should be visible in activity history.
 
 ## Remove member
+
 Owner/admin can remove a member if they have permission.
 
 Removed member:
@@ -134,11 +150,13 @@ Removed member:
 - Does not receive future notifications
 
 ## Leave household
+
 Any non-owner member can leave.
 
 Owner must transfer ownership before leaving.
 
 ## Guest preference impact
+
 V2 feature:
 
 When inviting a guest, ask:

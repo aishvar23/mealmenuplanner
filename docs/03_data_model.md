@@ -1,6 +1,7 @@
 # Data Model Specification
 
 ## users
+
 Represents authenticated users.
 
 Fields:
@@ -15,6 +16,7 @@ Fields:
 - updated_at
 
 ## households
+
 Represents a household.
 
 Fields:
@@ -28,6 +30,7 @@ Fields:
 - updated_at
 
 ## household_profile_drafts
+
 Stores incomplete onboarding progress.
 
 Fields:
@@ -50,6 +53,7 @@ Status values:
 - abandoned
 
 ## household_members
+
 Represents membership of users in households.
 
 Fields:
@@ -97,6 +101,7 @@ Status values:
 - left
 
 ## household_invites
+
 Represents pending invitations.
 
 Fields:
@@ -128,6 +133,7 @@ Status values:
 - cancelled
 
 ## household_preferences
+
 Stores household-level preferences.
 
 Fields:
@@ -150,6 +156,7 @@ Fields:
 - updated_at
 
 ## user_food_preferences
+
 Stores member-level food preferences.
 
 Fields:
@@ -168,6 +175,7 @@ Fields:
 - updated_at
 
 ## dishes
+
 Represents dishes in the app.
 
 Fields:
@@ -203,6 +211,7 @@ Status values:
 - archived
 
 ## ingredients
+
 Represents ingredients.
 
 Fields:
@@ -217,6 +226,7 @@ Fields:
 - updated_at
 
 ## dish_ingredients
+
 Maps dishes to ingredients.
 
 Fields:
@@ -232,6 +242,7 @@ Fields:
 - updated_at
 
 ## dish_prep_tasks
+
 Represents advance-prep tasks.
 
 Fields:
@@ -245,6 +256,7 @@ Fields:
 - updated_at
 
 ## dish_pairings
+
 Represents dish combinations.
 
 Fields:
@@ -265,6 +277,7 @@ Pairing types:
 - beverage
 
 ## meal_plans
+
 Represents a generated plan for a date range.
 
 Fields:
@@ -285,6 +298,7 @@ Status values:
 - archived
 
 ## meal_plan_items
+
 Represents individual planned meals.
 
 Fields:
@@ -313,6 +327,7 @@ Status values:
 - eating_out
 
 ## meal_feedback
+
 Stores user feedback on meals.
 
 Fields:
@@ -336,6 +351,7 @@ Feedback types:
 - suggest_more_often
 
 ## grocery_lists
+
 Represents grocery list for a plan.
 
 Fields:
@@ -348,6 +364,7 @@ Fields:
 - updated_at
 
 ## grocery_list_items
+
 Represents grocery list entries.
 
 Fields:
@@ -364,6 +381,7 @@ Fields:
 - updated_at
 
 ## household_activity_events
+
 Audit log for household changes.
 
 Fields:
@@ -379,6 +397,7 @@ Fields:
 - created_at
 
 ## notifications
+
 Represents user notifications.
 
 Fields:

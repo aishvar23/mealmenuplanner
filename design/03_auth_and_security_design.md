@@ -23,12 +23,12 @@ consumes the resulting session.
 
 ### Providers (MVP)
 
-| Provider | `auth_provider` enum value | Notes |
-|----------|---------------------------|-------|
-| Google OAuth | `google` | Primary, lowest-friction path. Authorization-code flow with PKCE. |
-| Email / password | `email` | Standard Supabase email auth with confirmation. |
-| Magic link | `magic_link` | Passwordless email link (OTP-over-link). |
-| Mobile OTP (SMS) | — | **Deferred** per [`../docs/01_product_requirements.md`](../docs/01_product_requirements.md). The `users.phone` column and `auth_provider` enum are forward-compatible; no schema change needed to add it. |
+| Provider         | `auth_provider` enum value | Notes                                                                                                                                                                                                     |
+| ---------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Google OAuth     | `google`                   | Primary, lowest-friction path. Authorization-code flow with PKCE.                                                                                                                                         |
+| Email / password | `email`                    | Standard Supabase email auth with confirmation.                                                                                                                                                           |
+| Magic link       | `magic_link`               | Passwordless email link (OTP-over-link).                                                                                                                                                                  |
+| Mobile OTP (SMS) | —                          | **Deferred** per [`../docs/01_product_requirements.md`](../docs/01_product_requirements.md). The `users.phone` column and `auth_provider` enum are forward-compatible; no schema change needed to add it. |
 
 The `auth_provider` enum (`'google' | 'email' | 'magic_link'`) is defined in
 [Database Design](01_database_design.md) and is stored on the public
@@ -119,6 +119,7 @@ create trigger trg_provision_user_profile
 ```
 
 Notes:
+
 - The `on conflict (id) do update` makes the trigger **idempotent**, so a
   re-provision or backfill is safe.
 - It runs as `security definer` because `auth.users` triggers execute under the
@@ -167,7 +168,7 @@ lifecycle in [System Architecture](02_system_architecture.md):
 
 1. **Authentication** — session resolved server-side (Section 1). Missing/invalid
    session → `UnauthorizedError`.
-2. **Service-layer permission guard** (`lib/auth`) — the *primary* gate. Before a
+2. **Service-layer permission guard** (`lib/auth`) — the _primary_ gate. Before a
    service touches data it asserts:
    - the user is an **active, non-expired member** of the target household, and
    - for writes, the user holds the specific `can_*` flag the action requires.
@@ -175,7 +176,8 @@ lifecycle in [System Architecture](02_system_architecture.md):
    Guards throw **typed domain errors** (`ForbiddenError`, `UnauthorizedError`,
    `NotFoundError`) so callers get clean, intentional responses — not empty
    result sets that are ambiguous to debug.
-3. **Postgres RLS** — the *backstop*. Even if a guard is forgotten or buggy, RLS
+
+3. **Postgres RLS** — the _backstop_. Even if a guard is forgotten or buggy, RLS
    re-validates every read and write at the database boundary, so a defect can
    never leak data across households.
 
@@ -191,7 +193,7 @@ expressed once and reused:
   an active, non-expired member of `h` whose named `can_*` column is `true`.
 
 The service layer invokes the same logic (either by calling these functions via
-RPC or by mirroring them in TypeScript) so a denial is detected *before* the
+RPC or by mirroring them in TypeScript) so a denial is detected _before_ the
 write is attempted, producing a `ForbiddenError` rather than a silent RLS rejection.
 
 ---
@@ -208,16 +210,16 @@ Defaults below are consistent with the role capabilities in
 [`../docs/08_household_collaboration_spec.md`](../docs/08_household_collaboration_spec.md)
 and the column defaults in [Database Design](01_database_design.md).
 
-| `household_members` flag | owner | admin | member | viewer |
-|--------------------------|:-----:|:-----:|:------:|:------:|
-| `can_view_plan`                | ✅ | ✅ | ✅ | ✅ |
-| `can_suggest_meals`            | ✅ | ✅ | ✅ | ❌ |
-| `can_change_today_menu`        | ✅ | ✅ | ❌¹ | ❌ |
-| `can_change_weekly_schedule`   | ✅ | ✅ | ❌¹ | ❌ |
-| `can_manage_grocery_list`      | ✅ | ✅ | ❌¹ | ❌ |
-| `can_invite_members`           | ✅ | ✅² | ❌ | ❌ |
-| `can_remove_members`           | ✅ | ❌ | ❌ | ❌ |
-| `can_edit_household_preferences` | ✅ | ✅³ | ❌ | ❌ |
+| `household_members` flag         | owner | admin | member | viewer |
+| -------------------------------- | :---: | :---: | :----: | :----: |
+| `can_view_plan`                  |  ✅   |  ✅   |   ✅   |   ✅   |
+| `can_suggest_meals`              |  ✅   |  ✅   |   ✅   |   ❌   |
+| `can_change_today_menu`          |  ✅   |  ✅   |  ❌¹   |   ❌   |
+| `can_change_weekly_schedule`     |  ✅   |  ✅   |  ❌¹   |   ❌   |
+| `can_manage_grocery_list`        |  ✅   |  ✅   |  ❌¹   |   ❌   |
+| `can_invite_members`             |  ✅   |  ✅²  |   ❌   |   ❌   |
+| `can_remove_members`             |  ✅   |  ❌   |   ❌   |   ❌   |
+| `can_edit_household_preferences` |  ✅   |  ✅³  |   ❌   |   ❌   |
 
 ¹ Off by default but commonly enabled per-member ("Change meals if permission is
 enabled" — [`../docs/08`](../docs/08_household_collaboration_spec.md)). Matches the
@@ -227,12 +229,13 @@ schema defaults (`can_change_*` default `false`).
 ([`../docs/08`](../docs/08_household_collaboration_spec.md)). Enabled by default for
 admins; can be revoked.
 
-³ Admins can edit *some* household preferences. MVP models this as a single
+³ Admins can edit _some_ household preferences. MVP models this as a single
 `can_edit_household_preferences` flag; finer-grained preference scopes are a
 post-MVP refinement.
 
 **Owner invariants** (enforced in the `household` / membership service, not by a
 single column):
+
 - An owner cannot remove themselves or be stripped of `can_remove_members` while
   they remain owner.
 - Ownership must be **transferred before leaving** (`POST /api/households/{householdId}/leave`)
@@ -383,7 +386,7 @@ create policy notif_update on notifications
 ```
 
 > `household_activity_events` follows the same shape: `for select using
-> (is_active_member(household_id))` and **no user-role write policy** — the audit
+(is_active_member(household_id))` and **no user-role write policy** — the audit
 > log is written only by the server/service-role path (Section 10), keeping it
 > append-only and tamper-resistant from clients.
 
@@ -438,6 +441,7 @@ flowchart TD
 ```
 
 Key properties:
+
 - The **active-membership check (C)** includes the real-time `expires_at > now()`
   test, so an expired guest is rejected even before the scheduled job has run
   (Section 8).
@@ -519,7 +523,7 @@ independent paths** — never the job alone:
 1. **Real-time check on every access (authoritative).** Both helper functions —
    `is_active_member()` and `has_permission()` — include
    `(expires_at is null or expires_at > now())`. Because every read and write
-   passes through these (service guard *and* RLS), a guest loses access **the
+   passes through these (service guard _and_ RLS), a guest loses access **the
    instant** their window passes, regardless of job timing. This is the gate that
    actually protects data.
 2. **Scheduled `expire_guests` job (hourly, housekeeping).** Per
@@ -530,8 +534,8 @@ independent paths** — never the job alone:
    but it is **not** relied upon for access control, since it runs only hourly.
 
 This matches the explicit guidance in
-[`../docs/10`](../docs/10_security_privacy_permissions.md): *"Access checks should
-also verify expiry in real time. Do not rely only on scheduled expiry."*
+[`../docs/10`](../docs/10_security_privacy_permissions.md): _"Access checks should
+also verify expiry in real time. Do not rely only on scheduled expiry."_
 Similarly, **removed members** (`status = 'removed' | 'left'`) fail
 `is_active_member()` immediately and lose access on their next request, while
 retaining historical attribution in `household_activity_events`.
@@ -589,18 +593,19 @@ Logged actions include (from
 [`../docs/10`](../docs/10_security_privacy_permissions.md) and
 [`../docs/08`](../docs/08_household_collaboration_spec.md)):
 
-| Action | `event_type` (example) | `entity_type` | Captured |
-|--------|------------------------|---------------|----------|
-| Today's menu changed / meal replaced | `meal_changed` | `meal_plan_item` | `old_value` → `new_value` (dish, status) |
-| Marked eating out | `meal_eating_out` | `meal_plan_item` | new status |
-| Weekly schedule changed | `weekly_schedule_changed` | `meal_plan` | affected range |
-| Member invited / joined | `member_joined` | `household_member` | role, membership type |
-| Member removed / left | `member_removed` | `household_member` | prior status |
-| Permissions / role changed | `permissions_changed` | `household_member` | old vs new flags |
-| Household preferences changed | `household_preferences_changed` | `household_preferences` | changed fields |
-| Guest expired (by job) | `guest_expired` | `household_member` | expiry timestamp |
+| Action                               | `event_type` (example)          | `entity_type`           | Captured                                 |
+| ------------------------------------ | ------------------------------- | ----------------------- | ---------------------------------------- |
+| Today's menu changed / meal replaced | `meal_changed`                  | `meal_plan_item`        | `old_value` → `new_value` (dish, status) |
+| Marked eating out                    | `meal_eating_out`               | `meal_plan_item`        | new status                               |
+| Weekly schedule changed              | `weekly_schedule_changed`       | `meal_plan`             | affected range                           |
+| Member invited / joined              | `member_joined`                 | `household_member`      | role, membership type                    |
+| Member removed / left                | `member_removed`                | `household_member`      | prior status                             |
+| Permissions / role changed           | `permissions_changed`           | `household_member`      | old vs new flags                         |
+| Household preferences changed        | `household_preferences_changed` | `household_preferences` | changed fields                           |
+| Guest expired (by job)               | `guest_expired`                 | `household_member`      | expiry timestamp                         |
 
 Properties:
+
 - `actor_user_id` records who made the change (`set null` on actor deletion to
   preserve history); for job-driven events (e.g. `guest_expired`) the actor is
   null/system.
@@ -619,23 +624,23 @@ Mapping to the checklist in
 [`../docs/10_security_privacy_permissions.md`](../docs/10_security_privacy_permissions.md):
 
 - [ ] **Auth required for app access** — server-side session resolution via
-  `auth.getUser()`; unauthenticated requests rejected with `UnauthorizedError`
-  (Section 1).
+      `auth.getUser()`; unauthenticated requests rejected with `UnauthorizedError`
+      (Section 1).
 - [ ] **Household membership checks** — `is_active_member()` enforced in both the
-  service guard and RLS on every household-scoped read/write (Sections 3, 5).
+      service guard and RLS on every household-scoped read/write (Sections 3, 5).
 - [ ] **Permission checks on write APIs** — `has_permission(h, 'can_*')` in the
-  service guard, with matching RLS write policies as backstop (Sections 3–6).
+      service guard, with matching RLS write policies as backstop (Sections 3–6).
 - [ ] **Invite token expiry** — non-null `expires_at`; `expire_invites` job plus
-  real-time `expires_at > now()` check; hashed-at-rest tokens (Section 7).
+      real-time `expires_at > now()` check; hashed-at-rest tokens (Section 7).
 - [ ] **Guest expiry enforcement** — real-time `expires_at > now()` in helper
-  functions **and** the hourly `expire_guests` job; never the job alone
-  (Section 8).
+      functions **and** the hourly `expire_guests` job; never the job alone
+      (Section 8).
 - [ ] **Removed members blocked** — `removed`/`left`/`expired` statuses fail
-  `is_active_member()` immediately; historical attribution preserved (Section 8).
+      `is_active_member()` immediately; historical attribution preserved (Section 8).
 - [ ] **Activity log for important actions** — `household_activity_events` written
-  in-transaction, append-only, no user write path (Section 10).
+      in-transaction, append-only, no user write path (Section 10).
 - [ ] **Privacy guardrails** — no race; "dietary preferences" framing; medical
-  disclaimer displayed; users can edit/delete their own preferences (Section 9).
+      disclaimer displayed; users can edit/delete their own preferences (Section 9).
 - [ ] **Defense in depth** — service-layer guards + Postgres RLS as independent
-  backstop; service-role client confined to jobs/admin, never user-request paths
-  (Sections 3, 5).
+      backstop; service-role client confined to jobs/admin, never user-request paths
+      (Sections 3, 5).

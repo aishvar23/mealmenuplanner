@@ -42,14 +42,14 @@ of the naming convention.
 reflects ownership through the tenancy boundary (`households` → everything else,
 per doc 01 principle 4):
 
-| Pattern | Example |
-|---------|---------|
-| Collection | `POST /api/households` |
-| Instance | `GET /api/households/{householdId}` |
-| Sub-collection | `GET /api/households/{householdId}/members` |
-| Sub-instance | `PATCH /api/households/{householdId}/members/{memberId}` |
-| Action on instance (non-CRUD verb) | `POST /api/meal-plan-items/{mealPlanItemId}/lock` |
-| Token-addressed (unauthenticated read) | `GET /api/invites/{token}` |
+| Pattern                                | Example                                                  |
+| -------------------------------------- | -------------------------------------------------------- |
+| Collection                             | `POST /api/households`                                   |
+| Instance                               | `GET /api/households/{householdId}`                      |
+| Sub-collection                         | `GET /api/households/{householdId}/members`              |
+| Sub-instance                           | `PATCH /api/households/{householdId}/members/{memberId}` |
+| Action on instance (non-CRUD verb)     | `POST /api/meal-plan-items/{mealPlanItemId}/lock`        |
+| Token-addressed (unauthenticated read) | `GET /api/invites/{token}`                               |
 
 Globally-unique child resources whose parent is implied by the row itself
 (`meal-plan-items`, `notifications`) are addressed at the top level by id; the
@@ -75,17 +75,19 @@ stable under inserts, and a natural fit for the
 `(recipient_user_id, created_at desc)` and `(household_id, created_at desc)`
 indexes in doc 01. Query params:
 
-| Param | Meaning | Default | Max |
-|-------|---------|---------|-----|
-| `limit` | page size | 20 | 100 |
-| `cursor` | opaque token from the previous page's `nextCursor` | — | — |
+| Param    | Meaning                                            | Default | Max |
+| -------- | -------------------------------------------------- | ------- | --- |
+| `limit`  | page size                                          | 20      | 100 |
+| `cursor` | opaque token from the previous page's `nextCursor` | —       | —   |
 
 Response envelope for collections:
 
 ```json
 {
-  "data": [ /* items */ ],
-  "page": { "nextCursor": "eyJjcmVhdGVkQXQiOiIyMDI2..." , "hasMore": true }
+  "data": [
+    /* items */
+  ],
+  "page": { "nextCursor": "eyJjcmVhdGVkQXQiOiIyMDI2...", "hasMore": true }
 }
 ```
 
@@ -119,9 +121,7 @@ them to this shape and the right status code.
   "error": {
     "code": "VALIDATION_ERROR",
     "message": "familySize must be between 1 and 50.",
-    "details": [
-      { "field": "familySize", "rule": "range", "min": 1, "max": 50 }
-    ]
+    "details": [{ "field": "familySize", "rule": "range", "min": 1, "max": 50 }]
   }
 }
 ```
@@ -136,17 +136,18 @@ them to this shape and the right status code.
 
 **Code → status → domain error mapping:**
 
-| `error.code` | HTTP | Typed domain error (doc 02) | When |
-|--------------|------|-----------------------------|------|
-| `VALIDATION_ERROR` | 400 | `ValidationError` | Malformed body, bad enum value, failed check (e.g. `family_size` out of `1..50`, `end_date < start_date`). |
-| `UNAUTHENTICATED` | 401 | `UnauthenticatedError` | No/expired/invalid Supabase JWT. |
-| `FORBIDDEN` | 403 | `ForbiddenError` | Authenticated but lacks the required `can_*` flag / role, or not an active member of the household. |
-| `NOT_FOUND` | 404 | `NotFoundError` | Resource absent **or** hidden by RLS (we do not distinguish, to avoid leaking existence across households). |
-| `CONFLICT` | 409 | `ConflictError` | Violated invariant from doc 01 § Key invariants (duplicate live membership, in-progress draft already exists, active plan already covers that start date, invite already accepted/expired). |
-| `RATE_LIMITED` | 429 | `RateLimitedError` | Too many requests (notably generation endpoints). Includes `Retry-After` header. |
-| `INTERNAL` | 500 | `InternalError` (catch-all) | Unhandled/unexpected. `message` is generic; full context only in server logs. |
+| `error.code`       | HTTP | Typed domain error (doc 02) | When                                                                                                                                                                                        |
+| ------------------ | ---- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `VALIDATION_ERROR` | 400  | `ValidationError`           | Malformed body, bad enum value, failed check (e.g. `family_size` out of `1..50`, `end_date < start_date`).                                                                                  |
+| `UNAUTHENTICATED`  | 401  | `UnauthenticatedError`      | No/expired/invalid Supabase JWT.                                                                                                                                                            |
+| `FORBIDDEN`        | 403  | `ForbiddenError`            | Authenticated but lacks the required `can_*` flag / role, or not an active member of the household.                                                                                         |
+| `NOT_FOUND`        | 404  | `NotFoundError`             | Resource absent **or** hidden by RLS (we do not distinguish, to avoid leaking existence across households).                                                                                 |
+| `CONFLICT`         | 409  | `ConflictError`             | Violated invariant from doc 01 § Key invariants (duplicate live membership, in-progress draft already exists, active plan already covers that start date, invite already accepted/expired). |
+| `RATE_LIMITED`     | 429  | `RateLimitedError`          | Too many requests (notably generation endpoints). Includes `Retry-After` header.                                                                                                            |
+| `INTERNAL`         | 500  | `InternalError` (catch-all) | Unhandled/unexpected. `message` is generic; full context only in server logs.                                                                                                               |
 
 **Notes.**
+
 - A FORBIDDEN-vs-NOT_FOUND choice favors NOT_FOUND when revealing existence
   itself would leak cross-household data; FORBIDDEN is used when the resource is
   known to be in the caller's household but the action is not permitted.
@@ -209,6 +210,7 @@ plus a `household_members.can_*` flag or `role`, per doc 01); `(member)` means
 ### 4.1 Households
 
 #### `POST /api/households` — Create household
+
 - **Permission:** any authenticated user (becomes `owner`).
 - **Service:** `household`.
 - **Request:**
@@ -228,6 +230,7 @@ plus a `household_members.can_*` flag or `role`, per doc 01); `(member)` means
 > this raw create; this endpoint exists for the "create another household" path.
 
 #### `GET /api/households/{householdId}` — Get household
+
 - **Permission:** `(member)` — `is_active_member`.
 - **Service:** `household`.
 - **Success — 200 OK:**
@@ -270,6 +273,7 @@ plus a `household_members.can_*` flag or `role`, per doc 01); `(member)` means
 - **Errors:** `NOT_FOUND` (no household, or caller not an active member).
 
 #### `PATCH /api/households/{householdId}/preferences` — Update preferences
+
 - **Permission:** `can_edit_household_preferences` (or `owner`).
 - **Service:** `household`.
 - **Request (partial update; any subset of preference fields):**
@@ -293,6 +297,7 @@ Backed by `household_profile_drafts` (doc 01). At most one `in_progress` draft
 per user (`uq_one_active_draft_per_user`). Service: `onboarding`.
 
 #### `GET /api/onboarding/draft` — Get current draft
+
 - **Permission:** authenticated user (own draft only).
 - **Success — 200 OK:**
   ```json
@@ -301,7 +306,7 @@ per user (`uq_one_active_draft_per_user`). Service: `onboarding`.
     "status": "in_progress",
     "currentStep": "food_preferences",
     "completionPercentage": 45,
-    "draftData": { },
+    "draftData": {},
     "lastSavedAt": "2026-05-22T18:05:11Z"
   }
   ```
@@ -309,26 +314,32 @@ per user (`uq_one_active_draft_per_user`). Service: `onboarding`.
   resume).
 
 #### `PUT /api/onboarding/draft` — Save (upsert) draft
+
 - **Permission:** authenticated user (own draft).
 - **Request:**
   ```json
   {
     "currentStep": "meal_schedule",
     "completionPercentage": 60,
-    "draftData": { }
+    "draftData": {}
   }
   ```
 - **Success — 200 OK:**
   ```json
-  { "id": "d3...", "status": "in_progress", "lastSavedAt": "2026-05-22T18:09:42Z" }
+  {
+    "id": "d3...",
+    "status": "in_progress",
+    "lastSavedAt": "2026-05-22T18:09:42Z"
+  }
   ```
   Idempotent autosave: upserts the caller's single `in_progress` draft, refreshes
   `last_saved_at`.
 - **Errors:** `VALIDATION_ERROR` (`completionPercentage` outside `0..100`),
-  `CONFLICT` (an `in_progress` draft already exists for a *different* logical
+  `CONFLICT` (an `in_progress` draft already exists for a _different_ logical
   flow — surfaces `uq_one_active_draft_per_user`).
 
 #### `POST /api/onboarding/complete` — Complete onboarding
+
 - **Permission:** authenticated user (own draft).
 - **Request:**
   ```json
@@ -351,6 +362,7 @@ Backed by `household_invites` (doc 01). Service: `invite`. Token preview is the
 only unauthenticated endpoint.
 
 #### `POST /api/households/{householdId}/invites` — Create invite
+
 - **Permission:** `can_invite_members`.
 - **Request:**
   ```json
@@ -384,8 +396,9 @@ only unauthenticated endpoint.
   `guest_has_expiry` semantics), `FORBIDDEN`.
 
 #### `GET /api/invites/{token}` — Get invite preview (**unauthenticated**)
+
 - **Permission:** none — public, token-addressed. Served via a `security
-  definer` RPC (doc 01 § RLS) that returns only non-sensitive preview fields.
+definer` RPC (doc 01 § RLS) that returns only non-sensitive preview fields.
 - **Success — 200 OK:**
   ```json
   {
@@ -401,6 +414,7 @@ only unauthenticated endpoint.
   longer pending).
 
 #### `POST /api/invites/{token}/accept` — Accept invite
+
 - **Permission:** authenticated user (the acceptor).
 - **Success — 200 OK:**
   ```json
@@ -416,6 +430,7 @@ only unauthenticated endpoint.
   doc 01).
 
 #### `POST /api/invites/{token}/decline` — Decline invite
+
 - **Permission:** authenticated user (the invitee).
 - **Success — 200 OK:**
   ```json
@@ -429,6 +444,7 @@ only unauthenticated endpoint.
 Backed by `household_members` (doc 01). Service: `household`.
 
 #### `GET /api/households/{householdId}/members` — List members
+
 - **Permission:** `(member)`.
 - **Success — 200 OK** (small bounded collection; full set, no cursor):
   ```json
@@ -444,10 +460,14 @@ Backed by `household_members` (doc 01). Service: `household`.
         "expiresAt": null,
         "joinedAt": "2026-04-01T09:00:00Z",
         "permissions": {
-          "canViewPlan": true, "canSuggestMeals": true,
-          "canChangeTodayMenu": true, "canChangeWeeklySchedule": true,
-          "canManageGroceryList": true, "canInviteMembers": true,
-          "canRemoveMembers": true, "canEditHouseholdPreferences": true
+          "canViewPlan": true,
+          "canSuggestMeals": true,
+          "canChangeTodayMenu": true,
+          "canChangeWeeklySchedule": true,
+          "canManageGroceryList": true,
+          "canInviteMembers": true,
+          "canRemoveMembers": true,
+          "canEditHouseholdPreferences": true
         }
       }
     ],
@@ -457,6 +477,7 @@ Backed by `household_members` (doc 01). Service: `household`.
 - **Errors:** `NOT_FOUND` (caller not an active member).
 
 #### `PATCH /api/households/{householdId}/members/{memberId}` — Update member permissions
+
 - **Permission:** `can_remove_members` **or** `owner` (the role that manages
   membership; permission edits are an admin action).
 - **Request (any subset of role + `can_*` flags):**
@@ -473,6 +494,7 @@ Backed by `household_members` (doc 01). Service: `household`.
   `NOT_FOUND`, `CONFLICT` (attempt to demote/strip the **last** `owner`).
 
 #### `POST /api/households/{householdId}/members/{memberId}/remove` — Remove member
+
 - **Permission:** `can_remove_members` (or `owner`).
 - **Success — 200 OK:**
   ```json
@@ -484,6 +506,7 @@ Backed by `household_members` (doc 01). Service: `household`.
   removing self via this endpoint — use `leave`).
 
 #### `POST /api/households/{householdId}/leave` — Leave household
+
 - **Permission:** `(member)` acting on self.
 - **Success — 200 OK:**
   ```json
@@ -500,6 +523,7 @@ Backed by `meal_plans` / `meal_plan_items` (doc 01). Services: `mealPlan` (+
 `Idempotency-Key` (§3).
 
 #### `POST /api/households/{householdId}/meal-plans/today/generate` — Generate today's meal
+
 - **Permission:** `can_change_today_menu`.
 - **Headers:** `Idempotency-Key` (recommended).
 - **Request:**
@@ -532,6 +556,7 @@ Backed by `meal_plans` / `meal_plan_items` (doc 01). Services: `mealPlan` (+
   `date`), `FORBIDDEN`, `RATE_LIMITED`, `CONFLICT` (`idempotency_key_reused`).
 
 #### `POST /api/households/{householdId}/meal-plans/week/generate` — Generate weekly plan
+
 - **Permission:** `can_change_weekly_schedule`.
 - **Headers:** `Idempotency-Key` (recommended).
 - **Request:**
@@ -556,6 +581,7 @@ Backed by `meal_plans` / `meal_plan_items` (doc 01). Services: `mealPlan` (+
   plan already covers `startDate`; or `idempotency_key_reused`).
 
 #### `POST /api/meal-plan-items/{mealPlanItemId}/replace` — Replace a meal
+
 - **Permission:** `can_change_today_menu` (today) — guard reads the item's date
   and household from the row.
 - **Request:**
@@ -578,6 +604,7 @@ Backed by `meal_plans` / `meal_plan_items` (doc 01). Services: `mealPlan` (+
   is `locked`).
 
 #### `POST /api/meal-plan-items/{mealPlanItemId}/eating-out` — Mark eating out
+
 - **Permission:** `can_change_today_menu`.
 - **Request:** empty body (or `{}`).
 - **Success — 200 OK:**
@@ -589,6 +616,7 @@ Backed by `meal_plans` / `meal_plan_items` (doc 01). Services: `mealPlan` (+
 - **Errors:** `FORBIDDEN`, `NOT_FOUND`, `CONFLICT` (`locked`).
 
 #### `POST /api/meal-plan-items/{mealPlanItemId}/lock` — Lock a meal
+
 - **Permission:** `can_change_today_menu`.
 - **Success — 200 OK:**
   ```json
@@ -598,6 +626,7 @@ Backed by `meal_plans` / `meal_plan_items` (doc 01). Services: `mealPlan` (+
 - **Errors:** `FORBIDDEN`, `NOT_FOUND`.
 
 #### `POST /api/meal-plan-items/{mealPlanItemId}/unlock` — Unlock a meal
+
 - **Permission:** `can_change_today_menu`.
 - **Success — 200 OK:**
   ```json
@@ -610,6 +639,7 @@ Backed by `meal_plans` / `meal_plan_items` (doc 01). Services: `mealPlan` (+
 Backed by `grocery_lists` / `grocery_list_items` (doc 01). Service: `grocery`.
 
 #### `GET /api/households/{householdId}/grocery-list?mealPlanId={mealPlanId}` — Get grocery list
+
 - **Permission:** `(member)`.
 - **Query:** `mealPlanId` (required) — one list per plan
   (`unique (meal_plan_id)`).
@@ -638,6 +668,7 @@ Backed by `grocery_lists` / `grocery_list_items` (doc 01). Service: `grocery`.
   that plan in the caller's household).
 
 #### `POST /api/households/{householdId}/grocery-list/regenerate` — Regenerate grocery list
+
 - **Permission:** `can_manage_grocery_list`.
 - **Headers:** `Idempotency-Key` (recommended).
 - **Request:**
@@ -658,6 +689,7 @@ Backed by `grocery_lists` / `grocery_list_items` (doc 01). Service: `grocery`.
 Backed by `notifications` (doc 01). Service: `notification`. Recipient-scoped.
 
 #### `GET /api/notifications` — List notifications
+
 - **Permission:** authenticated user (own notifications;
   `recipient_user_id = auth.uid()`).
 - **Query:** `limit`, `cursor` (§1 cursor pagination — uses the
@@ -677,11 +709,15 @@ Backed by `notifications` (doc 01). Service: `notification`. Recipient-scoped.
         "createdAt": "2026-05-22T18:30:00Z"
       }
     ],
-    "page": { "nextCursor": "eyJjcmVhdGVkQXQiOiIyMDI2LTA1LTIyVDE4OjMwOjAwWiJ9", "hasMore": true }
+    "page": {
+      "nextCursor": "eyJjcmVhdGVkQXQiOiIyMDI2LTA1LTIyVDE4OjMwOjAwWiJ9",
+      "hasMore": true
+    }
   }
   ```
 
 #### `POST /api/notifications/{notificationId}/read` — Mark notification read
+
 - **Permission:** authenticated user (must be the recipient).
 - **Success — 200 OK:**
   ```json
@@ -795,32 +831,32 @@ guard (active membership plus the `household_members.can_*` flag or `role` from
 [doc 01](01_database_design.md)). `(member)` = active member, no extra flag;
 "auth" = any authenticated user; "public" = unauthenticated.
 
-| Method & Path | Service | Permission |
-|---------------|---------|------------|
-| `POST /api/households` | `household` | auth (becomes `owner`) |
-| `GET /api/households/{householdId}` | `household` | `(member)` |
-| `PATCH /api/households/{householdId}/preferences` | `household` | `can_edit_household_preferences` / `owner` |
-| `GET /api/onboarding/draft` | `onboarding` | auth (own draft) |
-| `PUT /api/onboarding/draft` | `onboarding` | auth (own draft) |
-| `POST /api/onboarding/complete` | `onboarding` | auth (own draft) |
-| `POST /api/households/{householdId}/invites` | `invite` | `can_invite_members` |
-| `GET /api/invites/{token}` | `invite` | public (token RPC) |
-| `POST /api/invites/{token}/accept` | `invite` | auth (acceptor) |
-| `POST /api/invites/{token}/decline` | `invite` | auth (invitee) |
-| `GET /api/households/{householdId}/members` | `household` | `(member)` |
-| `PATCH /api/households/{householdId}/members/{memberId}` | `household` | `can_remove_members` / `owner` |
-| `POST /api/households/{householdId}/members/{memberId}/remove` | `household` | `can_remove_members` / `owner` |
-| `POST /api/households/{householdId}/leave` | `household` | `(member)` (self) |
-| `POST /api/households/{householdId}/meal-plans/today/generate` | `mealPlan` + `recommendation` | `can_change_today_menu` |
-| `POST /api/households/{householdId}/meal-plans/week/generate` | `mealPlan` + `recommendation` | `can_change_weekly_schedule` |
-| `POST /api/meal-plan-items/{mealPlanItemId}/replace` | `mealPlan` | `can_change_today_menu` |
-| `POST /api/meal-plan-items/{mealPlanItemId}/eating-out` | `mealPlan` | `can_change_today_menu` |
-| `POST /api/meal-plan-items/{mealPlanItemId}/lock` | `mealPlan` | `can_change_today_menu` |
-| `POST /api/meal-plan-items/{mealPlanItemId}/unlock` | `mealPlan` | `can_change_today_menu` |
-| `GET /api/households/{householdId}/grocery-list` | `grocery` | `(member)` |
-| `POST /api/households/{householdId}/grocery-list/regenerate` | `grocery` | `can_manage_grocery_list` |
-| `GET /api/notifications` | `notification` | auth (recipient) |
-| `POST /api/notifications/{notificationId}/read` | `notification` | auth (recipient) |
+| Method & Path                                                  | Service                       | Permission                                 |
+| -------------------------------------------------------------- | ----------------------------- | ------------------------------------------ |
+| `POST /api/households`                                         | `household`                   | auth (becomes `owner`)                     |
+| `GET /api/households/{householdId}`                            | `household`                   | `(member)`                                 |
+| `PATCH /api/households/{householdId}/preferences`              | `household`                   | `can_edit_household_preferences` / `owner` |
+| `GET /api/onboarding/draft`                                    | `onboarding`                  | auth (own draft)                           |
+| `PUT /api/onboarding/draft`                                    | `onboarding`                  | auth (own draft)                           |
+| `POST /api/onboarding/complete`                                | `onboarding`                  | auth (own draft)                           |
+| `POST /api/households/{householdId}/invites`                   | `invite`                      | `can_invite_members`                       |
+| `GET /api/invites/{token}`                                     | `invite`                      | public (token RPC)                         |
+| `POST /api/invites/{token}/accept`                             | `invite`                      | auth (acceptor)                            |
+| `POST /api/invites/{token}/decline`                            | `invite`                      | auth (invitee)                             |
+| `GET /api/households/{householdId}/members`                    | `household`                   | `(member)`                                 |
+| `PATCH /api/households/{householdId}/members/{memberId}`       | `household`                   | `can_remove_members` / `owner`             |
+| `POST /api/households/{householdId}/members/{memberId}/remove` | `household`                   | `can_remove_members` / `owner`             |
+| `POST /api/households/{householdId}/leave`                     | `household`                   | `(member)` (self)                          |
+| `POST /api/households/{householdId}/meal-plans/today/generate` | `mealPlan` + `recommendation` | `can_change_today_menu`                    |
+| `POST /api/households/{householdId}/meal-plans/week/generate`  | `mealPlan` + `recommendation` | `can_change_weekly_schedule`               |
+| `POST /api/meal-plan-items/{mealPlanItemId}/replace`           | `mealPlan`                    | `can_change_today_menu`                    |
+| `POST /api/meal-plan-items/{mealPlanItemId}/eating-out`        | `mealPlan`                    | `can_change_today_menu`                    |
+| `POST /api/meal-plan-items/{mealPlanItemId}/lock`              | `mealPlan`                    | `can_change_today_menu`                    |
+| `POST /api/meal-plan-items/{mealPlanItemId}/unlock`            | `mealPlan`                    | `can_change_today_menu`                    |
+| `GET /api/households/{householdId}/grocery-list`               | `grocery`                     | `(member)`                                 |
+| `POST /api/households/{householdId}/grocery-list/regenerate`   | `grocery`                     | `can_manage_grocery_list`                  |
+| `GET /api/notifications`                                       | `notification`                | auth (recipient)                           |
+| `POST /api/notifications/{notificationId}/read`                | `notification`                | auth (recipient)                           |
 
 > Every permission above is enforced **twice**: once in the service-layer guard
 > (producing the typed errors in §2) and again by Postgres RLS using

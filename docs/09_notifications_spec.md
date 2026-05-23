@@ -1,15 +1,18 @@
 # Notification Specification
 
 ## Objective
+
 Notify household members about important meal, schedule, member, and prep changes.
 
 ## Notification channels
 
 ### MVP
+
 - In-app notifications
 - Email notifications for invites
 
 ### Later
+
 - Push notifications
 - WhatsApp notifications
 - SMS reminders
@@ -17,6 +20,7 @@ Notify household members about important meal, schedule, member, and prep change
 ## Notification events
 
 ### Meal events
+
 - meal_changed
 - meal_rejected
 - meal_marked_eating_out
@@ -26,16 +30,19 @@ Notify household members about important meal, schedule, member, and prep change
 - weekly_plan_updated
 
 ### Prep events
+
 - prep_task_due
 - prep_task_completed
 - prep_task_missed
 
 ### Grocery events
+
 - grocery_list_generated
 - grocery_list_updated
 - grocery_item_checked
 
 ### Household events
+
 - member_invited
 - invite_accepted
 - invite_declined
@@ -49,6 +56,7 @@ Notify household members about important meal, schedule, member, and prep change
 ## Notification content examples
 
 ### Meal changed
+
 Title:
 Dinner changed
 
@@ -56,6 +64,7 @@ Message:
 Aishvarya changed tonight's dinner from Rajma Rice to Paneer Bhurji.
 
 ### Eating out
+
 Title:
 Meal marked as eating out
 
@@ -63,6 +72,7 @@ Message:
 Riya marked Saturday dinner as eating out.
 
 ### Invite accepted
+
 Title:
 New household member
 
@@ -70,6 +80,7 @@ Message:
 Rahul joined Suhane Household as a guest until May 26.
 
 ### Prep reminder
+
 Title:
 Prep needed tonight
 
@@ -77,6 +88,7 @@ Message:
 Soak chickpeas by 9 PM for tomorrow's Chole Rice.
 
 ## Notification creation rules
+
 When a household event occurs:
 
 1. Identify all active household members.
@@ -88,6 +100,7 @@ When a household event occurs:
 ## Data model
 
 ### notifications
+
 Fields:
 
 - id
@@ -101,6 +114,7 @@ Fields:
 - created_at
 
 ## Notification preferences
+
 V2 table:
 
 notification_preferences
@@ -118,6 +132,7 @@ Fields:
 - grocery_updates_enabled
 
 ## MVP notification rules
+
 MVP should support:
 
 - In-app notifications for menu/schedule changes

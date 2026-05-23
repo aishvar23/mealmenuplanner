@@ -15,42 +15,43 @@ phases that follow the [MVP roadmap](docs/12_mvp_roadmap.md) and reference the
 
 ### Status legend
 
-| Marker | Meaning |
-|--------|---------|
-| `[ ]` | Not started |
-| `[~]` | In progress |
-| `[x]` | Done & verified |
-| `[!]` | Blocked (note why inline) |
+| Marker | Meaning                   |
+| ------ | ------------------------- |
+| `[ ]`  | Not started               |
+| `[~]`  | In progress               |
+| `[x]`  | Done & verified           |
+| `[!]`  | Blocked (note why inline) |
 
 ## Progress summary
 
-| Phase | Area | Done / Total | Status |
-|-------|------|--------------|--------|
-| — | Product specs (`docs/`) | ✅ | Complete |
-| — | Design docs (`design/`) | ✅ | Complete |
-| P0 | Project setup & schema | 1 / 16 | In progress |
-| P1 | Auth & household foundation | 0 / 8 | Not started |
-| P2 | Onboarding (save/resume) | 0 / 7 | Not started |
-| P3 | Dish admin / content | 0 / 8 | Not started |
-| P4 | Recommendation engine | 0 / 8 | Not started |
-| P5 | Meal planning | 0 / 7 | Not started |
-| P6 | Household collaboration | 0 / 9 | Not started |
-| P7 | Grocery & prep | 0 / 6 | Not started |
-| P8 | Notifications | 0 / 6 | Not started |
-| P9 | Beta hardening | 0 / 7 | Not started |
-| | **Total** | **1 / 82** | |
+| Phase | Area                        | Done / Total | Status      |
+| ----- | --------------------------- | ------------ | ----------- |
+| —     | Product specs (`docs/`)     | ✅           | Complete    |
+| —     | Design docs (`design/`)     | ✅           | Complete    |
+| P0    | Project setup & schema      | 2 / 16       | In progress |
+| P1    | Auth & household foundation | 0 / 8        | Not started |
+| P2    | Onboarding (save/resume)    | 0 / 7        | Not started |
+| P3    | Dish admin / content        | 0 / 8        | Not started |
+| P4    | Recommendation engine       | 0 / 8        | Not started |
+| P5    | Meal planning               | 0 / 7        | Not started |
+| P6    | Household collaboration     | 0 / 9        | Not started |
+| P7    | Grocery & prep              | 0 / 6        | Not started |
+| P8    | Notifications               | 0 / 6        | Not started |
+| P9    | Beta hardening              | 0 / 7        | Not started |
+|       | **Total**                   | **2 / 82**   |             |
 
-**Suggested next task:** `P0-2` (repo tooling: ESLint/Prettier/tsconfig/.env.example),
-then work P0 top-to-bottom — the schema migration (`P0-5`..`P0-12`) is the critical
-path everything depends on.
+**Suggested next task:** `P0-3` (create Supabase dev/prod projects + wire up the
+Supabase CLI), then work P0 top-to-bottom — the schema migration (`P0-5`..`P0-12`)
+is the critical path everything depends on.
 
 ---
 
 ## P0 — Project setup & schema
+
 > Design: [02](design/02_system_architecture.md), [01](design/01_database_design.md) · Roadmap: Phase 1 (Foundation)
 
 - [x] **P0-1** Scaffold Next.js (App Router) + TypeScript + Tailwind CSS + shadcn/ui; base folder layout per [design/02](design/02_system_architecture.md)
-- [ ] **P0-2** Repo tooling: ESLint, Prettier, `tsconfig`, `.gitattributes` (normalize LF), `.env.example`
+- [x] **P0-2** Repo tooling: ESLint, Prettier, `tsconfig`, `.gitattributes` (normalize LF), `.env.example`
 - [ ] **P0-3** Create Supabase **dev** and **prod** projects; wire up Supabase CLI + local dev
 - [ ] **P0-4** Supabase client factories: server (RLS, per-request JWT), browser (anon), service-role (jobs only) per [design/02](design/02_system_architecture.md)
 - [ ] **P0-5** Migration: extensions (`pgcrypto`, `pg_cron`, `pg_trgm`) + all enum types + `set_updated_at()` trigger fn
@@ -67,6 +68,7 @@ path everything depends on.
 - [ ] **P0-16** App shell (auth/app/admin layouts, navigation) + CI (lint, typecheck, test)
 
 ## P1 — Auth & household foundation
+
 > Design: [03](design/03_auth_and_security_design.md), [04](design/04_api_design.md) · Roadmap: Phase 1
 
 - [ ] **P1-1** Supabase Auth: Google OAuth (PKCE) sign-in + callback
@@ -79,6 +81,7 @@ path everything depends on.
 - [ ] **P1-8** Members read API: `GET /api/households/{id}/members`
 
 ## P2 — Onboarding (save/resume)
+
 > Design: [06](design/06_onboarding_design.md) · Roadmap: Phase 2
 
 - [ ] **P2-1** Multi-step onboarding wizard UI with forward/back navigation
@@ -90,6 +93,7 @@ path everything depends on.
 - [ ] **P2-7** Scheduled job: mark drafts `abandoned` after 30 days idle
 
 ## P3 — Dish admin / content
+
 > Design: [docs/06](docs/06_admin_operator_spec.md), [04](design/04_api_design.md) · Roadmap: Phase 3
 
 - [ ] **P3-1** Admin role gating + operator console shell
@@ -102,6 +106,7 @@ path everything depends on.
 - [ ] **P3-8** Activate/archive dish with quality-checklist validation before activation
 
 ## P4 — Recommendation engine
+
 > Design: [05](design/05_recommendation_engine_design.md) · Roadmap: Phase 4
 
 - [ ] **P4-1** Input loaders (household prefs, active members, candidate dishes for slot, recent history/feedback)
@@ -114,6 +119,7 @@ path everything depends on.
 - [ ] **P4-8** Unit tests over scoring with fixture households/dishes (pure functions)
 
 ## P5 — Meal planning
+
 > Design: [08](design/08_meal_planning_grocery_prep_design.md) · Roadmap: Phase 5
 
 - [ ] **P5-1** `POST .../meal-plans/today/generate` + Today screen (with recommendation reason)
@@ -125,6 +131,7 @@ path everything depends on.
 - [ ] **P5-7** Meal history view + mark cooked (feeds variety logic)
 
 ## P6 — Household collaboration
+
 > Design: [07](design/07_household_collaboration_design.md), [03](design/03_auth_and_security_design.md) · Roadmap: Phase 6
 
 - [ ] **P6-1** Create invite: `POST .../invites` (hashed-at-rest token, expiry, email send)
@@ -138,6 +145,7 @@ path everything depends on.
 - [ ] **P6-9** Temporary-guest expiry: `expire_guests` scheduled job + real-time `expires_at > now()` checks
 
 ## P7 — Grocery & prep
+
 > Design: [08](design/08_meal_planning_grocery_prep_design.md) · Roadmap: Phase 7
 
 - [ ] **P7-1** Grocery generation algorithm: aggregate `dish_ingredients`, scale by `family_size`, merge same ingredient+unit, group by category
@@ -148,6 +156,7 @@ path everything depends on.
 - [ ] **P7-6** `prep_reminders` hourly scheduled job (timezone-aware)
 
 ## P8 — Notifications
+
 > Design: [09](design/09_notifications_design.md) · Roadmap: Phase 8
 
 - [ ] **P8-1** `lib/events` activity-event writer (one `household_activity_events` row per domain change)
@@ -158,6 +167,7 @@ path everything depends on.
 - [ ] **P8-6** Wire menu/schedule/member-change events into the relevant services
 
 ## P9 — Beta hardening
+
 > Design: [docs/13](docs/13_success_metrics.md) · Roadmap: Phase 9
 
 - [ ] **P9-1** Analytics/metrics events (north-star + activation/engagement metrics)
