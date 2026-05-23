@@ -64,11 +64,13 @@ schema by hand (design/02 § Environments).
 - **Email / magic link** work out of the box; messages are captured by Inbucket
   (http://127.0.0.1:54324) rather than actually sent. Email confirmation is off
   locally for convenience (`[auth.email].enable_confirmations`); prod requires it.
-- **Google OAuth** is scaffolded in `config.toml` as `[auth.external.google]` but
-  **disabled** so the stack starts without credentials. To test it locally
-  (wired up in task P1-1): set `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` and
+- **Google OAuth** is wired up in P1-1 and `enabled = true` in `config.toml`
+  (`[auth.external.google]`, env-based creds). Because we run against the **cloud
+  dev project** (no Docker here), enable Google and paste its client ID/secret in
+  the **dashboard** (Authentication → Providers → Google) — not in the app env.
+  For the _local_ stack instead, set `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` and
   `SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET` (the CLI auto-loads `.env`, or pass
-  `supabase start --env-file .env.local`), then flip `enabled = true`.
+  `supabase start --env-file .env.local`).
 
 ## Cloud projects (dev + prod) — one-time, account owner only
 
@@ -110,13 +112,27 @@ and prod isolated (design/02 § Environments).
    (`.env.local` for local against a cloud DB; Vercel env vars for deploys).
    `SUPABASE_SERVICE_ROLE_KEY` is server-only — never expose it to the browser.
 
-### Production auth checklist (set in the dashboard, not committed)
+### Production domain & auth checklist (set in the dashboard, not committed)
 
-- Site URL + redirect allow-list pointing at the deployed Vercel domain
-  (`<domain>/auth/callback`).
-- Google OAuth client configured with the project's
-  `https://<ref>.supabase.co/auth/v1/callback` redirect URI.
-- Email confirmation **enabled** and an SMTP/transactional sender configured.
+**Production domain: `mymealtoday.com`** — the Next.js app on Vercel. There are
+**two callback URLs in two different places**; don't mix them up:
+
+- **Google** (Authorized redirect URI) → always the **Supabase** endpoint, which
+  stays on `*.supabase.co` regardless of the app domain:
+  `https://<ref>.supabase.co/auth/v1/callback` (dev ref `dultruvperqxtqtbochp`; use
+  the prod ref for prod). This only changes if you adopt a Supabase **Custom
+  Domain** add-on.
+- **Supabase** (Site URL + Redirect URLs allow-list) → the **app** route
+  `/auth/callback`: add `https://mymealtoday.com/auth/callback` (and the `www.`
+  variant if used) for prod, and keep `http://localhost:3000/auth/callback` for
+  dev.
+
+Also set `NEXT_PUBLIC_SITE_URL=https://mymealtoday.com` in the Vercel (prod) env.
+
+Remaining prod items: email confirmation **enabled** with an SMTP/transactional
+sender; the OAuth consent screen **Published** (or your test users added) — only
+the non-sensitive `email`/`profile`/`openid` scopes are requested, so full Google
+verification isn't required for the beta.
 
 > The `db:link` step writes `supabase/.temp/` (gitignored). Project refs are not
 > secret, but access tokens and keys are — they live only in env vars / your
