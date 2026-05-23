@@ -28,7 +28,7 @@ phases that follow the [MVP roadmap](docs/12_mvp_roadmap.md) and reference the
 | ----- | --------------------------- | ------------ | ----------- |
 | —     | Product specs (`docs/`)     | ✅           | Complete    |
 | —     | Design docs (`design/`)     | ✅           | Complete    |
-| P0    | Project setup & schema      | 10 / 16      | In progress |
+| P0    | Project setup & schema      | 11 / 16      | In progress |
 | P1    | Auth & household foundation | 0 / 8        | Not started |
 | P2    | Onboarding (save/resume)    | 0 / 7        | Not started |
 | P3    | Dish admin / content        | 0 / 8        | Not started |
@@ -38,10 +38,15 @@ phases that follow the [MVP roadmap](docs/12_mvp_roadmap.md) and reference the
 | P7    | Grocery & prep              | 0 / 6        | Not started |
 | P8    | Notifications               | 0 / 6        | Not started |
 | P9    | Beta hardening              | 0 / 7        | Not started |
-|       | **Total**                   | **10 / 82**  |             |
+|       | **Total**                   | **11 / 82**  |             |
 
-**Suggested next task:** `P0-12` (enable RLS + all policies) — the critical
-path everything else depends on. **Workflow now proven:** author the migration as
+**Suggested next task:** the schema (`P0-5`..`P0-12`) is **complete** and live on
+the cloud dev project. Next up are the remaining P0 foundations: `P0-13`
+(`auth.users` → `public.users` provisioning trigger — completes the identity
+story and unblocks P1 auth), then `P0-15` (`lib/errors`) and `P0-16` (app shell +
+CI). `P0-14` (seed) can follow once dish content is ready. Optional: a follow-up
+to clear the 45 `multiple_permissive_policies` perf warnings (split the `for all`
+policies into per-command + scope `to authenticated`). **Workflow now proven:** author the migration as
 a file under `supabase/migrations/`, apply to the cloud dev project
 (`dultruvperqxtqtbochp`) via the Supabase MCP `apply_migration`, then rename the
 local file to match the version the MCP records so file + remote history stay in
@@ -66,7 +71,7 @@ launch (see [supabase/README.md](supabase/README.md)).
 - [x] **P0-9** Migration: audit/notification tables (`household_activity_events`, `notifications`) — _applied to cloud dev (migration `20260523124339`); 2 tables verified (5 FKs, `actor_user_id` ON DELETE SET NULL on both, `recipient_user_id` CASCADE, append-only so no updated_at triggers). All 19 MVP tables now exist (V2 `notification_preferences` deferred). Standalone indexes deferred to P0-10._
 - [x] **P0-10** Migration: all indexes + unique/check constraints from [design/01](design/01_database_design.md) — _applied to cloud dev (migration `20260523124631`); all 22 standalone indexes verified present, incl. 2 GIN (`ix_dishes_meal_slots_gin`, `ix_dishes_name_trgm` via `extensions.gin_trgm_ops`) and the 3 partial-unique invariants (`uq_one_active_draft_per_user`, `uq_one_live_membership`, `uq_active_plan_per_start`). Inline CHECK/UNIQUE constraints already shipped with their tables in P0-6..P0-9._
 - [x] **P0-11** Migration: RLS helper fns `is_active_member()`, `has_permission()` — _applied to cloud dev (migration `20260523125031`); both SECURITY DEFINER + STABLE, `search_path=''` with fully-qualified `public.household_members` (hardened over the doc's `=public`), real-time `expires_at > now()` check. Smoke-tested (return false, no error). Followed by hardening migration `20260523125527` (per user decision): REVOKE EXECUTE from anon/PUBLIC on both helpers + the pre-existing `rls_auto_enable`, keeping `authenticated`+`service_role` on the helpers (required for P0-12 policies). Verified — all 3 anon (0028) warnings cleared and `rls_auto_enable` fully locked; the 2 self-scoped `authenticated` (0029) WARNs on the helpers remain by design._
-- [ ] **P0-12** Migration: enable RLS + policies on every household-scoped + content table ([design/03](design/03_auth_and_security_design.md))
+- [x] **P0-12** Migration: enable RLS + policies on every household-scoped + content table ([design/03](design/03_auth_and_security_design.md)) — _applied to cloud dev (migration `20260523130250`); RLS enabled on all 19 tables with 43 policies (none missing). Security advisor clean except the 2 intended self-scoped helper WARNs; the 19 `rls_enabled_no_policy` INFOs are cleared. `auth.uid()`/`auth.jwt()` wrapped as `(select …)` → 0 `auth_rls_initplan` perf warnings. Open: 45 `multiple_permissive_policies` (perf WARN) from the doc's `for all` read/write overlap — optional cleanup pending. Several interpretation calls documented in the migration header (users self-only, meal_plan(_items) today-OR-weekly write backstop, content reads join to active dish)._
 - [ ] **P0-13** `auth.users` → public `users` profile provisioning trigger
 - [ ] **P0-14** Seed: ingredient catalog + 100 starter dishes (active only after quality checklist, [docs/06](docs/06_admin_operator_spec.md))
 - [ ] **P0-15** `lib/errors` typed domain errors + single error→response boundary ([design/02](design/02_system_architecture.md), [design/04](design/04_api_design.md))
