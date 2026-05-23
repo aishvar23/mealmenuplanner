@@ -1,18 +1,28 @@
+import type { User } from "@supabase/supabase-js";
 import { Bell } from "lucide-react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { AppNav } from "@/components/app-nav";
 import { buttonVariants } from "@/components/ui/button";
+import { getAuthUser } from "@/lib/auth";
 
 /**
  * Authenticated app shell (Today / Plan / Grocery / Household / Notifications).
  *
- * This is the visual shell only. Auth gating — resolving the session and
- * redirecting unauthenticated users to /sign-in — is added with the route
- * middleware in P1-3 (design/03 § 1).
+ * Auth is gated at two layers (design/03 § 1, § 3): the edge proxy (`proxy.ts`)
+ * refreshes the session and redirects unauthenticated visitors to /sign-in
+ * before the request reaches here, and this server component re-resolves the
+ * verified user as a defense-in-depth backstop (and to render member-specific
+ * UI). Nothing in the shell trusts the cookie without `getAuthUser()`.
  */
-export default function AppLayout({ children }: { children: ReactNode }) {
+export default async function AppLayout({ children }: { children: ReactNode }) {
+  const user = await getAuthUser();
+  if (!user) {
+    redirect("/sign-in");
+  }
+
   return (
     <div className="flex min-h-full flex-1 flex-col">
       <header className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
@@ -34,7 +44,13 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             >
               <Bell />
             </Link>
-            <div aria-hidden className="ml-1 size-7 rounded-full bg-muted" />
+            <div
+              className="ml-1 flex size-7 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary"
+              title={user.email ?? undefined}
+              aria-label={`Signed in as ${user.email ?? "your account"}`}
+            >
+              {accountInitial(user)}
+            </div>
           </div>
         </div>
         {/* Stacked nav on small screens. */}
@@ -45,4 +61,14 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       <main className="flex-1">{children}</main>
     </div>
   );
+}
+
+/** First letter of the member's name (or email) for the avatar placeholder. */
+function accountInitial(user: User): string {
+  const meta = user.user_metadata as {
+    full_name?: string;
+    name?: string;
+  };
+  const source = meta.full_name ?? meta.name ?? user.email ?? "";
+  return source.trim().charAt(0).toUpperCase() || "?";
 }

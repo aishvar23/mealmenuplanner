@@ -36,7 +36,7 @@ export async function createServerSupabaseClient(): Promise<
         } catch {
           // `setAll` was called from a Server Component, where cookie writes
           // are not allowed. Safe to ignore: session refresh happens in the
-          // route middleware (P1-3), which can write cookies.
+          // edge proxy (`proxy.ts`), which can write cookies.
         }
       },
     },
