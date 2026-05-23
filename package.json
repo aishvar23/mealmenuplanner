@@ -11,6 +11,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "db:start": "supabase start",
     "db:stop": "supabase stop",
     "db:status": "supabase status",
@@ -48,6 +50,7 @@
     "prettier-plugin-tailwindcss": "^0.8.0",
     "supabase": "^2.101.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.7"
   }
 }

@@ -42,9 +42,10 @@ phases that follow the [MVP roadmap](docs/12_mvp_roadmap.md) and reference the
 
 **Suggested next task:** the schema + identity layer (`P0-5`..`P0-13`) and
 `P0-15` (`lib/errors`) are **complete**; the schema is live on the cloud dev
-project. The main P0 item left is `P0-16` (app shell layouts, navigation, and CI:
-lint/typecheck/test). `P0-14` (seed: the ingredient catalog and 100 starter
-dishes) can follow once dish content is authored. The advisor is clean (security:
+project. `P0-16` is **in progress**: its CI + test half is done (Vitest +
+`.github/workflows/ci.yml`); the remaining half is the app-shell layouts
+(auth/app/admin) + navigation. `P0-14` (seed: the ingredient catalog and 100
+starter dishes) can follow once dish content is authored. The advisor is clean (security:
 only the 2 intended self-scoped helper WARNs; performance: 0 WARN, only expected
 INFO on the empty DB). **DB workflow proven:** author each migration as a file
 under `supabase/migrations/`, apply to the cloud dev project
@@ -75,7 +76,7 @@ the account owner creating a separate **prod** project before launch (see
 - [x] **P0-13** `auth.users` → public `users` profile provisioning trigger — _applied to cloud dev (migration `20260523131356`); `handle_new_auth_user()` SECURITY DEFINER (`search_path=''`, qualified, execute revoked from anon/authenticated/public) + `trg_provision_user_profile` after-insert trigger on `auth.users`. Verified live: a throwaway `auth.users` insert provisioned `public.users` with correct mapping (display_name←full_name, avatar_url, auth_provider←google); delete cascaded both rows. Advisor unchanged (no new WARN)._
 - [ ] **P0-14** Seed: ingredient catalog + 100 starter dishes (active only after quality checklist, [docs/06](docs/06_admin_operator_spec.md))
 - [x] **P0-15** `lib/errors` typed domain errors + single error→response boundary ([design/02](design/02_system_architecture.md), [design/04](design/04_api_design.md)) — _7 typed errors (`ValidationError`/`Unauthenticated`/`Forbidden`/`NotFound`/`Conflict`/`RateLimited`/`Internal`) extending a `DomainError` base with stable `code` + `httpStatus`; `boundary.ts` maps any throw → the design/04 §2 envelope (`toErrorEnvelope`, `errorResponse`, `withErrorBoundary`), non-domain errors → generic INTERNAL 500 logged server-side, `RateLimitedError` sets `Retry-After`. typecheck + lint + format clean. Unit tests deferred to P0-16 (no test runner yet)._
-- [ ] **P0-16** App shell (auth/app/admin layouts, navigation) + CI (lint, typecheck, test)
+- [~] **P0-16** App shell (auth/app/admin layouts, navigation) + CI (lint, typecheck, test) — _CI + tests done (split per request): Vitest configured (`vitest.config.ts`, node env, `@/` alias mirroring tsconfig), `test`/`test:watch` scripts, 13 `lib/errors` unit tests (all green), and `.github/workflows/ci.yml` running lint · format · typecheck · test · build on push/PR (Node 22, npm cache). All steps verified locally. **Remaining:** app-shell layouts (auth/app/admin) + navigation._
 
 ## P1 — Auth & household foundation
 
