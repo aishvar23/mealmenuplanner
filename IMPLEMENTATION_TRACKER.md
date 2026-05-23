@@ -28,7 +28,7 @@ phases that follow the [MVP roadmap](docs/12_mvp_roadmap.md) and reference the
 | ----- | --------------------------- | ------------ | ----------- |
 | —     | Product specs (`docs/`)     | ✅           | Complete    |
 | —     | Design docs (`design/`)     | ✅           | Complete    |
-| P0    | Project setup & schema      | 5 / 16       | In progress |
+| P0    | Project setup & schema      | 6 / 16       | In progress |
 | P1    | Auth & household foundation | 0 / 8        | Not started |
 | P2    | Onboarding (save/resume)    | 0 / 7        | Not started |
 | P3    | Dish admin / content        | 0 / 8        | Not started |
@@ -38,9 +38,9 @@ phases that follow the [MVP roadmap](docs/12_mvp_roadmap.md) and reference the
 | P7    | Grocery & prep              | 0 / 6        | Not started |
 | P8    | Notifications               | 0 / 6        | Not started |
 | P9    | Beta hardening              | 0 / 7        | Not started |
-|       | **Total**                   | **5 / 82**   |             |
+|       | **Total**                   | **6 / 82**   |             |
 
-**Suggested next task:** `P0-7`..`P0-12` (the rest of the schema) — the critical
+**Suggested next task:** `P0-8`..`P0-12` (the rest of the schema) — the critical
 path everything else depends on. **Workflow now proven:** author the migration as
 a file under `supabase/migrations/`, apply to the cloud dev project
 (`dultruvperqxtqtbochp`) via the Supabase MCP `apply_migration`, then rename the
@@ -61,7 +61,7 @@ launch (see [supabase/README.md](supabase/README.md)).
 - [x] **P0-4** Supabase client factories: server (RLS, per-request JWT), browser (anon), service-role (jobs only) per [design/02](design/02_system_architecture.md)
 - [x] **P0-5** Migration: extensions (`pgcrypto`, `pg_cron`, `pg_trgm`) + all enum types + `set_updated_at()` trigger fn — _applied to cloud dev project `dultruvperqxtqtbochp` (migration `20260523033224`); verified 3 extensions, 17 enums, fn present._
 - [x] **P0-6** Migration: identity/household tables (`users`, `households`, `household_preferences`, `household_members`, `household_profile_drafts`, `household_invites`, `user_food_preferences`) — _applied to cloud dev (migration `20260523034352`); 7 tables verified (9 checks, 13 FKs, 7 updated_at triggers, RLS auto-enabled). Standalone + partial-unique indexes deferred to P0-10; per-table `set_updated_at` triggers attached here._
-- [ ] **P0-7** Migration: content tables (`dishes`, `ingredients`, `dish_ingredients`, `dish_prep_tasks`, `dish_pairings`)
+- [x] **P0-7** Migration: content tables (`dishes`, `ingredients`, `dish_ingredients`, `dish_prep_tasks`, `dish_pairings`) — _applied to cloud dev (migration `20260523034643`); 5 tables verified (5 checks incl. `no_self_pair`, 5 FKs incl. `ingredient_id` ON DELETE RESTRICT, `dishes.total_time_minutes` stored-generated, 5 updated_at triggers, RLS auto-enabled). Standalone indexes deferred to P0-10._
 - [ ] **P0-8** Migration: planning tables (`meal_plans`, `meal_plan_items`, `meal_feedback`, `grocery_lists`, `grocery_list_items`)
 - [ ] **P0-9** Migration: audit/notification tables (`household_activity_events`, `notifications`)
 - [ ] **P0-10** Migration: all indexes + unique/check constraints from [design/01](design/01_database_design.md)
