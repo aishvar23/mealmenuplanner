@@ -28,7 +28,7 @@ phases that follow the [MVP roadmap](docs/12_mvp_roadmap.md) and reference the
 | ----- | --------------------------- | ------------ | ----------- |
 | —     | Product specs (`docs/`)     | ✅           | Complete    |
 | —     | Design docs (`design/`)     | ✅           | Complete    |
-| P0    | Project setup & schema      | 13 / 16      | In progress |
+| P0    | Project setup & schema      | 14 / 16      | In progress |
 | P1    | Auth & household foundation | 0 / 8        | Not started |
 | P2    | Onboarding (save/resume)    | 0 / 7        | Not started |
 | P3    | Dish admin / content        | 0 / 8        | Not started |
@@ -38,14 +38,16 @@ phases that follow the [MVP roadmap](docs/12_mvp_roadmap.md) and reference the
 | P7    | Grocery & prep              | 0 / 6        | Not started |
 | P8    | Notifications               | 0 / 6        | Not started |
 | P9    | Beta hardening              | 0 / 7        | Not started |
-|       | **Total**                   | **13 / 82**  |             |
+|       | **Total**                   | **14 / 82**  |             |
 
-**Suggested next task:** the schema + identity layer (`P0-5`..`P0-13`) and
-`P0-15` (`lib/errors`) are **complete**; the schema is live on the cloud dev
-project. `P0-16` is **in progress**: its CI + test half is done (Vitest +
-`.github/workflows/ci.yml`); the remaining half is the app-shell layouts
-(auth/app/admin) + navigation. `P0-14` (seed: the ingredient catalog and 100
-starter dishes) can follow once dish content is authored. The advisor is clean (security:
+**Suggested next task:** **P0 is effectively done** — schema + identity
+(`P0-5`..`P0-13`), `P0-15` (`lib/errors`), and `P0-16` (CI + app shell) are all
+complete and the schema is live on the cloud dev project. Only `P0-14` (seed:
+ingredient catalog + 100 starter dishes, needs dish content authored first) and
+`P0-3`'s prod-project step remain. **Next phase is P1 (auth & household
+foundation)** — start with `P1-1` (Google OAuth sign-in + callback) and `P1-3`
+(server-side session resolution + route middleware), which build on P0-13, the
+P0-4 client factories, and the `(auth)`/`(app)` shells. The advisor is clean (security:
 only the 2 intended self-scoped helper WARNs; performance: 0 WARN, only expected
 INFO on the empty DB). **DB workflow proven:** author each migration as a file
 under `supabase/migrations/`, apply to the cloud dev project
@@ -76,7 +78,7 @@ the account owner creating a separate **prod** project before launch (see
 - [x] **P0-13** `auth.users` → public `users` profile provisioning trigger — _applied to cloud dev (migration `20260523131356`); `handle_new_auth_user()` SECURITY DEFINER (`search_path=''`, qualified, execute revoked from anon/authenticated/public) + `trg_provision_user_profile` after-insert trigger on `auth.users`. Verified live: a throwaway `auth.users` insert provisioned `public.users` with correct mapping (display_name←full_name, avatar_url, auth_provider←google); delete cascaded both rows. Advisor unchanged (no new WARN)._
 - [ ] **P0-14** Seed: ingredient catalog + 100 starter dishes (active only after quality checklist, [docs/06](docs/06_admin_operator_spec.md))
 - [x] **P0-15** `lib/errors` typed domain errors + single error→response boundary ([design/02](design/02_system_architecture.md), [design/04](design/04_api_design.md)) — _7 typed errors (`ValidationError`/`Unauthenticated`/`Forbidden`/`NotFound`/`Conflict`/`RateLimited`/`Internal`) extending a `DomainError` base with stable `code` + `httpStatus`; `boundary.ts` maps any throw → the design/04 §2 envelope (`toErrorEnvelope`, `errorResponse`, `withErrorBoundary`), non-domain errors → generic INTERNAL 500 logged server-side, `RateLimitedError` sets `Retry-After`. typecheck + lint + format clean. Unit tests deferred to P0-16 (no test runner yet)._
-- [~] **P0-16** App shell (auth/app/admin layouts, navigation) + CI (lint, typecheck, test) — _CI + tests done (split per request): Vitest configured (`vitest.config.ts`, node env, `@/` alias mirroring tsconfig), `test`/`test:watch` scripts, 13 `lib/errors` unit tests (all green), and `.github/workflows/ci.yml` running lint · format · typecheck · test · build on push/PR (Node 22, npm cache). All steps verified locally. **Remaining:** app-shell layouts (auth/app/admin) + navigation._
+- [x] **P0-16** App shell (auth/app/admin layouts, navigation) + CI (lint, typecheck, test) — _**CI/tests:** Vitest (`vitest.config.ts`, node env, `@/` alias), `test`/`test:watch` scripts, 13 `lib/errors` tests, `.github/workflows/ci.yml` (lint · format · typecheck · test · build on push/PR, Node 22). **App shell:** layouts for `(app)` (header + responsive `AppNav`: Today/Plan/Grocery/Household + notifications), `admin` (Operator Console + `AdminNav`), and `(auth)` (centered); placeholder pages for the nav targets + sign-in; branded landing replacing the boilerplate; root metadata fixed. Build prerenders all 11 routes; full CI sequence green locally._
 
 ## P1 — Auth & household foundation
 
