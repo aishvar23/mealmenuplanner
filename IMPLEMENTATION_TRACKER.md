@@ -28,7 +28,7 @@ phases that follow the [MVP roadmap](docs/12_mvp_roadmap.md) and reference the
 | ----- | --------------------------- | ------------ | ----------- |
 | —     | Product specs (`docs/`)     | ✅           | Complete    |
 | —     | Design docs (`design/`)     | ✅           | Complete    |
-| P0    | Project setup & schema      | 8 / 16       | In progress |
+| P0    | Project setup & schema      | 9 / 16       | In progress |
 | P1    | Auth & household foundation | 0 / 8        | Not started |
 | P2    | Onboarding (save/resume)    | 0 / 7        | Not started |
 | P3    | Dish admin / content        | 0 / 8        | Not started |
@@ -38,9 +38,9 @@ phases that follow the [MVP roadmap](docs/12_mvp_roadmap.md) and reference the
 | P7    | Grocery & prep              | 0 / 6        | Not started |
 | P8    | Notifications               | 0 / 6        | Not started |
 | P9    | Beta hardening              | 0 / 7        | Not started |
-|       | **Total**                   | **8 / 82**   |             |
+|       | **Total**                   | **9 / 82**   |             |
 
-**Suggested next task:** `P0-10`..`P0-12` (indexes + RLS) — the critical
+**Suggested next task:** `P0-11`..`P0-12` (RLS helpers + policies) — the critical
 path everything else depends on. **Workflow now proven:** author the migration as
 a file under `supabase/migrations/`, apply to the cloud dev project
 (`dultruvperqxtqtbochp`) via the Supabase MCP `apply_migration`, then rename the
@@ -64,7 +64,7 @@ launch (see [supabase/README.md](supabase/README.md)).
 - [x] **P0-7** Migration: content tables (`dishes`, `ingredients`, `dish_ingredients`, `dish_prep_tasks`, `dish_pairings`) — _applied to cloud dev (migration `20260523034643`); 5 tables verified (5 checks incl. `no_self_pair`, 5 FKs incl. `ingredient_id` ON DELETE RESTRICT, `dishes.total_time_minutes` stored-generated, 5 updated_at triggers, RLS auto-enabled). Standalone indexes deferred to P0-10._
 - [x] **P0-8** Migration: planning tables (`meal_plans`, `meal_plan_items`, `meal_feedback`, `grocery_lists`, `grocery_list_items`) — _applied to cloud dev (migration `20260523123828`); 5 tables verified (2 checks, 13 FKs, nullable `dish_id`/`ingredient_id` ON DELETE SET NULL, 4 updated_at triggers — `meal_feedback` is append-only with none). Standalone indexes incl. `uq_active_plan_per_start` deferred to P0-10._
 - [x] **P0-9** Migration: audit/notification tables (`household_activity_events`, `notifications`) — _applied to cloud dev (migration `20260523124339`); 2 tables verified (5 FKs, `actor_user_id` ON DELETE SET NULL on both, `recipient_user_id` CASCADE, append-only so no updated_at triggers). All 19 MVP tables now exist (V2 `notification_preferences` deferred). Standalone indexes deferred to P0-10._
-- [ ] **P0-10** Migration: all indexes + unique/check constraints from [design/01](design/01_database_design.md)
+- [x] **P0-10** Migration: all indexes + unique/check constraints from [design/01](design/01_database_design.md) — _applied to cloud dev (migration `20260523124631`); all 22 standalone indexes verified present, incl. 2 GIN (`ix_dishes_meal_slots_gin`, `ix_dishes_name_trgm` via `extensions.gin_trgm_ops`) and the 3 partial-unique invariants (`uq_one_active_draft_per_user`, `uq_one_live_membership`, `uq_active_plan_per_start`). Inline CHECK/UNIQUE constraints already shipped with their tables in P0-6..P0-9._
 - [ ] **P0-11** Migration: RLS helper fns `is_active_member()`, `has_permission()`
 - [ ] **P0-12** Migration: enable RLS + policies on every household-scoped + content table ([design/03](design/03_auth_and_security_design.md))
 - [ ] **P0-13** `auth.users` → public `users` profile provisioning trigger
