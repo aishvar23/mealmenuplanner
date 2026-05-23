@@ -40,9 +40,11 @@ phases that follow the [MVP roadmap](docs/12_mvp_roadmap.md) and reference the
 | P9    | Beta hardening              | 0 / 7        | Not started |
 |       | **Total**                   | **2 / 82**   |             |
 
-**Suggested next task:** `P0-3` (create Supabase dev/prod projects + wire up the
-Supabase CLI), then work P0 top-to-bottom — the schema migration (`P0-5`..`P0-12`)
-is the critical path everything depends on.
+**Suggested next task:** `P0-4` (Supabase client factories), which can be built
+against the local stack. `P0-3` is wired up in-repo (CLI + `config.toml` +
+`db:*` scripts + setup guide); its only remaining piece is the account owner
+creating + linking the cloud dev/prod projects (see [supabase/README.md](supabase/README.md)).
+The schema migration (`P0-5`..`P0-12`) is the critical path everything depends on.
 
 ---
 
@@ -52,7 +54,7 @@ is the critical path everything depends on.
 
 - [x] **P0-1** Scaffold Next.js (App Router) + TypeScript + Tailwind CSS + shadcn/ui; base folder layout per [design/02](design/02_system_architecture.md)
 - [x] **P0-2** Repo tooling: ESLint, Prettier, `tsconfig`, `.gitattributes` (normalize LF), `.env.example`
-- [ ] **P0-3** Create Supabase **dev** and **prod** projects; wire up Supabase CLI + local dev
+- [~] **P0-3** Create Supabase **dev** and **prod** projects; wire up Supabase CLI + local dev — _CLI pinned as dev dep, `supabase init` + tuned `config.toml` (auth, redirects, Google provider scaffold), `db:*` npm scripts, and `supabase/README.md` setup guide are done. Remaining: account owner runs `supabase login`, creates the two cloud projects, and `supabase link` per [supabase/README.md](supabase/README.md) (needs Docker for the local stack)._
 - [ ] **P0-4** Supabase client factories: server (RLS, per-request JWT), browser (anon), service-role (jobs only) per [design/02](design/02_system_architecture.md)
 - [ ] **P0-5** Migration: extensions (`pgcrypto`, `pg_cron`, `pg_trgm`) + all enum types + `set_updated_at()` trigger fn
 - [ ] **P0-6** Migration: identity/household tables (`users`, `households`, `household_preferences`, `household_members`, `household_profile_drafts`, `household_invites`, `user_food_preferences`)
