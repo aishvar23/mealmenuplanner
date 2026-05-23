@@ -28,7 +28,7 @@ phases that follow the [MVP roadmap](docs/12_mvp_roadmap.md) and reference the
 | ----- | --------------------------- | ------------ | ----------- |
 | —     | Product specs (`docs/`)     | ✅           | Complete    |
 | —     | Design docs (`design/`)     | ✅           | Complete    |
-| P0    | Project setup & schema      | 2 / 16       | In progress |
+| P0    | Project setup & schema      | 4 / 16       | In progress |
 | P1    | Auth & household foundation | 0 / 8        | Not started |
 | P2    | Onboarding (save/resume)    | 0 / 7        | Not started |
 | P3    | Dish admin / content        | 0 / 8        | Not started |
@@ -38,13 +38,16 @@ phases that follow the [MVP roadmap](docs/12_mvp_roadmap.md) and reference the
 | P7    | Grocery & prep              | 0 / 6        | Not started |
 | P8    | Notifications               | 0 / 6        | Not started |
 | P9    | Beta hardening              | 0 / 7        | Not started |
-|       | **Total**                   | **2 / 82**   |             |
+|       | **Total**                   | **4 / 82**   |             |
 
-**Suggested next task:** `P0-4` (Supabase client factories), which can be built
-against the local stack. `P0-3` is wired up in-repo (CLI + `config.toml` +
-`db:*` scripts + setup guide); its only remaining piece is the account owner
-creating + linking the cloud dev/prod projects (see [supabase/README.md](supabase/README.md)).
-The schema migration (`P0-5`..`P0-12`) is the critical path everything depends on.
+**Suggested next task:** `P0-6`..`P0-12` (the rest of the schema) — the critical
+path everything else depends on. **Workflow now proven:** author the migration as
+a file under `supabase/migrations/`, apply to the cloud dev project
+(`dultruvperqxtqtbochp`) via the Supabase MCP `apply_migration`, then rename the
+local file to match the version the MCP records so file + remote history stay in
+sync. Docker is not required for this. `P0-3` is wired up in-repo; its only
+remaining piece is the account owner creating a separate **prod** project before
+launch (see [supabase/README.md](supabase/README.md)).
 
 ---
 
@@ -55,8 +58,8 @@ The schema migration (`P0-5`..`P0-12`) is the critical path everything depends o
 - [x] **P0-1** Scaffold Next.js (App Router) + TypeScript + Tailwind CSS + shadcn/ui; base folder layout per [design/02](design/02_system_architecture.md)
 - [x] **P0-2** Repo tooling: ESLint, Prettier, `tsconfig`, `.gitattributes` (normalize LF), `.env.example`
 - [~] **P0-3** Create Supabase **dev** and **prod** projects; wire up Supabase CLI + local dev — _CLI pinned as dev dep, `supabase init` + tuned `config.toml` (auth, redirects, Google provider scaffold), `db:*` npm scripts, and `supabase/README.md` setup guide are done. Remaining: account owner runs `supabase login`, creates the two cloud projects, and `supabase link` per [supabase/README.md](supabase/README.md) (needs Docker for the local stack)._
-- [ ] **P0-4** Supabase client factories: server (RLS, per-request JWT), browser (anon), service-role (jobs only) per [design/02](design/02_system_architecture.md)
-- [ ] **P0-5** Migration: extensions (`pgcrypto`, `pg_cron`, `pg_trgm`) + all enum types + `set_updated_at()` trigger fn
+- [x] **P0-4** Supabase client factories: server (RLS, per-request JWT), browser (anon), service-role (jobs only) per [design/02](design/02_system_architecture.md)
+- [x] **P0-5** Migration: extensions (`pgcrypto`, `pg_cron`, `pg_trgm`) + all enum types + `set_updated_at()` trigger fn — _applied to cloud dev project `dultruvperqxtqtbochp` (migration `20260523033224`); verified 3 extensions, 17 enums, fn present._
 - [ ] **P0-6** Migration: identity/household tables (`users`, `households`, `household_preferences`, `household_members`, `household_profile_drafts`, `household_invites`, `user_food_preferences`)
 - [ ] **P0-7** Migration: content tables (`dishes`, `ingredients`, `dish_ingredients`, `dish_prep_tasks`, `dish_pairings`)
 - [ ] **P0-8** Migration: planning tables (`meal_plans`, `meal_plan_items`, `meal_feedback`, `grocery_lists`, `grocery_list_items`)
