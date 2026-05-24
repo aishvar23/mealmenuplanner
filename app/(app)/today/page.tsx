@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { PrepReminders } from "@/components/meal-plan/prep-reminders";
 import { TodayBoard } from "@/components/meal-plan/today-board";
 import { buttonVariants } from "@/components/ui/button";
 import {
@@ -8,6 +9,7 @@ import {
   resolveCurrentHousehold,
 } from "@/lib/services/household";
 import { getDayPlan } from "@/lib/services/meal-plan";
+import { getUpcomingPrepTasks } from "@/lib/services/prep";
 
 export const metadata = { title: "Today" };
 
@@ -26,7 +28,10 @@ export default async function TodayPage() {
 
   const household = await getHousehold(current.householdId);
   const today = new Date().toISOString().slice(0, 10);
-  const { items } = await getDayPlan(current.householdId, today);
+  const [{ items }, prepReminders] = await Promise.all([
+    getDayPlan(current.householdId, today),
+    getUpcomingPrepTasks(current.householdId),
+  ]);
 
   const slots = household.preferences?.mealsToPlan ?? [];
   const canChange = current.currentUserPermissions.canChangeTodayMenu;
@@ -41,6 +46,12 @@ export default async function TodayPage() {
           {formatToday(today)} · {current.name}
         </p>
       </div>
+
+      {prepReminders.length > 0 && (
+        <div className="mt-6">
+          <PrepReminders items={prepReminders} />
+        </div>
+      )}
 
       <div className="mt-6">
         {slots.length === 0 ? (

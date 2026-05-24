@@ -4,6 +4,9 @@ import { ConflictError, ValidationError } from "@/lib/errors";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/auth", () => ({ requireAuthUser: vi.fn() }));
+vi.mock("@/lib/services/grocery", () => ({
+  safeRegenerateGroceryListForPlan: vi.fn(),
+}));
 vi.mock("./access", () => ({
   loadItemForAction: vi.fn(),
   ITEM_ACTION_SELECT: "id",

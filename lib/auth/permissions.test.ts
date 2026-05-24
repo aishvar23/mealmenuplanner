@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  defaultPermissionsForRole,
   hasPermission,
   isMembershipActive,
+  parsePermissionOverrides,
+  PERMISSION_CAMEL_KEYS,
   PERMISSION_FLAGS,
   toMembershipContext,
   toPermissionMap,
@@ -131,5 +134,93 @@ describe("hasPermission", () => {
     );
     expect(hasPermission(ctx, "can_change_today_menu")).toBe(true);
     expect(hasPermission(ctx, "can_remove_members")).toBe(false);
+  });
+});
+
+describe("defaultPermissionsForRole", () => {
+  it("gives the owner every flag", () => {
+    const flags = defaultPermissionsForRole("owner");
+    expect(Object.values(flags).every(Boolean)).toBe(true);
+  });
+
+  it("gives admin every flag except can_remove_members (design/03 § 4)", () => {
+    const flags = defaultPermissionsForRole("admin");
+    expect(flags.can_remove_members).toBe(false);
+    expect(flags.can_invite_members).toBe(true);
+    expect(flags.can_change_today_menu).toBe(true);
+    expect(flags.can_edit_household_preferences).toBe(true);
+  });
+
+  it("gives member only view + suggest", () => {
+    const flags = defaultPermissionsForRole("member");
+    expect(flags.can_view_plan).toBe(true);
+    expect(flags.can_suggest_meals).toBe(true);
+    expect(flags.can_change_today_menu).toBe(false);
+    expect(flags.can_invite_members).toBe(false);
+  });
+
+  it("gives viewer only can_view_plan (read-only)", () => {
+    const flags = defaultPermissionsForRole("viewer");
+    expect(flags.can_view_plan).toBe(true);
+    const others = (Object.keys(flags) as (keyof typeof flags)[]).filter(
+      (k) => k !== "can_view_plan",
+    );
+    expect(others.every((k) => flags[k] === false)).toBe(true);
+  });
+
+  it("returns every flag for every role (exhaustive map)", () => {
+    for (const role of ["owner", "admin", "member", "viewer"] as const) {
+      expect(Object.keys(defaultPermissionsForRole(role)).sort()).toEqual(
+        [...PERMISSION_FLAGS].sort(),
+      );
+    }
+  });
+});
+
+describe("PERMISSION_CAMEL_KEYS", () => {
+  it("maps every flag to a distinct camelCase key", () => {
+    expect(Object.keys(PERMISSION_CAMEL_KEYS).sort()).toEqual(
+      [...PERMISSION_FLAGS].sort(),
+    );
+    const camel = Object.values(PERMISSION_CAMEL_KEYS);
+    expect(new Set(camel).size).toBe(camel.length);
+    expect(PERMISSION_CAMEL_KEYS.can_change_today_menu).toBe(
+      "canChangeTodayMenu",
+    );
+  });
+});
+
+describe("parsePermissionOverrides", () => {
+  it("returns an empty set for null/undefined", () => {
+    expect(parsePermissionOverrides(null).overrides).toEqual({});
+    expect(parsePermissionOverrides(undefined).invalidFields).toEqual([]);
+  });
+
+  it("reads the known camelCase flags and ignores unknown keys", () => {
+    const { overrides, invalidFields } = parsePermissionOverrides({
+      canChangeTodayMenu: true,
+      canRemoveMembers: false,
+      role: "member", // ignored
+      bogus: true, // ignored
+    });
+    expect(overrides).toEqual({
+      can_change_today_menu: true,
+      can_remove_members: false,
+    });
+    expect(invalidFields).toEqual([]);
+  });
+
+  it("flags a present-but-non-boolean value", () => {
+    const { invalidFields } = parsePermissionOverrides({
+      canChangeTodayMenu: "yes",
+    });
+    expect(invalidFields).toEqual(["permissions.canChangeTodayMenu"]);
+  });
+
+  it("rejects a non-object body", () => {
+    expect(parsePermissionOverrides([]).invalidFields).toEqual(["permissions"]);
+    expect(parsePermissionOverrides("x").invalidFields).toEqual([
+      "permissions",
+    ]);
   });
 });

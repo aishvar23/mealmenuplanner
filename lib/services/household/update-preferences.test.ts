@@ -20,6 +20,9 @@ vi.mock("@/lib/auth", () => ({
   hasPermission: vi.fn(),
   requireAuthUser: vi.fn(),
 }));
+vi.mock("@/lib/services/grocery", () => ({
+  regenerateExistingGroceryListsForHousehold: vi.fn(),
+}));
 
 import { updatePreferences } from "@/lib/services/household";
 

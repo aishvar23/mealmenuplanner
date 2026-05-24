@@ -3,6 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/auth", () => ({ requireAuthUser: vi.fn() }));
 vi.mock("@/lib/db/server", () => ({ createServerSupabaseClient: vi.fn() }));
+vi.mock("@/lib/services/grocery", () => ({
+  safeRegenerateGroceryListForPlan: vi.fn(),
+}));
 vi.mock("./access", () => ({
   requireHouseholdPermission: vi.fn(),
   ITEM_ACTION_SELECT: "id",
