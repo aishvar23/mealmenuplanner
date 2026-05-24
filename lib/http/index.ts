@@ -1,2 +1,4 @@
-// HTTP boundary helpers (request parsing) shared across route handlers.
+// HTTP boundary helpers (request parsing, response envelopes) shared across
+// route handlers.
 export * from "./request";
+export * from "./collection";

@@ -29,7 +29,7 @@ phases that follow the [MVP roadmap](docs/12_mvp_roadmap.md) and reference the
 | —     | Product specs (`docs/`)     | ✅           | Complete    |
 | —     | Design docs (`design/`)     | ✅           | Complete    |
 | P0    | Project setup & schema      | 14 / 16      | In progress |
-| P1    | Auth & household foundation | 6 / 8        | In progress |
+| P1    | Auth & household foundation | 7 / 8        | In progress |
 | P2    | Onboarding (save/resume)    | 0 / 7        | Not started |
 | P3    | Dish admin / content        | 0 / 8        | Not started |
 | P4    | Recommendation engine       | 0 / 8        | Not started |
@@ -38,7 +38,7 @@ phases that follow the [MVP roadmap](docs/12_mvp_roadmap.md) and reference the
 | P7    | Grocery & prep              | 0 / 6        | Not started |
 | P8    | Notifications               | 0 / 6        | Not started |
 | P9    | Beta hardening              | 0 / 7        | Not started |
-|       | **Total**                   | **20 / 82**  |             |
+|       | **Total**                   | **21 / 82**  |             |
 
 **Suggested next task:** **P1 is underway** — `P1-1` (Google OAuth) and `P1-3`
 (server-side session resolution + the `proxy.ts` edge gate + the `(app)`-shell
@@ -54,17 +54,22 @@ table, enum, and RPC types. `P1-6` (the first route handlers, `POST
 the `createHousehold`/`getHousehold`/`updatePreferences` services, the
 `getActiveMembership` + `hasPermission` guards, the `withErrorBoundary` envelope,
 and the shared `lib/services/household/dto.ts` mappers, `lib/http/request.ts`
-body parser, and `lib/validation/uuid.ts` guard. **Next is `P1-8`** (`GET
-/api/households/{id}/members`, a `(member)` read returning the bounded member
-collection per design/04 § 4.4) — it reuses the same `getActiveMembership` gate,
-the `toCanFlagsDto` mapper, and the route-handler pattern, joining
-`household_members` to `users` for each member's `displayName`. `P1-2`
-(email/password + magic-link) is an
-independent parallel track. Still open from P0: `P0-14` (seed:
+body parser, and `lib/validation/uuid.ts` guard. `P1-8` (`GET
+/api/households/{id}/members`) is now done and CI-green — the household's active
+roster as the design/04 § 1 `{ data, page }` collection envelope (bounded, no
+cursor). Because `users` is RLS self-only (P0-12), display names come through a
+new `list_household_members` SECURITY DEFINER RPC — the **safe projection** the
+P0-12 note promised — which exposes only `display_name` (never email/phone),
+re-checks the caller's active membership, and returns the real-time active roster
+(`status = 'active'` AND `expires_at > now()`). Built thin over the shared
+`getActiveMembership` gate, the new `toMemberDto` mapper, and a new
+`lib/http/collection.ts` (`boundedCollection`). **With P1-8 done, the only open
+P1 task is `P1-2`** (email/password + magic-link auth); after it, P2 onboarding
+begins. Still open from P0: `P0-14` (seed:
 ingredient catalog + 100 starter dishes, needs dish content authored first) and
 `P0-3`'s prod-project step. The advisor is clean (security:
-only the 2 intended self-scoped helper WARNs; performance: 0 WARN, only expected
-INFO on the empty DB). **DB workflow proven:** author each migration as a file
+only the 4 by-design self-scoped SECURITY DEFINER WARNs; performance: 0 WARN,
+only expected INFO on the empty DB). **DB workflow proven:** author each migration as a file
 under `supabase/migrations/`, apply to the cloud dev project
 (`dultruvperqxtqtbochp`) via the Supabase MCP `apply_migration`, then rename the
 local file to match the version the MCP records so file + remote history stay in
@@ -106,7 +111,7 @@ the account owner creating a separate **prod** project before launch (see
 - [x] **P1-5** `household` service: create household + owner membership (all `can_*` = true) — _Atomicity plus the RLS bootstrap (the creator is not a member yet, so the `hm_insert` policy cannot pass under their own JWT) are both solved by a `security definer` Postgres function `create_household(p_name)` (migration applied to cloud dev, version `20260523235403`): it inserts the `households` row (`created_by_user_id` = the caller) and the owner `household_members` row (role owner, permanent, active, every permission flag true) in one transaction, then returns the new id. Hardened like the other helpers (`search_path` empty, fully-qualified names, EXECUTE revoked from public/anon and granted to authenticated; it raises on a null `auth.uid()` or empty/oversized name as a backstop). Service `lib/services/household/create-household.ts`: `createHousehold` requires a session, validates and trims the name via the pure `normalizeHouseholdName` (throws `ValidationError`), invokes the RPC through the per-request RLS client, and returns `{ householdId }`. Verified live with an impersonated authenticated call inside a rolled-back transaction (name trimmed, owner active and permanent, all 8 flags true); advisor shows only the 3 by-design self-scoped security-definer WARNs. 10 new tests (52 total); lint, format, typecheck, test, and build all green._
 - [x] **P1-6** `POST /api/households` + `GET /api/households/{id}` (with `currentUserPermissions`) — _the first route handlers, kept thin per design/04 § 1: resolve session, run guard, delegate to one service, serialize. **`POST /api/households`** (`app/api/households/route.ts`) parses the body, validates `name` is present, calls `createHousehold` (P1-5), and returns `201 { householdId }`. **`GET /api/households/{householdId}`** (`app/api/households/[householdId]/route.ts`, Next 16 async `params`) calls the new `getHousehold` service and returns `200` with the full DTO. Both are wrapped in `withErrorBoundary` (P0-15) so every throw becomes the standard envelope. New `getHousehold` service (`lib/services/household/get-household.ts`): gates on `getActiveMembership` (P1-4) and surfaces a non-member or expired guest as `NotFoundError` (404, existence-hiding per design/04 § 2), 404s a malformed-UUID path param before querying, then loads the `households` row plus the optional `household_preferences` row (a raw-created household has none until P1-7/P2-6) under the per-request RLS client. New shared modules carry the camelCase translation boundary and request parsing, both reused by P1-7/P1-8: `lib/services/household/dto.ts` (`toPreferencesDto`, `toCanFlagsDto`, `toCurrentUserPermissionsDto`, `HouseholdDto`) and `lib/http/request.ts` (`readJsonObject`, malformed/non-object body becomes a 400 `ValidationError`). 23 new tests (75 total) covering the DTO mappers, the service gate/mapping/error paths, body parsing, and both handlers' status + envelope wiring; lint, format, typecheck, test, and build all green._
 - [x] **P1-7** `PATCH /api/households/{id}/preferences` (gated by `can_edit_household_preferences`) — _partial update of any subset of preference fields, returning the full updated `preferences` DTO (same shape as the household read). Route handler `app/api/households/[householdId]/preferences/route.ts` stays thin (await `params`, `readJsonObject`, delegate, serialize) under `withErrorBoundary`. New `updatePreferences` service (`lib/services/household/update-preferences.ts`) implements design/04 § 2's FORBIDDEN-vs-NOT_FOUND policy precisely via `getActiveMembership` + `hasPermission` (P1-4): a non-member or expired guest gets 404 (existence-hiding, matching the P1-6 read), an active member lacking `can_edit_household_preferences` gets 403, and a household with no preferences row yet gets 404. Validation runs after authorization, then a guarded `update().eq().select().maybeSingle()` under the per-request RLS client (the independent backstop). The inbound camelCase→snake_case validation+translation is a pure, separately-tested module `lib/services/household/validate-preferences.ts` (`buildPreferencesUpdate`): every rule mirrors a doc 01 `household_preferences` CHECK/enum/type (family size 1..50, counts ≥ 0, variety gap 0..60, nullable positive cooking times, `meals_to_plan` from `meal_slot`, enums from the generated `Constants` so they can't drift), collects all field issues into one `ValidationError`, ignores unknown keys, and rejects an empty update. Extracted the UUID guard shared with P1-6 into `lib/validation/uuid.ts` (`isUuid`) and refactored `get-household` onto it. 28 new tests (103 total); lint, format, typecheck, test, and build all green._
-- [ ] **P1-8** Members read API: `GET /api/households/{id}/members`
+- [x] **P1-8** Members read API: `GET /api/households/{id}/members` — _the household's active roster as the design/04 § 1 collection envelope (`{ data, page }`; a bounded set, so `page.hasMore = false`, no cursor). The wrinkle: `users` is RLS self-only (P0-12 deferred co-member display-name visibility to here), so a join under the per-request client would null out other members' names. Solved with a `list_household_members(p_household_id)` SECURITY DEFINER RPC (migration `20260524013904`) — the **safe projection** the P0-12 note promised: it joins `household_members` to `users` past the self-only policy but returns **only** `display_name` (never email/phone, design/03 § 9 least exposure), and re-checks the caller is an active member (`is_active_member`) so it can't enumerate another household's roster even if called directly. Rows are the real-time active roster — `status = 'active'` AND `expires_at > now()`, mirroring `is_active_member`'s per-row test so an expired guest drops out without waiting for the `expire_guests` job — ordered by `joined_at` (owner first). Hardened like the other helpers (`search_path=''`, fully-qualified names, EXECUTE revoked from public/anon, granted to authenticated). New `listMembers` service (`lib/services/household/list-members.ts`) gates on `getActiveMembership` (P1-4) and 404s a non-member (existence-hiding, matching the P1-6 read; defense-in-depth with the RPC's own check), invokes the RPC under the per-request RLS client, and maps rows via the new `toMemberDto` (`lib/services/household/dto.ts`, reusing `toCanFlagsDto`). New shared `lib/http/collection.ts` (`boundedCollection`, `Collection<T>`, `PageInfo`) carries the design/04 § 1 list envelope (reused by P8 notifications later). Route handler `app/api/households/[householdId]/members/route.ts` stays thin under `withErrorBoundary`. Regenerated `lib/db/database.types.ts` from cloud dev via MCP (now types the new RPC). Verified live in a rolled-back tx: an active member sees every co-member's display name, an expired-but-unswept guest is filtered out, a non-member gets zero rows. Security advisor: only the 4 by-design self-scoped SECURITY DEFINER WARNs (the new helper joins the 3 existing). 14 new tests (117 total); lint, format, typecheck, test, and build all green._
 
 ## P2 — Onboarding (save/resume)
 

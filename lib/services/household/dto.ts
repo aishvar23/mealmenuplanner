@@ -13,6 +13,7 @@ import type {
   MemberRole,
   MembershipContext,
   MembershipType,
+  MemberStatus,
   Permission,
 } from "@/lib/auth/permissions";
 import type { Database } from "@/lib/db/database.types";
@@ -124,6 +125,47 @@ export function toCurrentUserPermissionsDto(
     role: context.role,
     membershipType: context.membershipType,
     ...toCanFlagsDto(context.permissions),
+  };
+}
+
+/**
+ * One row returned by the `list_household_members` RPC (P1-8 migration) — the
+ * safe member-list projection that joins `household_members` to a member's
+ * `users.display_name` past the `users` self-only RLS, exposing only the name
+ * (never email/phone). The generated types mark every column non-null, but
+ * `display_name`/`expires_at` are genuinely nullable on the underlying rows, so
+ * the mapper treats them as such.
+ */
+export type MemberRow =
+  Database["public"]["Functions"]["list_household_members"]["Returns"][number];
+
+/** One member as the API exposes them (design/04 § 4.4 `data[]` item). */
+export interface MemberDto {
+  memberId: string;
+  userId: string;
+  /** Null until the user sets a name (e.g. an email signup with no full name). */
+  displayName: string | null;
+  role: MemberRole;
+  membershipType: MembershipType;
+  status: MemberStatus;
+  /** Null for permanent members; a deadline for temporary guests. */
+  expiresAt: string | null;
+  joinedAt: string | null;
+  permissions: CanFlagsDto;
+}
+
+/** Map a `list_household_members` row to its camelCase member DTO. */
+export function toMemberDto(row: MemberRow): MemberDto {
+  return {
+    memberId: row.member_id,
+    userId: row.user_id,
+    displayName: row.display_name,
+    role: row.role,
+    membershipType: row.membership_type,
+    status: row.status,
+    expiresAt: row.expires_at,
+    joinedAt: row.joined_at,
+    permissions: toCanFlagsDto(row),
   };
 }
 

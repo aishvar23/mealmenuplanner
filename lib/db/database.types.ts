@@ -6,8 +6,8 @@
 // uses `--local`, and the local stack can't run here (no Docker). When Docker is
 // available, `npm run db:types` regenerates this file from the local stack.
 //
-// Reflects migrations P0-5..P0-13 + P1-5 (19 MVP tables, 17 enums, RLS helper
-// fns + create_household RPC).
+// Reflects migrations P0-5..P0-13 + P1-5 + P1-8 (19 MVP tables, 17 enums, RLS
+// helper fns + create_household / list_household_members RPCs).
 // After regenerating, run `npm run format` so the output matches Prettier.
 
 export type Json =
@@ -1078,6 +1078,27 @@ export type Database = {
       create_household: { Args: { p_name: string }; Returns: string };
       has_permission: { Args: { h: string; perm: string }; Returns: boolean };
       is_active_member: { Args: { h: string }; Returns: boolean };
+      list_household_members: {
+        Args: { p_household_id: string };
+        Returns: {
+          can_change_today_menu: boolean;
+          can_change_weekly_schedule: boolean;
+          can_edit_household_preferences: boolean;
+          can_invite_members: boolean;
+          can_manage_grocery_list: boolean;
+          can_remove_members: boolean;
+          can_suggest_meals: boolean;
+          can_view_plan: boolean;
+          display_name: string;
+          expires_at: string;
+          joined_at: string;
+          member_id: string;
+          membership_type: Database["public"]["Enums"]["membership_type"];
+          role: Database["public"]["Enums"]["member_role"];
+          status: Database["public"]["Enums"]["member_status"];
+          user_id: string;
+        }[];
+      };
     };
     Enums: {
       auth_provider: "google" | "email" | "magic_link";
