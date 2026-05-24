@@ -33,12 +33,12 @@ phases that follow the [MVP roadmap](docs/12_mvp_roadmap.md) and reference the
 | P2    | Onboarding (save/resume)    | 7 / 7        | Complete    |
 | P3    | Dish admin / content        | 8 / 8        | Complete    |
 | P4    | Recommendation engine       | 8 / 8        | Complete    |
-| P5    | Meal planning               | 0 / 7        | Not started |
+| P5    | Meal planning               | 7 / 7        | Complete    |
 | P6    | Household collaboration     | 0 / 9        | Not started |
 | P7    | Grocery & prep              | 0 / 6        | Not started |
 | P8    | Notifications               | 0 / 6        | Not started |
 | P9    | Beta hardening              | 0 / 7        | Not started |
-|       | **Total**                   | **45 / 82**  |             |
+|       | **Total**                   | **52 / 82**  |             |
 
 **Suggested next task:** **P1 is complete** — `P1-1` (Google OAuth) and `P1-3`
 (server-side session resolution + the `proxy.ts` edge gate + the `(app)`-shell
@@ -129,9 +129,10 @@ non-member sees none); the advisor shows only the 6 by-design self-scoped
 SECURITY DEFINER WARNs (the 5 prior plus the new RPC). The engine is read-only and
 persists nothing — the today/week generate endpoints, Today screen, and
 `meal_plan_items` writes are P5, built on `recommendForSlot`. 101 new tests (423
-total); lint, format, typecheck, test, and build all green. **The suggested next
-task is `P5-1`** (the today-generate endpoint + Today screen), which opens P5 now
-that the engine can rank meals. Still open
+total); lint, format, typecheck, test, and build all green. **P5 (meal planning)
+is now complete** (see the P5 section): `recommendForSlot` backs the today/week
+generate endpoints, the per-item actions, and the Today/Plan/History screens, so
+**the suggested next task is `P6-1`** (create invite). Still open
 from P0: `P0-14` (seed:
 ingredient catalog + 100 starter dishes, needs dish content authored first) and
 `P0-3`'s prod-project step. The advisor is clean (security:
@@ -301,13 +302,51 @@ content-table`app_role` write-RLS backstop to fire under a user JWT, add a
 
 > Design: [08](design/08_meal_planning_grocery_prep_design.md) · Roadmap: Phase 5
 
-- [ ] **P5-1** `POST .../meal-plans/today/generate` + Today screen (with recommendation reason)
-- [ ] **P5-2** Accept / reject / suggest-another; record `meal_feedback` + penalize rejected
-- [ ] **P5-3** `POST .../meal-plans/week/generate` + weekly Plan screen (honor `meals_to_plan`)
-- [ ] **P5-4** `POST /api/meal-plan-items/{id}/replace` (records reason, notifies on confirmed change)
-- [ ] **P5-5** `POST /api/meal-plan-items/{id}/eating-out` (no rotation penalty + triggers grocery regen)
-- [ ] **P5-6** Lock / unlock meal (locked items excluded from regeneration)
-- [ ] **P5-7** Meal history view + mark cooked (feeds variety logic)
+- [x] **P5-1** `POST .../meal-plans/today/generate` + Today screen (with recommendation reason) — _resolves/creates a single-day `meal_plans` row, runs the P4 engine for the slot, and upserts the `meal_plan_items` cell (`status = 'suggested'`, the explanation in `reason`). Returns the design/08 § 2 `{ mealPlanId, mealPlanItem, alternatives }` shape (a superset of the design/04 § 4.5 contract — the runner-ups let the client offer "Suggest another" without a round trip). Locked cells and `eating_out` cells are returned untouched (idempotency, design/08 § 2 step 2). The Today screen (`/today`) resolves the caller's household, renders one `SlotCard` per `meals_to_plan` slot, and wires generate/accept/reject/suggest-another/eating-out/lock to the action endpoints with per-card local state._
+- [x] **P5-2** Accept / reject / suggest-another; record `meal_feedback` + penalize rejected — _three item actions following the design/04 `meal-plan-items/{id}/{action}` convention. **Accept** → `status = 'accepted'`. **Suggest another** (no reason) re-runs the recommender excluding the current dish and overwrites the cell in place (`generateToday` with `excludeDishIds`). **Reject** inserts a `meal_feedback` row (the recommender reads it: `do_not_suggest_again` is a hard exclude, `disliked`/`kids_disliked` a soft penalty) and marks the cell `rejected` **keeping its dish** so the rotation + feedback→dish signals the P4 loader derives stay correct; it returns ranked alternatives for the Replace step rather than overwriting (which would lose the rejection signal — the cell is one row). Filling the slot is Replace (P5-4)._
+- [x] **P5-3** `POST .../meal-plans/week/generate` + weekly Plan screen (honor `meals_to_plan`) — _walks every `(date, slot)` over the range for `household_preferences.meals_to_plan` only, skips locked + `eating_out` cells, and excludes dishes already chosen this run (`chosenThisRun` hard-exclude layered on the engine's history rotation, design/08 § 3) so the week has variety; writes all picks in one bulk upsert. Gated by `can_change_weekly_schedule`. The Plan screen (`/plan`) renders the upcoming 7-day grid with Generate-week + per-cell Swap/Eating-out/Lock, refreshing via `router.refresh()` since the week is server-rendered._
+- [x] **P5-4** `POST /api/meal-plan-items/{id}/replace` (records reason, notifies on confirmed change) — _validates the chosen `replacementDishId` is an eligible dish for the slot (or picks the top recommendation when omitted), records a `meal_feedback` row when a rejection reason is supplied, swaps the dish, and sets the cell `accepted` (design/08 § 5). Returns the item + `groceryListUpdated`. 409 when the cell is locked. The confirmed-meal-change `meal_changed` notification (design/08 § 5 step 6, P8) and grocery regeneration (P7) are marked hook points._
+- [x] **P5-5** `POST /api/meal-plan-items/{id}/eating-out` (no rotation penalty + triggers grocery regen) — _clears `dish_id` and sets `eating_out` (design/08 § 6); because no `cooked` row is recorded and the dish is nulled, the dish keeps no rotation footprint — the fairness rule holds automatically via the P4 history query's `status` filter. 409 when locked. Grocery regen (P7) is a marked hook._
+- [x] **P5-6** Lock / unlock meal (locked items excluded from regeneration) — _flips `meal_plan_items.locked` (design/08 § 7); the weekly generator's locked branch skips these cells, and locking is orthogonal to status. The `meal_locked`/`meal_unlocked` notification (P8) is a marked hook; no grocery change._
+- [x] **P5-7** Meal history view + mark cooked (feeds variety logic) — _`meal_plan_items` is the history (design/08 § 8); `listMealHistory` reads past cells (most-recent-first) and the Plan screen renders them with a "Mark cooked" affordance. `POST .../{id}/cooked` sets the terminal `cooked` status (gated by `can_change_today_menu`, the date-aware rule for past cells), which is exactly what the P4 rotation query counts._
+
+> **P5 architecture & verification.** No new migration — the planning tables and
+> their RLS shipped in P0-8/P0-12, and every P5 write is satisfied by the
+> per-request RLS client (the `mp_*`/`mpi_*`/`mf_insert` policies allow today-OR-weekly
+> inserts/updates and self feedback inserts), so no SECURITY DEFINER bootstrap was
+> needed (unlike P1-5/P2-6). The new `mealPlan` service (`lib/services/meal-plan/`)
+> composes the read-only P4 engine with persistence and is kept thin behind pure,
+> separately-tested modules: `validate.ts` (request validators reusing the
+> recommendation date helpers), `dto.ts` (snake→camel mappers), `access.ts` (the
+> FORBIDDEN-vs-NOT_FOUND gate + the **date-aware** item permission — today cell →
+> `can_change_today_menu`, future cell → `can_change_weekly_schedule`, design/08 § 5),
+> `plans.ts` (plan resolve/create with a `uq_active_plan_per_start` race re-read),
+> `suggest.ts` (read-only slot ranking with `excludeDishIds`), `generate.ts`
+> (today + weekly), `items.ts` (the per-item actions), and `reads.ts` (the
+> Today/Plan/History projections). A new `resolveCurrentHousehold` in the
+> `household` service backs the screens (earliest-joined active membership, since
+> a user can be in more than one household; switcher is a future enhancement). The
+> endpoint surface is `app/api/households/{id}/meal-plans/{today,week}/generate`
+> and the `app/api/meal-plan-items/{id}/{accept,reject,suggest-another,replace,eating-out,lock,unlock,cooked}`
+> actions, all thin under `withErrorBoundary`. **Cross-phase hooks (not yet wired):**
+> grocery regeneration (design/08 § 9/§ 10, P7) and the menu/lock/eating-out
+> notifications (design/09, P8) are marked inline where § 5/§ 6/§ 10 call for them —
+> those services don't exist yet, mirroring how P4 left persistence to P5.
+> **Known limitation:** `do_not_suggest_again` is derived by the P4 loader joining
+> `meal_feedback` to the live `meal_plan_items.dish_id`; once that cell is later
+> overwritten (a replacement), the permanent exclusion no longer resolves to the
+> originally-rejected dish — a clean fix is a `meal_feedback.dish_id` snapshot
+> column + loader change, deferred so P5 stays schema-free. 81 new tests (validators,
+> DTOs, the access gate, plan resolver, generate branches incl. the weekly
+> skip/exclusion rules, the item actions, reads, `resolveCurrentHousehold`, and all
+> ten route handlers); 504 total. lint, format, typecheck, test, and build all
+> green. The authenticated Today/Plan render needs a Supabase session + content
+> not available locally, so the screens are covered by typecheck + build; the
+> proxy still gates `/today` + `/plan` and the API self-guards (401 envelope)
+> unauthenticated. **The suggested next task is `P6-1`** (create invite), which
+> opens P6 (household collaboration). Still open from P0: `P0-14` (seed catalog +
+> 100 dishes — needed before the recommender has anything to suggest live) and
+> `P0-3`'s prod-project step.
 
 ## P6 — Household collaboration
 

@@ -1,0 +1,376 @@
+import "server-only";
+
+import { requireAuthUser } from "@/lib/auth";
+import { createServerSupabaseClient } from "@/lib/db/server";
+import { InternalError, ValidationError } from "@/lib/errors";
+import { recommendSlot, type Recommendation } from "@/lib/recommendation";
+import {
+  loadActiveMembers,
+  loadCandidateDishes,
+  loadHouseholdContext,
+  loadMealHistory,
+} from "@/lib/services/recommendation";
+
+import {
+  ITEM_ACTION_SELECT,
+  requireHouseholdPermission,
+  type ActionItemRow,
+} from "./access";
+import {
+  toMealPlanItemDto,
+  type TodayGenerateResult,
+  type WeekGenerateResult,
+} from "./dto";
+import { resolveOrCreateDayPlan, resolveOrCreateRangePlan } from "./plans";
+import { suggestForSlot, toAlternatives } from "./suggest";
+import { eachDateInRange, type MealSlot } from "./validate";
+
+/**
+ * `mealPlan` service — plan generation (design/08 § 2–3, P5-1/P5-3). It composes
+ * the read-only recommendation engine (P4) with the `meal_plan_items` writes:
+ * resolve the plan, run the deterministic recommender per slot, and persist the
+ * picks under the per-request RLS client (gated by `can_change_*`). The engine
+ * itself stays pure — this layer owns persistence.
+ *
+ * Grocery regeneration (design/08 § 9, P7) and the menu-change notifications
+ * (design/09, P8) are triggered from here once those services exist; the hook
+ * points are marked inline.
+ */
+
+const NO_PREFERENCES = () =>
+  new ValidationError(
+    "Set up your household preferences before generating meal suggestions.",
+    [{ field: "preferences", rule: "required" }],
+  );
+
+/**
+ * Generate (or re-suggest) one slot for `date` (design/08 § 2). Returns the
+ * suggested item plus runner-up alternatives so the client can offer "Suggest
+ * another" without a round trip. `excludeDishIds` powers suggest-another /
+ * reject re-suggestion (the rejected dish is excluded from the candidate set).
+ */
+export async function generateToday(
+  householdId: string,
+  date: string,
+  mealSlot: MealSlot,
+  options: { excludeDishIds?: readonly string[]; now?: Date } = {},
+): Promise<TodayGenerateResult> {
+  await requireHouseholdPermission(
+    householdId,
+    "can_change_today_menu",
+    "You don't have permission to change today's menu.",
+  );
+  const user = await requireAuthUser();
+  const supabase = await createServerSupabaseClient();
+
+  const plan = await resolveOrCreateDayPlan(
+    supabase,
+    householdId,
+    date,
+    user.id,
+  );
+
+  // Idempotency on the cell (design/08 § 2 step 2): one row per (plan,date,slot).
+  const existing = await loadCell(supabase, plan.id, date, mealSlot);
+  if (existing?.locked) {
+    return {
+      mealPlanId: plan.id,
+      mealPlanItem: toMealPlanItemDto(existing),
+      alternatives: [],
+    };
+  }
+  if (existing?.status === "eating_out") {
+    // Do not overwrite an eating-out slot — use replace / re-plan instead.
+    return {
+      mealPlanId: plan.id,
+      mealPlanItem: toMealPlanItemDto(existing),
+      alternatives: [],
+    };
+  }
+
+  // Rank candidates (existence-hidden 404 if the caller isn't a member).
+  const { recommendations, nameById } = await suggestForSlot(
+    householdId,
+    date,
+    mealSlot,
+    { excludeDishIds: options.excludeDishIds, now: options.now },
+  );
+  const top = recommendations[0];
+
+  // No eligible dish for the slot — leave the cell as-is (design/08 § 3 "no eligible dish").
+  if (!top) {
+    return {
+      mealPlanId: plan.id,
+      mealPlanItem: existing ? toMealPlanItemDto(existing) : null,
+      alternatives: [],
+    };
+  }
+
+  const saved = existing
+    ? await updateCell(supabase, existing.id, top)
+    : await insertCell(supabase, plan.id, householdId, date, mealSlot, top);
+
+  // P7 hook: regenerate the grocery list for this plan (design/08 § 9/§ 10).
+
+  return {
+    mealPlanId: plan.id,
+    mealPlanItem: toMealPlanItemDto(saved, nameById.get(top.dishId) ?? null),
+    alternatives: toAlternatives(recommendations.slice(1), nameById),
+  };
+}
+
+/**
+ * Generate a weekly plan over `meals_to_plan` slots (design/08 § 3). Skips locked
+ * and eating-out cells, excludes dishes already chosen in this run for variety,
+ * and writes all picks in one bulk upsert. Returns the plan summary + item count.
+ */
+export async function generateWeek(
+  householdId: string,
+  startDate: string,
+  endDate: string,
+  options: { now?: Date } = {},
+): Promise<WeekGenerateResult> {
+  await requireHouseholdPermission(
+    householdId,
+    "can_change_weekly_schedule",
+    "You don't have permission to change the weekly schedule.",
+  );
+  const user = await requireAuthUser();
+  const supabase = await createServerSupabaseClient();
+
+  const household = await loadHouseholdContext(supabase, householdId);
+  if (!household) throw NO_PREFERENCES();
+
+  const mealsToPlan = await loadMealsToPlan(supabase, householdId);
+  const members = await loadActiveMembers(supabase, householdId);
+  // History is loaded once relative to the start of the range; the in-run
+  // `usedThisRun` exclusion (below) layers batch variety on top (design/08 § 3).
+  const history = await loadMealHistory(
+    supabase,
+    householdId,
+    startDate,
+    household.varietyGapDays,
+  );
+
+  const dishesBySlot = new Map(
+    await Promise.all(
+      mealsToPlan.map(
+        async (slot) =>
+          [slot, await loadCandidateDishes(supabase, slot)] as const,
+      ),
+    ),
+  );
+
+  const plan = await resolveOrCreateRangePlan(
+    supabase,
+    householdId,
+    startDate,
+    endDate,
+    user.id,
+  );
+  const existing = await loadPlanCells(supabase, plan.id);
+
+  const now = options.now ?? new Date();
+  const usedThisRun = new Set<string>();
+  type UpsertRow = {
+    meal_plan_id: string;
+    household_id: string;
+    date: string;
+    meal_slot: MealSlot;
+    dish_id: string;
+    status: "suggested";
+    reason: string | null;
+  };
+  const rows: UpsertRow[] = [];
+
+  for (const date of eachDateInRange(startDate, endDate)) {
+    for (const slot of mealsToPlan) {
+      const cell = existing.get(cellKey(date, slot));
+      if (cell?.locked) {
+        if (cell.dish_id) usedThisRun.add(cell.dish_id);
+        continue; // locked cells are never regenerated (design/08 § 7)
+      }
+      if (cell?.status === "eating_out") continue; // no dish for this slot
+
+      const candidates = (dishesBySlot.get(slot) ?? []).filter(
+        (d) => !usedThisRun.has(d.id),
+      );
+      const recommendations = recommendSlot({
+        household,
+        members,
+        dishes: candidates,
+        history,
+        date,
+        mealSlot: slot,
+        now,
+      });
+      const top = recommendations[0];
+      if (!top) continue; // leave the slot empty — no eligible dish
+
+      rows.push({
+        meal_plan_id: plan.id,
+        household_id: householdId,
+        date,
+        meal_slot: slot,
+        dish_id: top.dishId,
+        status: "suggested",
+        reason: top.reason,
+      });
+      usedThisRun.add(top.dishId);
+    }
+  }
+
+  if (rows.length > 0) {
+    const { error } = await supabase
+      .from("meal_plan_items")
+      .upsert(rows, { onConflict: "meal_plan_id,date,meal_slot" });
+    if (error) {
+      throw new InternalError("Failed to write weekly plan items.", {
+        cause: error,
+      });
+    }
+  }
+
+  // P7 hook: regenerate the grocery list for this plan (design/08 § 9).
+  // P8 hook: emit weekly_plan_generated to active members (design/09).
+
+  const itemCount = await countPlanItems(supabase, plan.id);
+  return {
+    mealPlanId: plan.id,
+    status: plan.status,
+    startDate: plan.start_date,
+    endDate: plan.end_date,
+    itemCount,
+  };
+}
+
+// ──────────────────────────────── helpers ────────────────────────────────
+
+async function loadCell(
+  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+  planId: string,
+  date: string,
+  mealSlot: MealSlot,
+): Promise<ActionItemRow | null> {
+  const { data, error } = await supabase
+    .from("meal_plan_items")
+    .select(ITEM_ACTION_SELECT)
+    .eq("meal_plan_id", planId)
+    .eq("date", date)
+    .eq("meal_slot", mealSlot)
+    .maybeSingle();
+  if (error) {
+    throw new InternalError("Failed to load meal plan item.", { cause: error });
+  }
+  return data as unknown as ActionItemRow | null;
+}
+
+async function updateCell(
+  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+  itemId: string,
+  top: Recommendation,
+): Promise<ActionItemRow> {
+  const { data, error } = await supabase
+    .from("meal_plan_items")
+    .update({ dish_id: top.dishId, status: "suggested", reason: top.reason })
+    .eq("id", itemId)
+    .select(ITEM_ACTION_SELECT)
+    .maybeSingle();
+  if (error || !data) {
+    throw new InternalError("Failed to update suggested meal.", {
+      cause: error,
+    });
+  }
+  return data as unknown as ActionItemRow;
+}
+
+async function insertCell(
+  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+  planId: string,
+  householdId: string,
+  date: string,
+  mealSlot: MealSlot,
+  top: Recommendation,
+): Promise<ActionItemRow> {
+  const { data, error } = await supabase
+    .from("meal_plan_items")
+    .insert({
+      meal_plan_id: planId,
+      household_id: householdId,
+      date,
+      meal_slot: mealSlot,
+      dish_id: top.dishId,
+      status: "suggested",
+      reason: top.reason,
+    })
+    .select(ITEM_ACTION_SELECT)
+    .maybeSingle();
+  if (error || !data) {
+    throw new InternalError("Failed to save suggested meal.", { cause: error });
+  }
+  return data as unknown as ActionItemRow;
+}
+
+interface PlanCell {
+  date: string;
+  meal_slot: MealSlot;
+  dish_id: string | null;
+  status: ActionItemRow["status"];
+  locked: boolean;
+}
+
+async function loadPlanCells(
+  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+  planId: string,
+): Promise<Map<string, PlanCell>> {
+  const { data, error } = await supabase
+    .from("meal_plan_items")
+    .select("date, meal_slot, dish_id, status, locked")
+    .eq("meal_plan_id", planId);
+  if (error) {
+    throw new InternalError("Failed to load existing plan items.", {
+      cause: error,
+    });
+  }
+  const map = new Map<string, PlanCell>();
+  for (const cell of (data ?? []) as PlanCell[]) {
+    map.set(cellKey(cell.date, cell.meal_slot), cell);
+  }
+  return map;
+}
+
+async function countPlanItems(
+  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+  planId: string,
+): Promise<number> {
+  const { count, error } = await supabase
+    .from("meal_plan_items")
+    .select("id", { count: "exact", head: true })
+    .eq("meal_plan_id", planId);
+  if (error) {
+    throw new InternalError("Failed to count plan items.", { cause: error });
+  }
+  return count ?? 0;
+}
+
+async function loadMealsToPlan(
+  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+  householdId: string,
+): Promise<MealSlot[]> {
+  const { data, error } = await supabase
+    .from("household_preferences")
+    .select("meals_to_plan")
+    .eq("household_id", householdId)
+    .maybeSingle();
+  if (error) {
+    throw new InternalError("Failed to load planned meal slots.", {
+      cause: error,
+    });
+  }
+  if (!data) throw NO_PREFERENCES();
+  return (data.meals_to_plan ?? []) as MealSlot[];
+}
+
+function cellKey(date: string, slot: MealSlot): string {
+  return `${date}|${slot}`;
+}

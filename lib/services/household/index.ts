@@ -6,4 +6,5 @@ export * from "./get-household";
 export * from "./update-preferences";
 export * from "./validate-preferences";
 export * from "./list-members";
+export * from "./current-household";
 export * from "./dto";
