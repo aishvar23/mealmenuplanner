@@ -4,6 +4,7 @@ import { requireAuthUser } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/db/server";
 import { InternalError, ValidationError } from "@/lib/errors";
 import { recommendSlot, type Recommendation } from "@/lib/recommendation";
+import { safeRegenerateGroceryListForPlan } from "@/lib/services/grocery";
 import {
   loadActiveMembers,
   loadCandidateDishes,
@@ -110,7 +111,9 @@ export async function generateToday(
     ? await updateCell(supabase, existing.id, top)
     : await insertCell(supabase, plan.id, householdId, date, mealSlot, top);
 
-  // P7 hook: regenerate the grocery list for this plan (design/08 § 9/§ 10).
+  // Grocery list is a derived projection — refresh it for the plan (design/08
+  // § 9/§ 10, P7-3). Best-effort: a grocery glitch must not fail the suggestion.
+  await safeRegenerateGroceryListForPlan(supabase, householdId, plan.id);
 
   return {
     mealPlanId: plan.id,
@@ -231,7 +234,11 @@ export async function generateWeek(
     }
   }
 
-  // P7 hook: regenerate the grocery list for this plan (design/08 § 9).
+  // Refresh the derived grocery list once for the whole week (design/08 § 9, P7-3)
+  // when anything changed. Best-effort so a grocery glitch doesn't fail the plan.
+  if (rows.length > 0) {
+    await safeRegenerateGroceryListForPlan(supabase, householdId, plan.id);
+  }
   // P8 hook: emit weekly_plan_generated to active members (design/09).
 
   const itemCount = await countPlanItems(supabase, plan.id);

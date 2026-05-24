@@ -7,10 +7,11 @@
 // available, `npm run db:types` regenerates this file from the local stack.
 //
 // Reflects migrations P0-5..P0-13 + P1-5 + P1-8 + P2-6 + P2-7 + P4-1 + P6-2/3 +
-// P6-5/8 + P6-9 (19 MVP tables, 17 enums, RLS helper fns + create_household /
-// list_household_members / list_household_food_preferences / complete_onboarding
-// / get_invite_preview / accept_invite / decline_invite / transfer_ownership RPCs
-// + the abandon_stale_drafts / expire_guests / expire_invites job fns).
+// P6-5/8 + P6-9 + P7-1/3 + P7-6 (19 MVP tables, 17 enums, RLS helper fns +
+// create_household / list_household_members / list_household_food_preferences /
+// complete_onboarding / get_invite_preview / accept_invite / decline_invite /
+// transfer_ownership / replace_grocery_list RPCs + the abandon_stale_drafts /
+// expire_guests / expire_invites / prep_reminders job fns).
 // After regenerating, run `npm run format` so the output matches Prettier.
 
 export type Json =
@@ -1138,6 +1139,11 @@ export type Database = {
           status: Database["public"]["Enums"]["member_status"];
           user_id: string;
         }[];
+      };
+      prep_reminders: { Args: never; Returns: number };
+      replace_grocery_list: {
+        Args: { p_items: Json; p_meal_plan_id: string };
+        Returns: string;
       };
       transfer_ownership: {
         Args: { p_household_id: string; p_target_member_id: string };

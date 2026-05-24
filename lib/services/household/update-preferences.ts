@@ -4,6 +4,7 @@ import { getActiveMembership, hasPermission } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/db/server";
 import { ForbiddenError, InternalError, NotFoundError } from "@/lib/errors";
 import type { JsonObject } from "@/lib/http";
+import { regenerateExistingGroceryListsForHousehold } from "@/lib/services/grocery";
 import { isUuid } from "@/lib/validation";
 
 import { toPreferencesDto, type PreferencesDto } from "./dto";
@@ -74,6 +75,12 @@ export async function updatePreferences(
     // No preferences row to update — a raw-created household has none until
     // onboarding (P2-6) writes one.
     throw new NotFoundError("Household preferences not found.");
+  }
+
+  // A family_size change rescales every grocery quantity (design/08 § 10, P7-3);
+  // refresh any existing list for the household's active plans. Best-effort.
+  if ("family_size" in update) {
+    await regenerateExistingGroceryListsForHousehold(supabase, householdId);
   }
 
   return toPreferencesDto(data);

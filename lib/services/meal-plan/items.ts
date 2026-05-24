@@ -5,6 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireAuthUser } from "@/lib/auth";
 import type { Database } from "@/lib/db/database.types";
 import { ConflictError, InternalError, ValidationError } from "@/lib/errors";
+import { safeRegenerateGroceryListForPlan } from "@/lib/services/grocery";
 
 import {
   ITEM_ACTION_SELECT,
@@ -192,9 +193,16 @@ export async function replaceItem(
     changed_by_user_id: user.id,
   });
 
+  // The planned dish changed → refresh the derived grocery list (design/08 § 10,
+  // P7-3). Best-effort so a grocery glitch doesn't fail the swap.
+  await safeRegenerateGroceryListForPlan(
+    supabase,
+    item.household_id,
+    item.meal_plan_id,
+  );
+
   // P8 hook: a confirmed meal actually changed → meal_changed notification.
   // const confirmedChange = item.status === "accepted" || item.status === "cooked";
-  // P7 hook: regenerate the grocery list (ingredients changed, design/08 § 10).
 
   return { mealPlanItem: toMealPlanItemDto(updated), groceryListUpdated: true };
 }
@@ -219,7 +227,15 @@ export async function markEatingOut(itemId: string): Promise<MealPlanItemDto> {
     changed_by_user_id: user.id,
   });
 
-  // P8 hook: emit meal_marked_eating_out. P7 hook: regenerate grocery list.
+  // The dish's ingredients must drop off the grocery list (Flow 5 step 7,
+  // design/08 § 6/§ 10, P7-3). Best-effort.
+  await safeRegenerateGroceryListForPlan(
+    supabase,
+    item.household_id,
+    item.meal_plan_id,
+  );
+
+  // P8 hook: emit meal_marked_eating_out.
 
   return toMealPlanItemDto(updated);
 }

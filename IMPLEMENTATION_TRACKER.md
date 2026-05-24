@@ -35,10 +35,10 @@ phases that follow the [MVP roadmap](docs/12_mvp_roadmap.md) and reference the
 | P4    | Recommendation engine       | 8 / 8        | Complete    |
 | P5    | Meal planning               | 7 / 7        | Complete    |
 | P6    | Household collaboration     | 9 / 9        | Complete    |
-| P7    | Grocery & prep              | 0 / 6        | Not started |
+| P7    | Grocery & prep              | 6 / 6        | Complete    |
 | P8    | Notifications               | 0 / 6        | Not started |
 | P9    | Beta hardening              | 0 / 7        | Not started |
-|       | **Total**                   | **61 / 82**  |             |
+|       | **Total**                   | **67 / 82**  |             |
 
 **Suggested next task:** **P1 is complete** — `P1-1` (Google OAuth) and `P1-3`
 (server-side session resolution + the `proxy.ts` edge gate + the `(app)`-shell
@@ -404,12 +404,42 @@ content-table`app_role` write-RLS backstop to fire under a user JWT, add a
 
 > Design: [08](design/08_meal_planning_grocery_prep_design.md) · Roadmap: Phase 7
 
-- [ ] **P7-1** Grocery generation algorithm: aggregate `dish_ingredients`, scale by `family_size`, merge same ingredient+unit, group by category
-- [ ] **P7-2** Grocery list screen + check-off (`checked` flag)
-- [ ] **P7-3** Regeneration triggers + `POST .../grocery-list/regenerate` (idempotent, one list per plan)
-- [ ] **P7-4** Prep-task extraction for upcoming meals + deadline computation
-- [ ] **P7-5** Prep reminders surfaced on dashboard
-- [ ] **P7-6** `prep_reminders` hourly scheduled job (timezone-aware)
+- [x] **P7-1** Grocery generation algorithm: aggregate `dish_ingredients`, scale by `family_size`, merge same ingredient+unit, group by category — _pure, unit-tested core `aggregateGroceryLines` (`lib/services/grocery/aggregate.ts`): one entry per planned-meal occurrence (a dish planned twice counts twice), `scaledQty = quantity_per_serving * family_size` summed, merge key `(ingredient_id, unit)` (same unit sums; different unit stays separate — the documented unit-conversion concern), category-ordered via the shared `lib/grocery/labels` `CATEGORY_ORDER` (the doc-08 § 9 display order: vegetables → pantry). Source set is `dish_id is not null and status NOT IN ('eating_out','skipped')` (design/08 § 9). The server loaders read planned items + `dish_ingredients` + `ingredients` + `family_size` under the per-request RLS client._
+- [x] **P7-2** Grocery list screen + check-off (`checked` flag) — _`/grocery` resolves the caller's current plan (longest active plan covering today, else the most recent) and renders the `GroceryBoard`: items grouped by category, each line checkable, with a Regenerate control (gated client-side on `can_manage_grocery_list`). `GET /api/households/{id}/grocery-list?mealPlanId=…` returns the design/04 § 4.6 shape (member-gated, 404 for no list yet); `PATCH /api/grocery-list-items/{id}` flips `checked` (gated by `can_manage_grocery_list`, household resolved from the parent list, RLS-hidden rows read as 404)._
+- [x] **P7-3** Regeneration triggers + `POST .../grocery-list/regenerate` (idempotent, one list per plan) — _the explicit endpoint is gated by `can_manage_grocery_list` and verifies the plan is in the caller's household; the write is the `replace_grocery_list` SECURITY DEFINER RPC (migration `20260524192232`) — upserts the one `grocery_lists` row (`unique(meal_plan_id)`), deletes + re-inserts items from the TS-computed jsonb (`checked` resets, the documented MVP trade-off, design/08 § 10), re-checks active membership so the RLS bypass is tenancy-safe. Side-effect regeneration (best-effort, never fails the meal mutation) is wired into today/week generate, replace, and eating-out, plus a `family_size` preferences change (rescales existing lists for active plans) — exactly the design/08 § 10 trigger table._
+- [x] **P7-4** Prep-task extraction for upcoming meals + deadline computation — _pure, unit-tested `computePrepReminders` (`lib/services/prep/deadlines.ts`): `prepDeadline = mealtime − required_before_minutes`, reusing the recommender's `mealtimeUtcMs` (UTC slot clock, the same documented MVP simplification — no household tz yet), sorted earliest-first with an `overdue` flag. The server `getUpcomingPrepTasks` (member-gated) loads the next 48h of planned items (`status NOT IN ('eating_out','skipped')`) joined to `dish_prep_tasks`._
+- [x] **P7-5** Prep reminders surfaced on dashboard — _the Today screen renders the derived, deadline-sorted prep list (`PrepReminders`, a server component) with overdue items highlighted (design/08 § 11). This is the always-available delivery path — it needs neither the cron job nor P8._
+- [x] **P7-6** `prep_reminders` hourly scheduled job (timezone-aware) — _`prep_reminders()` pg_cron job (migration `20260524192351`, hourly at :13) finds prep tasks entering their window this hour and inserts `prep_task_due` in-app notifications for active members (system actor), dedup-guarded (hourly window + a 2-hour same-recipient/message guard, since the `notifications` table has no entity_id to key on — a P8 schema decision). UTC slot clock (no household tz column yet). EXECUTE revoked from all user roles (system job). Because the canonical `lib/events` fan-out + dedup schema are owned by P8 (P5/P6 likewise deferred fan-out), the job delivers the in-app rows directly for now; the dashboard path (P7-5) is independent of it._
+
+> **P7 architecture & verification.** Two migrations, both functions only — the
+> planning/grocery tables + RLS shipped in P0-8/P0-12, so no schema change. The
+> grocery list is a **derived projection** (design/08 § 9/§ 10): the algorithm is
+> pure, unit-tested TS (`lib/services/grocery/aggregate.ts`) and the write is the
+> idempotent `replace_grocery_list` SECURITY DEFINER RPC (upsert one list, delete +
+> re-insert items from jsonb), which re-checks active membership so it can bypass
+> the `can_manage_grocery_list` write-RLS for the **side-effect** regen (a permitted
+> meal change must keep the list in sync even if its actor lacks the grocery flag)
+> while staying tenancy-safe — the explicit regenerate endpoint still gates the flag
+> at the service layer. Side-effect regen is best-effort (a grocery glitch never
+> fails the meal mutation). Prep is read-only: a pure deadline core + a member-gated
+> dashboard read, plus the hourly `prep_reminders` cron job for the in-app inbox.
+> Services are thin behind the pure aggregate/deadline cores, request validators,
+> and DTO mappers; the endpoint surface is `app/api/households/{id}/grocery-list`
+> (+ `/regenerate`) and `app/api/grocery-list-items/{id}`, all thin under
+> `withErrorBoundary`; the UI is the `/grocery` board + the Today prep panel. Types
+> were regenerated from cloud dev via MCP (now type `replace_grocery_list` +
+> `prep_reminders`). **Verified live** in a rolled-back tx: an active member's first
+> call materializes one list (`Salt,Spinach`), a second call keeps exactly one list
+> and replaces its items (`Rice`, idempotent `unique(meal_plan_id)`), and a
+> non-member is blocked (`42501`); `prep_reminders()` is a safe no-op on the empty
+> DB and its hourly cron row is `active`. **Cross-phase hooks (not yet wired):** the
+> grocery/menu/prep activity events + notification fan-out (design/09, P8) are marked
+> inline. 51 new tests (654 total); lint, format, typecheck, test, and build all
+> green. Security advisor: `replace_grocery_list` adds the **one** expected
+> by-design self-scoped SECURITY DEFINER (0029) WARN; `prep_reminders` does not
+> appear (EXECUTE revoked). **With P7 done, the suggested next task is `P8-1`**
+> (activity-event writer). Still open from P0: `P0-14` (seed catalog + 100 dishes)
+> and `P0-3`'s prod-project step.
 
 ## P8 — Notifications
 
