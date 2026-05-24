@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildSignInUrl,
   DEFAULT_POST_AUTH_PATH,
+  isAdminPath,
   isAuthPath,
   isProtectedPath,
   isSafeRelativePath,
@@ -42,6 +43,20 @@ describe("isAuthPath", () => {
     expect(isAuthPath("/sign-in")).toBe(true);
     expect(isAuthPath("/sign-in/extra")).toBe(false);
     expect(isAuthPath("/")).toBe(false);
+  });
+});
+
+describe("isAdminPath", () => {
+  it("matches the console root and nested paths", () => {
+    expect(isAdminPath("/admin")).toBe(true);
+    expect(isAdminPath("/admin/dishes")).toBe(true);
+    expect(isAdminPath("/admin/ingredients")).toBe(true);
+  });
+
+  it("respects the `/` boundary and ignores app routes", () => {
+    expect(isAdminPath("/administrate")).toBe(false);
+    expect(isAdminPath("/today")).toBe(false);
+    expect(isAdminPath("/")).toBe(false);
   });
 });
 

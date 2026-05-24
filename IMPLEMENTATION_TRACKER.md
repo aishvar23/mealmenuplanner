@@ -31,14 +31,14 @@ phases that follow the [MVP roadmap](docs/12_mvp_roadmap.md) and reference the
 | P0    | Project setup & schema      | 14 / 16      | In progress |
 | P1    | Auth & household foundation | 8 / 8        | Complete    |
 | P2    | Onboarding (save/resume)    | 7 / 7        | Complete    |
-| P3    | Dish admin / content        | 0 / 8        | Not started |
+| P3    | Dish admin / content        | 8 / 8        | Complete    |
 | P4    | Recommendation engine       | 0 / 8        | Not started |
 | P5    | Meal planning               | 0 / 7        | Not started |
 | P6    | Household collaboration     | 0 / 9        | Not started |
 | P7    | Grocery & prep              | 0 / 6        | Not started |
 | P8    | Notifications               | 0 / 6        | Not started |
 | P9    | Beta hardening              | 0 / 7        | Not started |
-|       | **Total**                   | **29 / 82**  |             |
+|       | **Total**                   | **37 / 82**  |             |
 
 **Suggested next task:** **P1 is complete** — `P1-1` (Google OAuth) and `P1-3`
 (server-side session resolution + the `proxy.ts` edge gate + the `(app)`-shell
@@ -98,9 +98,19 @@ minimum required set client-side and re-validates strictly server-side (P2-5),
 promotes the draft into live household/preferences/owner-membership rows through
 the atomic, idempotent `complete_onboarding` SECURITY DEFINER function and
 `POST /api/onboarding/complete` then redirects to Today (P2-6), and a daily
-pg_cron job (`abandon_stale_drafts`) reclaims 30-day-idle drafts (P2-7). **The
-suggested next task is `P3-1`** (admin role gating + operator console shell),
-which opens P3 (dish admin) and unblocks `P0-14` content authoring. Still open
+pg_cron job (`abandon_stale_drafts`) reclaims 30-day-idle drafts (P2-7). **With
+P3-1..P3-8 done, all of P3 is complete** — the operator console (`/admin`) can
+now manage the global dish/ingredient catalog without DB access: admin-role
+gating (the `app_role` claim via `isAdminUser`/`requireAdmin`, enforced in the
+proxy, the admin layout, and every admin service), the dish list
+(search/filter/sort), the add/edit dish form, the ingredient manager, the
+dish-ingredient / prep-task / pairing editors, and checklist-gated
+activate/archive. The `admin` service runs on the service-role client (the
+admin-tooling path design/02 sanctions) behind `requireAdmin()`, with the
+content-table `app_role` write-RLS as the in-band backstop; no new migration was
+needed (content tables + RLS shipped in P0-7/P0-12). **The suggested next task is
+`P4-1`** (recommendation-engine input loaders), which opens P4 now that operators
+can author + activate dishes. Still open
 from P0: `P0-14` (seed:
 ingredient catalog + 100 starter dishes, needs dish content authored first) and
 `P0-3`'s prod-project step. The advisor is clean (security:
@@ -166,14 +176,75 @@ the account owner creating a separate **prod** project before launch (see
 
 > Design: [docs/06](docs/06_admin_operator_spec.md), [04](design/04_api_design.md) · Roadmap: Phase 3
 
-- [ ] **P3-1** Admin role gating + operator console shell
-- [ ] **P3-2** Dish list: search by name, filter (cuisine/slot/diet/status/missing-metadata), sort by recently updated
-- [ ] **P3-3** Add/edit dish form (all `dishes` fields)
-- [ ] **P3-4** Ingredient manager (CRUD, categories, allergen, common names, substitutes)
-- [ ] **P3-5** Dish-ingredient editor (quantity per serving, unit, required/optional)
-- [ ] **P3-6** Prep-task editor (task name, required-before-minutes, description)
-- [ ] **P3-7** Pairing editor (main/side/rice/bread/condiment/beverage)
-- [ ] **P3-8** Activate/archive dish with quality-checklist validation before activation
+- [x] **P3-1** Admin role gating + operator console shell — _operator access is a
+      distinct **admin role** (not a household `can_\*`flag): the pure`isAdminUser`
+predicate (`lib/auth/admin.ts`) reads the server-controlled `app*role`claim
+from the verified user's`app_metadata`, and the server `requireAdmin()` guard
+(`lib/auth/guards.ts`) throws `UnauthenticatedError`/`ForbiddenError`. Gated at
+three layers (design/03 § 5): the edge proxy bounces signed-in non-operators
+off `/admin`to`/today`(and unauthenticated visitors to`/sign-in`), the
+admin layout re-checks server-side as the backstop, and every admin service
+calls `requireAdmin()`. The console shell (`app/admin/layout.tsx`+ home) now
+links the dish and ingredient tools. **Operator step before live use:** set`raw_app_meta_data.app_role = 'admin'`on the operator's auth user (and, for the
+content-table`app_role` write-RLS backstop to fire under a user JWT, add a
+      Supabase access-token hook that surfaces it as a top-level claim) — mirrors the
+      P1-1 Google-credentials ops gap. 8 new auth tests.*
+- [x] **P3-2** Dish list: search by name, filter (cuisine/slot/diet/status/missing-metadata), sort by recently updated — _server-rendered list at
+      `/admin/dishes` (`listDishes`), newest-updated first. Filters live in the URL
+      (the `DishListControls` client bar writes query params, the page re-reads them
+      via the pure, lenient `parseDishListFilters` and re-queries), so views are
+      shareable. "Missing metadata" flags dishes lacking a cheap-to-query activation
+      field (cuisine or total time); ingredient completeness is surfaced by the
+      per-dish checklist._
+- [x] **P3-3** Add/edit dish form (all `dishes` fields) — _`DishForm` covers every
+      editable `dishes` column (design/01): name, description, cuisine, region, meal
+      slots, diet, prep/cook time, difficulty, spice, and the eight descriptor flags.
+      Create (`/admin/dishes/new`) starts a `draft` and routes to the editor; edit
+      saves via PATCH. `status` and the generated `total_time_minutes` are never
+      written here — activation is the dedicated checklist-gated action (P3-8)._
+- [x] **P3-4** Ingredient manager (CRUD, categories, allergen, common names) — _the
+      `IngredientManager` (`/admin/ingredients`) creates/edits/deletes ingredients
+      over local state seeded server-side. A duplicate name is a 409; an ingredient
+      still used by a dish can't be deleted (the `dish_ingredients` ON DELETE RESTRICT
+      FK surfaces as a 409). The `ingredients` schema has no `substitutes` column
+      (design/01 is the source of truth), so that docs/06 field is intentionally
+      omitted._
+- [x] **P3-5** Dish-ingredient editor (quantity per serving, unit, required/optional) — _the `DishIngredientsEditor` adds/removes ingredient links from
+      the catalog with a per-serving quantity, unit (defaulting to the ingredient's
+      default unit), and required/optional flag. `unique(dish_id, ingredient_id)` is a
+      409; a bad `ingredientId` FK is a 400._
+- [x] **P3-6** Prep-task editor (task name, required-before-minutes, description) — _the `PrepTasksEditor` manages advance-prep tasks (e.g. "soak chickpeas 480 min
+      ahead") that feed the prep-aware recommendation rule (P4/P7)._
+- [x] **P3-7** Pairing editor (main/side/rice/bread/condiment/beverage) — _the
+      `PairingsEditor` adds/removes directional, typed pairings against the dish
+      catalog (self excluded). A self-pair is rejected client-side and by the
+      `no_self_pair` CHECK; a duplicate pairing is a 409. Pairings are immutable links
+      (create + delete only)._
+- [x] **P3-8** Activate/archive dish with quality-checklist validation before activation — _the pure `evaluateQualityChecklist` (`quality-checklist.ts`) maps the
+      docs/06 checklist to the schema: name, cuisine, ≥1 meal slot, diet, total time
+      &gt; 0, and ≥1 ingredient are **required** gates; prep tasks and tags are
+      advisory. `setDishStatus` runs it on the `active` transition and 400s (listing
+      every unmet item) when the dish is not ready; `archived`/`draft` are always
+      allowed. The `QualityChecklistPanel` shows live status and disables Activate
+      until ready, and the server re-checks so a stale client can't force it._
+
+> **P3 architecture & verification.** No new migration — the content tables and
+> their RLS shipped in P0-7/P0-12. The `admin` service (`lib/services/admin/`)
+> runs on the **service-role client** (the one user-facing path design/02
+> sanctions for it), which is also the only way to read non-`active` dishes that
+> the operator console needs; `requireAdmin()` is the gate that actually protects
+> authoring, with the content-table `app_role` write-RLS as the in-band backstop.
+> Services are kept thin behind pure validators (`validate-*.ts`, mirroring the
+> P1-7 preferences pattern) and DTO mappers, with FK/unique/check Postgres errors
+> mapped to typed `Conflict`/`Validation` errors. The API surface is
+> `app/api/admin/dishes` (+ `[dishId]`, `/status`, and the `ingredients` /
+> `prep-tasks` / `pairings` sub-collections) and `app/api/admin/ingredients`, all
+> thin under `withErrorBoundary`. 151 new tests (services, validators, DTOs,
+> checklist, route wiring); lint, format, typecheck, test (322 total), and build
+> all green. Live: the proxy 307s `/admin` + `/admin/dishes` to `/sign-in` and the
+> content API returns a 401 envelope unauthenticated; the authenticated operator
+> render needs a Supabase session + `app_role` not available locally, so the UI is
+> otherwise covered by typecheck + build.\_
 
 ## P4 — Recommendation engine
 

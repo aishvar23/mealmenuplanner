@@ -1,8 +1,10 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+import { isAdminUser } from "@/lib/auth/admin";
 import {
   buildSignInUrl,
+  isAdminPath,
   isAuthPath,
   isProtectedPath,
 } from "@/lib/auth/route-access";
@@ -66,6 +68,17 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     return withCookies(
       response,
       NextResponse.redirect(buildSignInUrl(origin, `${pathname}${search}`)),
+    );
+  }
+
+  // Operator console: authenticated AND the admin `app_role` (design/03 § 5,
+  // P3-1). A signed-in non-operator is sent to the app, not /sign-in — they are
+  // authenticated, just not authorized. The admin layout re-checks server-side
+  // as the defense-in-depth backstop.
+  if (user && isAdminPath(pathname) && !isAdminUser(user)) {
+    return withCookies(
+      response,
+      NextResponse.redirect(new URL("/today", origin)),
     );
   }
 

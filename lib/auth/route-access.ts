@@ -42,6 +42,16 @@ export function isAuthPath(pathname: string): boolean {
   return pathname === "/sign-in";
 }
 
+/**
+ * True when `pathname` is (or is nested under) the operator console. These
+ * routes need authentication (via {@link PROTECTED_PREFIXES}) **and** the admin
+ * `app_role`; a signed-in non-operator is bounced to the app instead of
+ * `/sign-in`. Matches on a `/` boundary like {@link isProtectedPath}.
+ */
+export function isAdminPath(pathname: string): boolean {
+  return pathname === "/admin" || pathname.startsWith("/admin/");
+}
+
 /** Where an authenticated user lands when no specific `next` is requested. */
 export const DEFAULT_POST_AUTH_PATH = "/today";
 

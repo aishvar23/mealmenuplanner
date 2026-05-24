@@ -1,8 +1,11 @@
 import "server-only";
 
+import type { User } from "@supabase/supabase-js";
+
 import { createServerSupabaseClient } from "@/lib/db/server";
 import { ForbiddenError, InternalError } from "@/lib/errors";
 
+import { isAdminUser } from "./admin";
 import {
   hasPermission,
   isMembershipActive,
@@ -103,4 +106,24 @@ export async function requirePermission(
     );
   }
   return membership;
+}
+
+/**
+ * Assert the caller is an authenticated **operator** (holds the `admin`
+ * `app_role`), returning the verified user. Throws `UnauthenticatedError` (no
+ * session) or `ForbiddenError` (signed in, not an admin).
+ *
+ * This is the primary gate for the operator console and the content-write APIs
+ * (P3, docs/06). It is independent of household membership — operators manage
+ * the global catalog, not any single household. The content tables' RLS
+ * `app_role='admin'` write policy (design/03 § 5) is the database-level
+ * backstop; admin services run on the service-role client, so this guard is the
+ * gate that actually protects content authoring.
+ */
+export async function requireAdmin(): Promise<User> {
+  const user = await requireAuthUser();
+  if (!isAdminUser(user)) {
+    throw new ForbiddenError("Operator access is required.");
+  }
+  return user;
 }

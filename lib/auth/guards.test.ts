@@ -20,6 +20,7 @@ vi.mock("@/lib/auth/session", () => ({ requireAuthUser: vi.fn() }));
 import {
   getActiveMembership,
   requireActiveMember,
+  requireAdmin,
   requirePermission,
 } from "@/lib/auth/guards";
 
@@ -163,5 +164,37 @@ describe("requirePermission", () => {
     await expect(
       requirePermission(HOUSEHOLD_ID, "can_invite_members"),
     ).rejects.toBeInstanceOf(ForbiddenError);
+  });
+});
+
+describe("requireAdmin", () => {
+  it("returns the user when they hold the admin app_role", async () => {
+    vi.mocked(requireAuthUser).mockResolvedValue({
+      id: USER_ID,
+      app_metadata: { app_role: "admin" },
+    } as never);
+    const user = await requireAdmin();
+    expect(user.id).toBe(USER_ID);
+  });
+
+  it("throws ForbiddenError for a signed-in non-operator", async () => {
+    vi.mocked(requireAuthUser).mockResolvedValue({
+      id: USER_ID,
+      app_metadata: { app_role: "member" },
+    } as never);
+    await expect(requireAdmin()).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  it("throws ForbiddenError when there is no role claim", async () => {
+    vi.mocked(requireAuthUser).mockResolvedValue({
+      id: USER_ID,
+      app_metadata: {},
+    } as never);
+    await expect(requireAdmin()).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  it("propagates UnauthenticatedError when there is no session", async () => {
+    vi.mocked(requireAuthUser).mockRejectedValue(new UnauthenticatedError());
+    await expect(requireAdmin()).rejects.toBeInstanceOf(UnauthenticatedError);
   });
 });

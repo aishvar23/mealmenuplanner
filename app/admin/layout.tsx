@@ -1,15 +1,33 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { AdminNav } from "@/components/admin-nav";
+import { getAuthUser, isAdminUser } from "@/lib/auth";
 
 /**
  * Operator console shell (dish/ingredient content tooling, Phase 3).
  *
- * Visual shell only — admin role gating is added in P3-1 (the `app_role=admin`
- * JWT claim drives both the console and the content-table RLS, design/03 § 5).
+ * Gated at two layers (design/03 § 1, § 5, P3-1): the edge proxy (`proxy.ts`)
+ * redirects unauthenticated visitors to /sign-in and signed-in non-operators to
+ * the app before the request reaches here; this server component re-resolves
+ * the verified user and re-checks the admin `app_role` as a defense-in-depth
+ * backstop. Nothing in the console trusts the cookie without `getAuthUser()`,
+ * and the content-write services run behind `requireAdmin()` regardless.
  */
-export default function AdminLayout({ children }: { children: ReactNode }) {
+export default async function AdminLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const user = await getAuthUser();
+  if (!user) {
+    redirect("/sign-in");
+  }
+  if (!isAdminUser(user)) {
+    redirect("/today");
+  }
+
   return (
     <div className="flex min-h-full flex-1 flex-col">
       <header className="sticky top-0 z-20 border-b bg-background">
@@ -24,6 +42,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           </Link>
           <div className="ml-2">
             <AdminNav />
+          </div>
+          <div className="ml-auto flex items-center gap-2 text-sm text-muted-foreground">
+            <Link href="/today" className="hover:text-foreground">
+              Back to app
+            </Link>
           </div>
         </div>
       </header>
