@@ -30,7 +30,7 @@ phases that follow the [MVP roadmap](docs/12_mvp_roadmap.md) and reference the
 | —     | Design docs (`design/`)     | ✅           | Complete    |
 | P0    | Project setup & schema      | 14 / 16      | In progress |
 | P1    | Auth & household foundation | 8 / 8        | Complete    |
-| P2    | Onboarding (save/resume)    | 0 / 7        | Not started |
+| P2    | Onboarding (save/resume)    | 1 / 7        | In progress |
 | P3    | Dish admin / content        | 0 / 8        | Not started |
 | P4    | Recommendation engine       | 0 / 8        | Not started |
 | P5    | Meal planning               | 0 / 7        | Not started |
@@ -38,7 +38,7 @@ phases that follow the [MVP roadmap](docs/12_mvp_roadmap.md) and reference the
 | P7    | Grocery & prep              | 0 / 6        | Not started |
 | P8    | Notifications               | 0 / 6        | Not started |
 | P9    | Beta hardening              | 0 / 7        | Not started |
-|       | **Total**                   | **22 / 82**  |             |
+|       | **Total**                   | **23 / 82**  |             |
 
 **Suggested next task:** **P1 is complete** — `P1-1` (Google OAuth) and `P1-3`
 (server-side session resolution + the `proxy.ts` edge gate + the `(app)`-shell
@@ -69,8 +69,22 @@ anon client and the existing `/auth/callback` PKCE exchange, added to the
 sign-in screen via new `EmailPasswordForm` / `MagicLinkForm` / `EmailSignIn`
 components plus `Input` / `Label` UI primitives, with the open-redirect-safe
 `next` handling extracted into shared `route-access` helpers. **With P1-2 done,
-all of P1 is complete; the suggested next task is `P2-1`** (the multi-step
-onboarding wizard), which opens P2. Still open from P0: `P0-14` (seed:
+all of P1 is complete.** `P2-1` (the multi-step onboarding wizard UI) is now done
+and CI-green — it opens P2: the navigable six-step wizard at `/onboarding`
+(rendered outside the `(app)` nav shell, since a new user has no household yet),
+built over a new pure, client-safe `lib/onboarding` step model
+(`steps.ts` step ids matching `current_step` plus clamped `nextStep`/`prevStep`
+navigation, `draft.ts` for the `draft_data` shape, `options.ts` for the
+enum-derived choices) that the draft API will reuse. Forward/back navigation is
+free per the design; in-memory state only — autosave (P2-3), resume hydration
+(P2-4 via the wizard's `initialStep`/`initialData` seams), required-field gating
+(P2-5), and the completion transaction (P2-6 via `handleFinish`) are the wired-up
+follow-ups. The wizard's interactive render needs an authenticated Supabase
+session, so it wasn't exercised live here (no local `.env.local`); the proxy gate
+on the new `/onboarding` prefix was confirmed live (307 to `/sign-in`), and the
+full component tree is covered by typecheck + build. **The suggested next task is
+`P2-2`** (the `GET` + `PUT /api/onboarding/draft` endpoints, one in-progress
+draft per user). Still open from P0: `P0-14` (seed:
 ingredient catalog + 100 starter dishes, needs dish content authored first) and
 `P0-3`'s prod-project step. The advisor is clean (security:
 only the 4 by-design self-scoped SECURITY DEFINER WARNs; performance: 0 WARN,
@@ -122,7 +136,7 @@ the account owner creating a separate **prod** project before launch (see
 
 > Design: [06](design/06_onboarding_design.md) · Roadmap: Phase 2
 
-- [ ] **P2-1** Multi-step onboarding wizard UI with forward/back navigation
+- [x] **P2-1** Multi-step onboarding wizard UI with forward/back navigation — _the six-step wizard from [design/06](design/06_onboarding_design.md) § 2 (`household_basics`, `food_preferences`, `meal_schedule`, `allergies_health`, `budget`, `review`) with free forward/back navigation, mounted at `/onboarding`. **Pure model** in a new client-safe `lib/onboarding` (no `server-only`, no Supabase I/O): `steps.ts` (the ordered `STEP_IDS` matching the `current_step` values, `ONBOARDING_STEPS` metadata, and `stepIndex`/`isValidStep`/`nextStep`/`prevStep` clamped navigation + `stepMeta`), `draft.ts` (the `DraftData` payload shape keyed by step exactly as design/06 § 3, all fields optional since a draft is partial, enum fields typed from the generated DB enums), and `options.ts` (the selectable choices: diet/spice/budget/meal-slot value sets derived from `Constants` with exhaustive label maps so a new enum value forces a label; cuisines + health tags as curated free-text lists). The draft API (P2-2) reuses this model. **UI**: a server-component route page (`app/onboarding/page.tsx`) outside the `(app)` shell with the same `getAuthUser` backstop as the app layout; a client `OnboardingWizard` holding `draftData` + `currentStep` in memory, rendering `WizardProgress` (step counter + bar + labels) and the active step over Back/Next/Finish controls; six step components (`components/onboarding/steps/`) bound to their slice; and reusable controlled field helpers (`fields.tsx`: `Field`, single-select `OptionGroup`, multi-select `OptionChips`, free-text `TagInput`, `BooleanToggle`, `NumberInput` that maps empty to `undefined`). Review summarizes every section and jumps back to edit. **Deliberately deferred to later P2 tasks**: autosave + save-state UI (P2-3), resume hydration (P2-4, via the wizard's `initialStep`/`initialData` props), required-field enforcement (P2-5), and the completion transaction (P2-6, via the `handleFinish` seam — today it shows a finishable-state notice). 25 new tests (136 total) over the step-model navigation + option lists; lint, format, typecheck, test, and build all green. Live: the proxy gates the new `/onboarding` prefix (307 to `/sign-in?next=/onboarding`); the authenticated wizard render needs a Supabase session not available locally (no `.env.local`), so it is covered by typecheck + build rather than a live smoke test._
 - [ ] **P2-2** `GET /api/onboarding/draft` + `PUT /api/onboarding/draft` (one in-progress draft per user)
 - [ ] **P2-3** Autosave after each step + debounced field autosave; save-state UI states
 - [ ] **P2-4** Resume detection + "Continue setup" prompt (completion %, last saved, Resume / Start over)
