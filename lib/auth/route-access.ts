@@ -42,19 +42,44 @@ export function isAuthPath(pathname: string): boolean {
   return pathname === "/sign-in";
 }
 
+/** Where an authenticated user lands when no specific `next` is requested. */
+export const DEFAULT_POST_AUTH_PATH = "/today";
+
+/**
+ * True for a **safe same-origin, absolute path** (e.g. `/plan`,
+ * `/household/members?tab=invites`). A protocol-relative target (`//evil.com`)
+ * or an absolute URL (`https://evil.com`) is rejected, so a `next` value can
+ * never be turned into an open redirect. This is the single predicate every
+ * redirect path (`buildSignInUrl`, the auth callback, the sign-in forms) shares.
+ */
+export function isSafeRelativePath(path: string): boolean {
+  return path.startsWith("/") && !path.startsWith("//");
+}
+
+/**
+ * Resolve the post-sign-in destination: the requested `next` when it is a safe
+ * relative path, otherwise {@link DEFAULT_POST_AUTH_PATH}. Used by the auth
+ * callback (server) and the sign-in forms (client) so an attacker-supplied
+ * `next` can never redirect off-origin.
+ */
+export function resolvePostAuthRedirect(
+  next: string | null | undefined,
+): string {
+  return next && isSafeRelativePath(next) ? next : DEFAULT_POST_AUTH_PATH;
+}
+
 /**
  * Build the `/sign-in` URL to redirect an unauthenticated visitor to, threading
  * the originally-requested path through `?next=` so they land back there after
  * signing in.
  *
- * Only a same-origin, absolute path is preserved as `next` (e.g. `/plan`); a
- * protocol-relative (`//evil.com`) or absolute URL is dropped, so the param
- * can't be turned into an open redirect. The callback re-validates `next` the
- * same way before honoring it.
+ * Only a same-origin, absolute path is preserved as `next`; an open-redirect
+ * target is dropped (see {@link isSafeRelativePath}). The callback re-validates
+ * `next` the same way before honoring it.
  */
 export function buildSignInUrl(origin: string, next: string): URL {
   const url = new URL("/sign-in", origin);
-  if (next.startsWith("/") && !next.startsWith("//")) {
+  if (isSafeRelativePath(next)) {
     url.searchParams.set("next", next);
   }
   return url;

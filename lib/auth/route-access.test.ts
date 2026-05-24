@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildSignInUrl,
+  DEFAULT_POST_AUTH_PATH,
   isAuthPath,
   isProtectedPath,
+  isSafeRelativePath,
   PROTECTED_PREFIXES,
+  resolvePostAuthRedirect,
 } from "@/lib/auth/route-access";
 
 describe("isProtectedPath", () => {
@@ -39,6 +42,47 @@ describe("isAuthPath", () => {
     expect(isAuthPath("/sign-in")).toBe(true);
     expect(isAuthPath("/sign-in/extra")).toBe(false);
     expect(isAuthPath("/")).toBe(false);
+  });
+});
+
+describe("isSafeRelativePath", () => {
+  it("accepts same-origin absolute paths", () => {
+    for (const path of ["/today", "/plan", "/household/members?tab=invites"]) {
+      expect(isSafeRelativePath(path)).toBe(true);
+    }
+  });
+
+  it("rejects open-redirect targets", () => {
+    for (const path of [
+      "//evil.com",
+      "https://evil.com",
+      "http://evil.com/path",
+      "plan",
+      "",
+    ]) {
+      expect(isSafeRelativePath(path)).toBe(false);
+    }
+  });
+});
+
+describe("resolvePostAuthRedirect", () => {
+  it("returns a safe requested path unchanged", () => {
+    expect(resolvePostAuthRedirect("/plan")).toBe("/plan");
+    expect(resolvePostAuthRedirect("/household/members?tab=invites")).toBe(
+      "/household/members?tab=invites",
+    );
+  });
+
+  it("falls back to the default for missing or unsafe targets", () => {
+    for (const next of [
+      null,
+      undefined,
+      "",
+      "//evil.com",
+      "https://evil.com",
+    ]) {
+      expect(resolvePostAuthRedirect(next)).toBe(DEFAULT_POST_AUTH_PATH);
+    }
   });
 });
 

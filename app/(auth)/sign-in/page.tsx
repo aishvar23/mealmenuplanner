@@ -1,3 +1,4 @@
+import { EmailSignIn } from "@/components/auth/email-sign-in";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 
 export const metadata = { title: "Sign in" };
@@ -31,9 +32,13 @@ export default async function SignInPage({
         <GoogleSignInButton next={next} />
       </div>
 
-      <p className="mt-4 text-xs text-muted-foreground">
-        Email/password and magic-link sign-in arrive next (P1-2).
-      </p>
+      <div className="my-6 flex items-center gap-3">
+        <span className="h-px flex-1 bg-border" />
+        <span className="text-xs text-muted-foreground">or</span>
+        <span className="h-px flex-1 bg-border" />
+      </div>
+
+      <EmailSignIn next={next} />
     </div>
   );
 }

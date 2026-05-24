@@ -1,25 +1,11 @@
 import { NextResponse } from "next/server";
 
+import { resolvePostAuthRedirect } from "@/lib/auth/route-access";
 import { createServerSupabaseClient } from "@/lib/db/server";
 
 // Always run per-request: it reads the `code` query param and writes auth
 // cookies — never statically cached.
 export const dynamic = "force-dynamic";
-
-const DEFAULT_REDIRECT = "/today";
-
-/**
- * Only allow same-origin, absolute-path redirects (e.g. "/plan"). Anything
- * else — a protocol-relative target ("//evil.com"), an absolute URL, or a
- * missing value — falls back to the default. Keeps the callback from being
- * abused as an open redirect.
- */
-function safeNext(next: string | null): string {
-  if (next && next.startsWith("/") && !next.startsWith("//")) {
-    return next;
-  }
-  return DEFAULT_REDIRECT;
-}
 
 function signInRedirect(origin: string, message: string): NextResponse {
   const url = new URL("/sign-in", origin);
@@ -28,12 +14,14 @@ function signInRedirect(origin: string, message: string): NextResponse {
 }
 
 /**
- * OAuth / magic-link callback (design/03 § 2). Supabase redirects here with a
- * one-time `code`; `exchangeCodeForSession` swaps it (using the PKCE verifier
- * cookie) for a session and sets the HTTP-only, Secure, SameSite=Lax auth
- * cookies via the per-request server client. On the first sign-in the
- * `auth.users` insert fires `trg_provision_user_profile` (P0-13), so a
- * `public.users` profile exists before the user lands in the app.
+ * OAuth / magic-link / email-confirmation callback (design/03 § 2). Supabase
+ * redirects here with a one-time `code`; `exchangeCodeForSession` swaps it
+ * (using the PKCE verifier cookie) for a session and sets the HTTP-only,
+ * Secure, SameSite=Lax auth cookies via the per-request server client. The same
+ * route serves Google OAuth (P1-1) and the email-link flows (P1-2: magic link
+ * and email-confirmation sign-up). On the first sign-in the `auth.users` insert
+ * fires `trg_provision_user_profile` (P0-13), so a `public.users` profile
+ * exists before the user lands in the app.
  */
 export async function GET(request: Request): Promise<NextResponse> {
   const { searchParams, origin } = new URL(request.url);
@@ -64,6 +52,6 @@ export async function GET(request: Request): Promise<NextResponse> {
   }
 
   return NextResponse.redirect(
-    new URL(safeNext(searchParams.get("next")), origin),
+    new URL(resolvePostAuthRedirect(searchParams.get("next")), origin),
   );
 }
