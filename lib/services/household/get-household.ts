@@ -3,6 +3,7 @@ import "server-only";
 import { getActiveMembership } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/db/server";
 import { InternalError, NotFoundError } from "@/lib/errors";
+import { isUuid } from "@/lib/validation";
 
 import {
   toCurrentUserPermissionsDto,
@@ -23,12 +24,6 @@ import {
  * § 2). RLS independently re-applies the same membership check on every query.
  */
 
-// A 36-char canonical UUID. A malformed `householdId` from the URL path can't
-// name a real household, so we 404 it (existence-hiding) instead of letting the
-// invalid-uuid Postgres error surface as a 500.
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 // Single string literals so supabase-js can statically infer the row shapes.
 const HOUSEHOLD_SELECT = "id, name, created_by_user_id";
 const PREFERENCES_SELECT =
@@ -40,7 +35,9 @@ const PREFERENCES_SELECT =
  * not an active member), or `InternalError` (query failure).
  */
 export async function getHousehold(householdId: string): Promise<HouseholdDto> {
-  if (!UUID_RE.test(householdId)) {
+  // A malformed id can't name a real household — 404 it (existence-hiding)
+  // before it reaches a query as an invalid-uuid error.
+  if (!isUuid(householdId)) {
     throw new NotFoundError("Household not found.");
   }
 
