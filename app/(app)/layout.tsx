@@ -1,12 +1,12 @@
 import type { User } from "@supabase/supabase-js";
-import { Bell } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { AppNav } from "@/components/app-nav";
-import { buttonVariants } from "@/components/ui/button";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { getAuthUser } from "@/lib/auth";
+import { getUnreadNotificationCount } from "@/lib/services/notification";
 
 /**
  * Authenticated app shell (Today / Plan / Grocery / Household / Notifications).
@@ -23,6 +23,14 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     redirect("/sign-in");
   }
 
+  // Best-effort badge count — a notifications glitch must not break the shell.
+  let unreadCount = 0;
+  try {
+    unreadCount = await getUnreadNotificationCount();
+  } catch {
+    unreadCount = 0;
+  }
+
   return (
     <div className="flex min-h-full flex-1 flex-col">
       <header className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
@@ -37,13 +45,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             <AppNav />
           </div>
           <div className="ml-auto flex items-center gap-1">
-            <Link
-              href="/notifications"
-              aria-label="Notifications"
-              className={buttonVariants({ variant: "ghost", size: "icon" })}
-            >
-              <Bell />
-            </Link>
+            <NotificationBell initialUnreadCount={unreadCount} />
             <div
               className="ml-1 flex size-7 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary"
               title={user.email ?? undefined}

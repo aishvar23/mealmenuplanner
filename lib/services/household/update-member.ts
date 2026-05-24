@@ -4,9 +4,11 @@ import {
   defaultPermissionsForRole,
   getActiveMembership,
   hasPermission,
+  requireAuthUser,
 } from "@/lib/auth";
 import type { Database } from "@/lib/db/database.types";
 import { createServerSupabaseClient } from "@/lib/db/server";
+import { actorDisplayName, safeEmitHouseholdEvent } from "@/lib/events";
 import {
   ConflictError,
   ForbiddenError,
@@ -99,7 +101,22 @@ export async function updateMember(
         cause: error,
       });
     }
-    return findMemberDto(supabase, householdId, memberId);
+    const promoted = await findMemberDto(supabase, householdId, memberId);
+    const actor = await requireAuthUser();
+    await safeEmitHouseholdEvent(supabase, {
+      householdId,
+      eventType: "role_changed",
+      entityType: "household_member",
+      entityId: memberId,
+      newValue: { role: "owner" },
+      extraRecipientIds: [target.userId],
+      vars: {
+        actorName: actorDisplayName(actor),
+        memberName: promoted.displayName ?? "a member",
+        newRole: promoted.role,
+      },
+    });
+    return promoted;
   }
 
   // (2) The owner is immutable via this path.
@@ -127,6 +144,27 @@ export async function updateMember(
     throw new InternalError("Failed to update member.", { cause: error });
   }
 
-  // P8 hook: permissions_changed activity event + notification fan-out.
-  return findMemberDto(supabase, householdId, memberId);
+  const dto = await findMemberDto(supabase, householdId, memberId);
+  const actor = await requireAuthUser();
+
+  // A role change is `role_changed`; a flag-only change is `permissions_changed`
+  // (design/09 § 2). Both notify the affected member + active members minus actor.
+  const roleChanged = update.role !== null;
+  await safeEmitHouseholdEvent(supabase, {
+    householdId,
+    eventType: roleChanged ? "role_changed" : "permissions_changed",
+    entityType: "household_member",
+    entityId: memberId,
+    newValue: roleChanged
+      ? { role: dto.role }
+      : { permissions: update.permissionOverrides },
+    extraRecipientIds: [target.userId],
+    vars: {
+      actorName: actorDisplayName(actor),
+      memberName: dto.displayName ?? "a member",
+      newRole: dto.role,
+    },
+  });
+
+  return dto;
 }

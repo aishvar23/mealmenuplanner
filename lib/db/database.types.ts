@@ -1092,6 +1092,23 @@ export type Database = {
       };
       create_household: { Args: { p_name: string }; Returns: string };
       decline_invite: { Args: { p_token_hash: string }; Returns: Json };
+      emit_household_event: {
+        // Nullable args (`| null`) are hand-adjusted: Supabase's type generator
+        // does not emit nullability for function arguments, but the emit writer
+        // passes explicit nulls for entity / value / extra-recipient fields.
+        Args: {
+          p_entity_id: string | null;
+          p_entity_type: string;
+          p_event_type: string;
+          p_extra_recipient_ids: string[] | null;
+          p_household_id: string;
+          p_message: string;
+          p_new_value: Json | null;
+          p_old_value: Json | null;
+          p_title: string;
+        };
+        Returns: Json;
+      };
       expire_guests: { Args: never; Returns: number };
       expire_invites: { Args: never; Returns: number };
       get_invite_preview: {

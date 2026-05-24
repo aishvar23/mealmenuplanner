@@ -1,13 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { getActiveMembership } from "@/lib/auth";
+import { getActiveMembership, requireAuthUser } from "@/lib/auth";
 import type { MembershipContext } from "@/lib/auth/permissions";
 import { createServerSupabaseClient } from "@/lib/db/server";
 import { ConflictError, InternalError, NotFoundError } from "@/lib/errors";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/db/server", () => ({ createServerSupabaseClient: vi.fn() }));
-vi.mock("@/lib/auth", () => ({ getActiveMembership: vi.fn() }));
+vi.mock("@/lib/auth", () => ({
+  getActiveMembership: vi.fn(),
+  requireAuthUser: vi.fn(),
+}));
+// member_left fan-out is a best-effort side effect (P8-6) — stub it.
+vi.mock("@/lib/events", () => ({
+  safeEmitHouseholdEvent: vi.fn(),
+  actorDisplayName: () => "Member",
+}));
 
 import { leaveHousehold } from "./leave-household";
 
@@ -50,6 +58,11 @@ function stubUpdate(result: { error: unknown }) {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(getActiveMembership).mockResolvedValue(membershipContext("member"));
+  vi.mocked(requireAuthUser).mockResolvedValue({
+    id: CALLER,
+    email: "member@test.local",
+    user_metadata: {},
+  } as never);
 });
 
 describe("leaveHousehold", () => {

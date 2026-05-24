@@ -1,8 +1,17 @@
 import "server-only";
 
-import { getActiveMembership, hasPermission } from "@/lib/auth";
+import {
+  getActiveMembership,
+  hasPermission,
+  requireAuthUser,
+} from "@/lib/auth";
 import type { Json } from "@/lib/db/database.types";
 import { createServerSupabaseClient } from "@/lib/db/server";
+import {
+  actorDisplayName,
+  safeEmitHouseholdEvent,
+  sendInviteEmail,
+} from "@/lib/events";
 import { ForbiddenError, InternalError, NotFoundError } from "@/lib/errors";
 import type { JsonObject } from "@/lib/http";
 import { isUuid } from "@/lib/validation";
@@ -71,9 +80,42 @@ export async function createInvite(
     throw new InternalError("Failed to create invite.", { cause: error });
   }
 
-  // P8 hook: hand the invite to the notification service to email/SMS the link
-  // (design/07 § 6, P8-5). Until then the inviter shares `inviteLink` directly.
   const inviteLink = `${appBaseUrl.replace(/\/+$/, "")}/invite/${plaintext}`;
+
+  // Notify the household + email the invitee (design/09 § 2 `member_invited`, § 5).
+  const actor = await requireAuthUser();
+  const { data: household } = await supabase
+    .from("households")
+    .select("name")
+    .eq("id", householdId)
+    .maybeSingle();
+  const householdName = household?.name ?? "your household";
+  const invitedLabel = invite.invitedEmail ?? invite.invitedPhone ?? "someone";
+
+  // In-app fan-out to the existing active members (the actor is excluded).
+  await safeEmitHouseholdEvent(supabase, {
+    householdId,
+    eventType: "member_invited",
+    entityType: "household_invite",
+    entityId: data.id,
+    vars: {
+      actorName: actorDisplayName(actor),
+      memberName: invitedLabel,
+      householdName,
+    },
+  });
+
+  // The one external send in MVP: email the invite link to the invitee
+  // (best-effort; the link is also returned for manual sharing).
+  if (invite.invitedEmail) {
+    await sendInviteEmail({
+      toEmail: invite.invitedEmail,
+      inviteLink,
+      householdName,
+      inviterName: actorDisplayName(actor),
+      expiresAt: invite.expiresAt,
+    });
+  }
 
   return { inviteId: data.id, inviteLink };
 }

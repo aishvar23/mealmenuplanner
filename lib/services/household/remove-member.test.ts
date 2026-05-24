@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { getActiveMembership, hasPermission } from "@/lib/auth";
+import {
+  getActiveMembership,
+  hasPermission,
+  requireAuthUser,
+} from "@/lib/auth";
 import type { MembershipContext } from "@/lib/auth/permissions";
 import { createServerSupabaseClient } from "@/lib/db/server";
 import {
@@ -15,10 +19,19 @@ vi.mock("@/lib/db/server", () => ({ createServerSupabaseClient: vi.fn() }));
 vi.mock("@/lib/auth", () => ({
   getActiveMembership: vi.fn(),
   hasPermission: vi.fn(),
+  requireAuthUser: vi.fn(),
 }));
-vi.mock("./member-lookup", () => ({ loadTargetMember: vi.fn() }));
+vi.mock("./member-lookup", () => ({
+  loadTargetMember: vi.fn(),
+  findMemberDto: vi.fn(),
+}));
+// member_removed fan-out is a best-effort side effect (P8-6) — stub it.
+vi.mock("@/lib/events", () => ({
+  safeEmitHouseholdEvent: vi.fn(),
+  actorDisplayName: () => "Owner",
+}));
 
-import { loadTargetMember } from "./member-lookup";
+import { findMemberDto, loadTargetMember } from "./member-lookup";
 import { removeMember } from "./remove-member";
 
 const CALLER = "11111111-1111-1111-1111-111111111111";
@@ -65,6 +78,16 @@ beforeEach(() => {
     role: "member",
     status: "active",
   });
+  vi.mocked(requireAuthUser).mockResolvedValue({
+    id: CALLER,
+    email: "owner@test.local",
+    user_metadata: {},
+  } as never);
+  vi.mocked(findMemberDto).mockResolvedValue({
+    memberId: MEMBER_ID,
+    userId: TARGET_USER,
+    displayName: "Dee",
+  } as never);
 });
 
 describe("removeMember", () => {
