@@ -30,7 +30,7 @@ phases that follow the [MVP roadmap](docs/12_mvp_roadmap.md) and reference the
 | —     | Design docs (`design/`)     | ✅           | Complete    |
 | P0    | Project setup & schema      | 14 / 16      | In progress |
 | P1    | Auth & household foundation | 8 / 8        | Complete    |
-| P2    | Onboarding (save/resume)    | 1 / 7        | In progress |
+| P2    | Onboarding (save/resume)    | 2 / 7        | In progress |
 | P3    | Dish admin / content        | 0 / 8        | Not started |
 | P4    | Recommendation engine       | 0 / 8        | Not started |
 | P5    | Meal planning               | 0 / 7        | Not started |
@@ -38,7 +38,7 @@ phases that follow the [MVP roadmap](docs/12_mvp_roadmap.md) and reference the
 | P7    | Grocery & prep              | 0 / 6        | Not started |
 | P8    | Notifications               | 0 / 6        | Not started |
 | P9    | Beta hardening              | 0 / 7        | Not started |
-|       | **Total**                   | **23 / 82**  |             |
+|       | **Total**                   | **24 / 82**  |             |
 
 **Suggested next task:** **P1 is complete** — `P1-1` (Google OAuth) and `P1-3`
 (server-side session resolution + the `proxy.ts` edge gate + the `(app)`-shell
@@ -82,9 +82,19 @@ free per the design; in-memory state only — autosave (P2-3), resume hydration
 follow-ups. The wizard's interactive render needs an authenticated Supabase
 session, so it wasn't exercised live here (no local `.env.local`); the proxy gate
 on the new `/onboarding` prefix was confirmed live (307 to `/sign-in`), and the
-full component tree is covered by typecheck + build. **The suggested next task is
-`P2-2`** (the `GET` + `PUT /api/onboarding/draft` endpoints, one in-progress
-draft per user). Still open from P0: `P0-14` (seed:
+full component tree is covered by typecheck + build. `P2-2` (the `GET` +
+`PUT /api/onboarding/draft` endpoints) is now done and CI-green — the draft read
+returns the single `in_progress` draft (or `null`) and the autosave `PUT`
+idempotently upserts it, recomputing `completion_percentage` server-side and
+re-stamping `last_saved_at`; built thin over a new `onboarding` service
+(`getDraft`/`saveDraft`, the lenient `parseDraftUpdate` envelope validator, the
+shared `toDraftDto`) and a new pure, client-safe `lib/onboarding/completion.ts`
+(the required-field model + `computeCompletionPercentage`) that the wizard reuses,
+with a `409`/`23505` race guard on the concurrent-create path. **The suggested
+next task is `P2-3`** (autosave after each step + debounced field autosave, plus
+the `Saving… / Saved just now / Last saved … / Save failed. Retry.` save-state UI
+strings — design/06 § 5; wires the P2-1 wizard to the P2-2 `PUT`). Still open from
+P0: `P0-14` (seed:
 ingredient catalog + 100 starter dishes, needs dish content authored first) and
 `P0-3`'s prod-project step. The advisor is clean (security:
 only the 4 by-design self-scoped SECURITY DEFINER WARNs; performance: 0 WARN,
@@ -137,7 +147,7 @@ the account owner creating a separate **prod** project before launch (see
 > Design: [06](design/06_onboarding_design.md) · Roadmap: Phase 2
 
 - [x] **P2-1** Multi-step onboarding wizard UI with forward/back navigation — _the six-step wizard from [design/06](design/06_onboarding_design.md) § 2 (`household_basics`, `food_preferences`, `meal_schedule`, `allergies_health`, `budget`, `review`) with free forward/back navigation, mounted at `/onboarding`. **Pure model** in a new client-safe `lib/onboarding` (no `server-only`, no Supabase I/O): `steps.ts` (the ordered `STEP_IDS` matching the `current_step` values, `ONBOARDING_STEPS` metadata, and `stepIndex`/`isValidStep`/`nextStep`/`prevStep` clamped navigation + `stepMeta`), `draft.ts` (the `DraftData` payload shape keyed by step exactly as design/06 § 3, all fields optional since a draft is partial, enum fields typed from the generated DB enums), and `options.ts` (the selectable choices: diet/spice/budget/meal-slot value sets derived from `Constants` with exhaustive label maps so a new enum value forces a label; cuisines + health tags as curated free-text lists). The draft API (P2-2) reuses this model. **UI**: a server-component route page (`app/onboarding/page.tsx`) outside the `(app)` shell with the same `getAuthUser` backstop as the app layout; a client `OnboardingWizard` holding `draftData` + `currentStep` in memory, rendering `WizardProgress` (step counter + bar + labels) and the active step over Back/Next/Finish controls; six step components (`components/onboarding/steps/`) bound to their slice; and reusable controlled field helpers (`fields.tsx`: `Field`, single-select `OptionGroup`, multi-select `OptionChips`, free-text `TagInput`, `BooleanToggle`, `NumberInput` that maps empty to `undefined`). Review summarizes every section and jumps back to edit. **Deliberately deferred to later P2 tasks**: autosave + save-state UI (P2-3), resume hydration (P2-4, via the wizard's `initialStep`/`initialData` props), required-field enforcement (P2-5), and the completion transaction (P2-6, via the `handleFinish` seam — today it shows a finishable-state notice). 25 new tests (136 total) over the step-model navigation + option lists; lint, format, typecheck, test, and build all green. Live: the proxy gates the new `/onboarding` prefix (307 to `/sign-in?next=/onboarding`); the authenticated wizard render needs a Supabase session not available locally (no `.env.local`), so it is covered by typecheck + build rather than a live smoke test._
-- [ ] **P2-2** `GET /api/onboarding/draft` + `PUT /api/onboarding/draft` (one in-progress draft per user)
+- [x] **P2-2** `GET /api/onboarding/draft` + `PUT /api/onboarding/draft` (one in-progress draft per user) — _the draft read + autosave endpoints (design/06 § 5, § 6, § 9), kept thin per design/04 § 1: resolve session, delegate to one service, serialize. **`GET`** returns the caller's single `in_progress` draft as the design/06 § 9 shape (`status`, `currentStep`, `completionPercentage`, `lastSavedAt`, `draftData`) or `null` when none exists (the client then starts a fresh wizard; the first `PUT` creates the row). **`PUT`** is an idempotent upsert of that one draft: it recomputes `completion_percentage` server-side and re-stamps `last_saved_at` regardless of client input, then returns the saved draft in the same shape (the wizard derives its relative "Saved …" string from the returned `lastSavedAt`). New `onboarding` service (`lib/services/onboarding/`): `getDraft` (scoped to the caller via RLS plus an explicit `user_id` and `status = 'in_progress'` filter, so `maybeSingle` is exact under the `uq_one_active_draft_per_user` partial index); `saveDraft` (update the existing in-progress row, else insert — no `ON CONFLICT` on the partial index; a Postgres `23505` unique violation on the insert means a concurrent device won the in-progress slot, surfaced as `ConflictError` 409 so the client re-reads to reconcile, design/06 § 5); the pure `parseDraftUpdate` (lenient autosave envelope validation — `currentStep` must be a known wizard step and `draftData` a JSON object, leaf validation deferred to completion P2-6, the advisory `completionPercentage` ignored); and the shared `toDraftDto` mapper. The percentage comes from a new pure, client-safe `lib/onboarding/completion.ts` (`REQUIRED_FIELD_IDS` plus presence predicates and `computeCompletionPercentage` = `round(satisfied / 6 * 100)` over the six minimum-required fields, design/06 § 2, § 3; plus `missingRequiredFields` and `isDraftComplete` for P2-5), so the wizard bar (P2-1) and the server compute "done" identically. Route handler `app/api/onboarding/draft/route.ts` (`GET` + `PUT`) stays thin under `withErrorBoundary`; no proxy change needed — `/api/onboarding/...` is not an `(app)` shell prefix, so the endpoint self-guards via `requireAuthUser` (a 401 envelope, not a redirect). 35 new tests (171 total) over the completion model, the envelope validator, both services (update, insert, conflict, and error paths), and the handlers' status + envelope wiring; lint, format, typecheck, test, and build all green. The authenticated request path needs a Supabase session not available locally (no `.env.local`), so the endpoints are covered by typecheck + build rather than a live smoke test._
 - [ ] **P2-3** Autosave after each step + debounced field autosave; save-state UI states
 - [ ] **P2-4** Resume detection + "Continue setup" prompt (completion %, last saved, Resume / Start over)
 - [ ] **P2-5** Minimum-required-field validation (name, family size, diet, meals, cooking time, cuisine)
