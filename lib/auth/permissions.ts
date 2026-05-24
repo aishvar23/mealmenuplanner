@@ -118,3 +118,113 @@ export function hasPermission(
 ): boolean {
   return context.permissions[permission] === true;
 }
+
+/**
+ * Each permission flag's camelCase API key (design/04 § 1 casing boundary). The
+ * inverse of the hand-written mapping in `toCanFlagsDto`; kept here so the invite
+ * and member-update validators can read camelCase override input without
+ * re-stating the mapping.
+ */
+export const PERMISSION_CAMEL_KEYS: Record<Permission, string> = {
+  can_view_plan: "canViewPlan",
+  can_suggest_meals: "canSuggestMeals",
+  can_change_today_menu: "canChangeTodayMenu",
+  can_change_weekly_schedule: "canChangeWeeklySchedule",
+  can_manage_grocery_list: "canManageGroceryList",
+  can_invite_members: "canInviteMembers",
+  can_remove_members: "canRemoveMembers",
+  can_edit_household_preferences: "canEditHouseholdPreferences",
+};
+
+/**
+ * Pull the `can_*` overrides out of a camelCase input object. Pure and
+ * non-throwing: it reads only the eight known camelCase flag keys (unknown keys
+ * — e.g. a sibling `role` field — are ignored), records a `permissions.<key>`
+ * issue for any present-but-non-boolean value, and returns the validated subset.
+ * Shared by the invite create validator (reads `body.permissions`) and the
+ * member-update validator (reads the body directly, where flags are top-level).
+ */
+export function parsePermissionOverrides(raw: unknown): {
+  overrides: Partial<Record<Permission, boolean>>;
+  invalidFields: string[];
+} {
+  const overrides: Partial<Record<Permission, boolean>> = {};
+  const invalidFields: string[] = [];
+  if (raw == null) return { overrides, invalidFields };
+  if (typeof raw !== "object" || Array.isArray(raw)) {
+    return { overrides, invalidFields: ["permissions"] };
+  }
+
+  const obj = raw as Record<string, unknown>;
+  for (const flag of PERMISSION_FLAGS) {
+    const value = obj[PERMISSION_CAMEL_KEYS[flag]];
+    if (value === undefined) continue;
+    if (typeof value !== "boolean") {
+      invalidFields.push(`permissions.${PERMISSION_CAMEL_KEYS[flag]}`);
+      continue;
+    }
+    overrides[flag] = value;
+  }
+  return { overrides, invalidFields };
+}
+
+/**
+ * The role → default `can_*` flag bundle (design/03 § 4, design/07 § 2). A role
+ * is only the default bundle applied at invite/accept and role-change time; the
+ * individual flags are the runtime source of truth and can be overridden per
+ * member afterwards. The `owner` and `viewer` bundles are effectively fixed by
+ * role (owner holds everything; viewer is read-only); `admin`/`member` are the
+ * common starting points that get toggled. Used by the invite service (resolved
+ * set stored on the invite) and the member-update service (re-applied when a role
+ * changes), so the matrix lives in exactly one place.
+ */
+export function defaultPermissionsForRole(
+  role: MemberRole,
+): Record<Permission, boolean> {
+  switch (role) {
+    case "owner":
+      return {
+        can_view_plan: true,
+        can_suggest_meals: true,
+        can_change_today_menu: true,
+        can_change_weekly_schedule: true,
+        can_manage_grocery_list: true,
+        can_invite_members: true,
+        can_remove_members: true,
+        can_edit_household_preferences: true,
+      };
+    case "admin":
+      return {
+        can_view_plan: true,
+        can_suggest_meals: true,
+        can_change_today_menu: true,
+        can_change_weekly_schedule: true,
+        can_manage_grocery_list: true,
+        can_invite_members: true,
+        can_remove_members: false,
+        can_edit_household_preferences: true,
+      };
+    case "member":
+      return {
+        can_view_plan: true,
+        can_suggest_meals: true,
+        can_change_today_menu: false,
+        can_change_weekly_schedule: false,
+        can_manage_grocery_list: false,
+        can_invite_members: false,
+        can_remove_members: false,
+        can_edit_household_preferences: false,
+      };
+    case "viewer":
+      return {
+        can_view_plan: true,
+        can_suggest_meals: false,
+        can_change_today_menu: false,
+        can_change_weekly_schedule: false,
+        can_manage_grocery_list: false,
+        can_invite_members: false,
+        can_remove_members: false,
+        can_edit_household_preferences: false,
+      };
+  }
+}

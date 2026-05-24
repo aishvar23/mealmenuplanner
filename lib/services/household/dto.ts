@@ -169,6 +169,18 @@ export function toMemberDto(row: MemberRow): MemberDto {
   };
 }
 
+/** Response for `POST .../members/{memberId}/remove` (design/04 § 4.4). */
+export interface RemoveMemberResult {
+  memberId: string;
+  status: "removed";
+}
+
+/** Response for `POST .../leave` (design/04 § 4.4). */
+export interface LeaveHouseholdResult {
+  householdId: string;
+  status: "left";
+}
+
 /** Response payload for `GET /api/households/{householdId}` (design/04 § 4.1). */
 export interface HouseholdDto {
   id: string;

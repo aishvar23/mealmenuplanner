@@ -34,11 +34,11 @@ phases that follow the [MVP roadmap](docs/12_mvp_roadmap.md) and reference the
 | P3    | Dish admin / content        | 8 / 8        | Complete    |
 | P4    | Recommendation engine       | 8 / 8        | Complete    |
 | P5    | Meal planning               | 7 / 7        | Complete    |
-| P6    | Household collaboration     | 0 / 9        | Not started |
+| P6    | Household collaboration     | 9 / 9        | Complete    |
 | P7    | Grocery & prep              | 0 / 6        | Not started |
 | P8    | Notifications               | 0 / 6        | Not started |
 | P9    | Beta hardening              | 0 / 7        | Not started |
-|       | **Total**                   | **52 / 82**  |             |
+|       | **Total**                   | **61 / 82**  |             |
 
 **Suggested next task:** **P1 is complete** — `P1-1` (Google OAuth) and `P1-3`
 (server-side session resolution + the `proxy.ts` edge gate + the `(app)`-shell
@@ -131,8 +131,12 @@ persists nothing — the today/week generate endpoints, Today screen, and
 `meal_plan_items` writes are P5, built on `recommendForSlot`. 101 new tests (423
 total); lint, format, typecheck, test, and build all green. **P5 (meal planning)
 is now complete** (see the P5 section): `recommendForSlot` backs the today/week
-generate endpoints, the per-item actions, and the Today/Plan/History screens, so
-**the suggested next task is `P6-1`** (create invite). Still open
+generate endpoints, the per-item actions, and the Today/Plan/History screens.
+**P6 (household collaboration) is now complete** (see the P6 section): invites
+(hashed-at-rest token, unauthenticated preview, accept/decline), member
+role/permission management, remove, leave, ownership transfer, and the
+guest/invite expiry jobs — so **the suggested next task is `P7-1`** (grocery
+generation). Still open
 from P0: `P0-14` (seed:
 ingredient catalog + 100 starter dishes, needs dish content authored first) and
 `P0-3`'s prod-project step. The advisor is clean (security:
@@ -343,8 +347,8 @@ content-table`app_role` write-RLS backstop to fire under a user JWT, add a
 > green. The authenticated Today/Plan render needs a Supabase session + content
 > not available locally, so the screens are covered by typecheck + build; the
 > proxy still gates `/today` + `/plan` and the API self-guards (401 envelope)
-> unauthenticated. **The suggested next task is `P6-1`** (create invite), which
-> opens P6 (household collaboration). Still open from P0: `P0-14` (seed catalog +
+> unauthenticated. **With P6 done (see the P6 section), the suggested next task is
+> `P7-1`** (grocery generation). Still open from P0: `P0-14` (seed catalog +
 > 100 dishes — needed before the recommender has anything to suggest live) and
 > `P0-3`'s prod-project step.
 
@@ -352,15 +356,49 @@ content-table`app_role` write-RLS backstop to fire under a user JWT, add a
 
 > Design: [07](design/07_household_collaboration_design.md), [03](design/03_auth_and_security_design.md) · Roadmap: Phase 6
 
-- [ ] **P6-1** Create invite: `POST .../invites` (hashed-at-rest token, expiry, email send)
-- [ ] **P6-2** `GET /api/invites/{token}` unauthenticated, safe payload only (no sensitive household data)
-- [ ] **P6-3** Accept / decline invite (`.../accept`, `.../decline`) → activate membership
-- [ ] **P6-4** Member list + permissions management UI
-- [ ] **P6-5** `PATCH .../members/{id}` update role/permissions (gated)
-- [ ] **P6-6** Remove member (`.../remove`) — loses access, keeps activity attribution
-- [ ] **P6-7** Leave household (`.../leave`) for non-owners
-- [ ] **P6-8** Ownership transfer (required before owner can leave)
-- [ ] **P6-9** Temporary-guest expiry: `expire_guests` scheduled job + real-time `expires_at > now()` checks
+- [x] **P6-1** Create invite: `POST .../invites` (hashed-at-rest token, expiry, email send) — _the inviter (gated by `can_invite_members`) inserts the `household_invites` row under the per-request RLS client (`hi_insert`); no SECURITY DEFINER needed since they are an active member. The token is a bearer secret: a fresh 256-bit `base64url` plaintext is generated, only its `sha256` hash is stored, and the plaintext is returned once inside `inviteLink` (design/03 § 7, `lib/services/invite/token.ts`). The invite's full resolved 8-flag permission set (role defaults overlaid with overrides) is stored on the row so accept just copies it. `validateCreateInvite` enforces `invite_has_target` (email or phone), the `member_role` (owner not invitable) / `membership_type` enums, and a non-null future `expiresAt` — required for a guest, defaulted to 7 days for a permanent invite. Email/SMS send is the P8 notification hook (the link is returned for manual sharing meanwhile)._
+- [x] **P6-2** `GET /api/invites/{token}` unauthenticated, safe payload only (no sensitive household data) — _served via the `get_invite_preview` SECURITY DEFINER RPC (migration `20260524175648`), the only anon-callable function. It hashes nothing itself — the route hashes the plaintext and passes the hash — and returns ONLY the safe projection (household name, inviter display name, membership type, role, expiry) for a pending, unexpired invite, keyed by the unguessable token hash. Per design/03 § 7 there is **no existence oracle**: any unknown/expired/used token yields the same generic `NOT_FOUND` (this collapses the design/04 § 4.3 CONFLICT reasons on the public path deliberately)._
+- [x] **P6-3** Accept / decline invite (`.../accept`, `.../decline`) → activate membership — _`accept_invite` / `decline_invite` SECURITY DEFINER RPCs (same migration): the invitee is not yet a member, so the `hi_update` / `hm_insert` RLS would reject under their JWT — the functions bootstrap past it, acting only on the token-addressed row and writing a membership for `auth.uid()` alone. Accept is one transaction: invite `pending → accepted` + insert the `active` membership (role / type / permissions / window from the invite; a temporary guest carries the invite expiry, a permanent member gets `null`), guarded by `uq_one_live_membership` (`23505 → 409 already a member`); a non-pending/expired invite raises `23514 → 409`, an unknown token `P0002 → 404` (no oracle). The public `/invite/{token}` landing page renders the preview + Accept/Decline; a `401` bounces to `/sign-in?next=/invite/{token}`._
+- [x] **P6-4** Member list + permissions management UI — _the `/household` screen resolves the caller's household + active roster (`listMembers`, P1-8) and renders the `HouseholdMembers` client panel: invite form (creates + shows the one-time link), the roster with role/type/status/expiry, and — gated by the caller's `currentUserPermissions` — per-member role change, transfer-ownership, remove, and a leave button. Mutations re-sync via `router.refresh()`._
+- [x] **P6-5** `PATCH .../members/{id}` update role/permissions (gated) — _`updateMember` gated by `can_remove_members`. `validateMemberUpdate` accepts a `role` and/or a subset of top-level camelCase `can_\*` flags. A plain edit re-applies the role's default bundle (if role changed) then overlays explicit flags, under the RLS client (`hm*update`). The owner is immutable via this path (409); setting `role: "owner"` is the transfer trigger (P6-8). A non-member → 404, lacking the flag → 403.*
+- [x] **P6-6** Remove member (`.../remove`) — loses access, keeps activity attribution — _`removeMember` (gated by `can_remove_members`) soft-sets `active → removed` under the RLS client, so the user fails `is_active_member` on their next request while history/attribution survive. The owner can't be removed (409, transfer first) and you can't remove yourself (409, use leave)._
+- [x] **P6-7** Leave household (`.../leave`) for non-owners — _`leaveHousehold` sets the caller's own membership `active → left` (`hm_update` allows `user_id = auth.uid()`). An owner is blocked (409) — they must transfer ownership first._
+- [x] **P6-8** Ownership transfer (required before owner can leave) — _`transfer_ownership` SECURITY DEFINER function (migration `20260524175707`) atomically promotes the target to owner (every flag) and demotes the outgoing owner to admin, preserving exactly-one-owner; it re-verifies the caller is this household's active owner (`42501 → 403`). Exposed through the member-update path (`role: "owner"`); the leave guard (P6-7) enforces "transfer before leave."_
+- [x] **P6-9** Temporary-guest expiry: `expire_guests` scheduled job + real-time `expires_at > now()` checks — _`expire_guests()` (hourly) + `expire_invites()` (daily) pg_cron jobs (migration `20260524175722`) flip lapsed `temporary_guest` members / `pending` invites to their terminal status for durable bookkeeping. The **authoritative** enforcement is the real-time `expires_at > now()` check already in `is_active_member` / `has_permission`, the invite RPCs, and `isMembershipActive` — so access stops the instant the window closes, independent of the jobs (design/03 § 8). Both functions are `EXECUTE`-revoked from all user roles (system jobs)._
+
+> **P6 architecture & verification.** Three migrations, all functions only — the
+> `household_invites` / `household_members` tables + RLS shipped in P0-6/P0-12, so
+> no schema change. Invites store a **hashed** token (the `invite` service owns
+> generation + `sha256` hashing in `lib/services/invite/token.ts`, never plaintext
+> at rest). The unauthenticated preview and the accept/decline/transfer writes are
+> SECURITY DEFINER RPCs (the invitee/owner-bootstrap pattern of P1-5/P2-6),
+> hardened like the others (`search_path = ''`, fully-qualified, `auth.uid()`
+> schema-qualified, EXECUTE locked down). Create invite, remove, and leave run on
+> the per-request RLS client (the caller is already an active member). Services are
+> thin behind pure validators (`validate.ts`, `validate-member.ts`) and DTO mappers;
+> the new `defaultPermissionsForRole` / `parsePermissionOverrides` / camelCase
+> `PERMISSION_CAMEL_KEYS` live in the pure `lib/auth/permissions` model and are
+> shared by the invite + member-update validators. The endpoint surface is
+> `app/api/households/{id}/invites`, `app/api/invites/{token}(/accept|/decline)`,
+> `app/api/households/{id}/members/{memberId}(/remove)`, and
+> `app/api/households/{id}/leave`, all thin under `withErrorBoundary`; the UI is the
+> `/household` members panel + the public `/invite/{token}` landing page (rendered
+> outside the `(app)` shell). Types were regenerated from cloud dev via MCP.
+> **Verified live** in a rolled-back tx (13 assertions): preview returns the safe
+> projection and an unknown hash returns nothing; a guest accepts and lands active
+> with the invite's viewer flags + carried expiry; a second accept is blocked
+> (`23514`); ownership transfer leaves exactly one owner and demotes the old owner
+> to admin; a non-owner transfer is blocked (`42501`); and `expire_guests` flips a
+> lapsed guest to `expired`. **Cross-phase hooks (not yet wired):** the
+> `member_joined` / `member_removed` / `permissions_changed` activity events and
+> notification fan-out (design/07 § 6, § 9, § 10; P8) are marked inline in the SQL
+> functions and services, mirroring how P5 deferred notifications. 99 new tests
+> (603 total); lint, format, typecheck, test, and build all green. Security advisor:
+> the new `get_invite_preview` adds the **one** by-design anon-callable (0028) WARN
+> — intentional for the unauthenticated landing, keyed by the unguessable token
+> hash and exposing only the safe projection — and accept/decline/preview/transfer
+> add to the by-design self/capability-scoped SECURITY DEFINER (0029) WARNs;
+> `expire_guests`/`expire_invites` don't appear (EXECUTE revoked).
 
 ## P7 — Grocery & prep
 

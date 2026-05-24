@@ -6,10 +6,11 @@
 // uses `--local`, and the local stack can't run here (no Docker). When Docker is
 // available, `npm run db:types` regenerates this file from the local stack.
 //
-// Reflects migrations P0-5..P0-13 + P1-5 + P1-8 + P2-6 + P2-7 + P4-1 (19 MVP
-// tables, 17 enums, RLS helper fns + create_household / list_household_members /
-// list_household_food_preferences / complete_onboarding RPCs + the
-// abandon_stale_drafts job fn).
+// Reflects migrations P0-5..P0-13 + P1-5 + P1-8 + P2-6 + P2-7 + P4-1 + P6-2/3 +
+// P6-5/8 + P6-9 (19 MVP tables, 17 enums, RLS helper fns + create_household /
+// list_household_members / list_household_food_preferences / complete_onboarding
+// / get_invite_preview / accept_invite / decline_invite / transfer_ownership RPCs
+// + the abandon_stale_drafts / expire_guests / expire_invites job fns).
 // After regenerating, run `npm run format` so the output matches Prettier.
 
 export type Json =
@@ -1078,6 +1079,7 @@ export type Database = {
     };
     Functions: {
       abandon_stale_drafts: { Args: never; Returns: number };
+      accept_invite: { Args: { p_token_hash: string }; Returns: Json };
       complete_onboarding: {
         Args: {
           p_draft_id: string;
@@ -1088,6 +1090,19 @@ export type Database = {
         Returns: Json;
       };
       create_household: { Args: { p_name: string }; Returns: string };
+      decline_invite: { Args: { p_token_hash: string }; Returns: Json };
+      expire_guests: { Args: never; Returns: number };
+      expire_invites: { Args: never; Returns: number };
+      get_invite_preview: {
+        Args: { p_token_hash: string };
+        Returns: {
+          expires_at: string;
+          household_name: string;
+          invited_by: string;
+          membership_type: Database["public"]["Enums"]["membership_type"];
+          role: Database["public"]["Enums"]["member_role"];
+        }[];
+      };
       has_permission: { Args: { h: string; perm: string }; Returns: boolean };
       is_active_member: { Args: { h: string }; Returns: boolean };
       list_household_food_preferences: {
@@ -1123,6 +1138,10 @@ export type Database = {
           status: Database["public"]["Enums"]["member_status"];
           user_id: string;
         }[];
+      };
+      transfer_ownership: {
+        Args: { p_household_id: string; p_target_member_id: string };
+        Returns: Json;
       };
     };
     Enums: {
