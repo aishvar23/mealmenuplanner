@@ -1,0 +1,108 @@
+/**
+ * Recommendation tuning — the single place weights, thresholds, mealtimes, and
+ * feature flags live (design/05 § 11). Scoring functions read from this object,
+ * so changing behavior is a config edit, not a logic change.
+ *
+ * The `weights` block is reproduced **verbatim** from
+ * [`../../docs/04_recommendation_engine.md`](../../docs/04_recommendation_engine.md)
+ * and design/05 § 5; any numeric divergence is a bug — doc 04 is the authority.
+ *
+ * Pure data (no I/O), so the engine stays deterministic and unit-testable.
+ */
+
+import type { MealSlot } from "./types";
+
+/** The shape of the tuning object so tests can build variants (design/05 § 11). */
+export interface RecommendationConfig {
+  weights: {
+    dietMatch: number;
+    mealSlotMatch: number;
+    cuisineMatch: number;
+    cookingTimeWithinLimit: number;
+    notRepeatedRecently: number;
+    kidFriendlyWhenKids: number;
+    lunchboxFriendlyForLunch: number;
+    preferredIngredient: number;
+    recentlyRejected: number;
+    recentlyCookedWithinGap: number;
+    missingRequiredPrep: number;
+    exceedsCookingTime: number;
+    highDifficultyOnWeekday: number;
+  };
+  /** How many ranked suggestions the per-slot recommender returns. */
+  topN: number;
+  /**
+   * Default mealtime per slot as `HH:MM`, interpreted in **UTC** (design/05 § 7).
+   * The MVP does not store a household timezone (that is a P7 prep-reminder
+   * concern), so prep feasibility computes `minutesUntilMeal` in UTC — a
+   * documented simplification, accurate for future-dated planning and close
+   * enough for today's slot.
+   */
+  mealtimes: Record<MealSlot, string>;
+  /** Diet hard-filter refinement sets (design/05 § 4); see `./diet.ts`. */
+  diet: {
+    /** `ingredients.category` values that make a dish non-vegan. */
+    nonVeganCategories: string[];
+    /** Ingredient name / common-name / allergen-type terms that are non-vegan. */
+    nonVeganTerms: string[];
+    /** Ingredient terms a jain household excludes (onion/garlic family). */
+    jainExcludedTerms: string[];
+  };
+  /**
+   * Primary-ingredient repetition reduction (design/05 § 6.2) — **V2, off by
+   * default** so the MVP scoring contract matches doc 04 exactly. When enabled,
+   * a dish whose primary ingredient repeats within `windowDays` takes `penalty`.
+   */
+  ingredientRepetition: {
+    enabled: boolean;
+    penalty: number;
+    windowDays: number;
+  };
+}
+
+export const RECOMMENDATION_CONFIG: RecommendationConfig = {
+  weights: {
+    dietMatch: 100,
+    mealSlotMatch: 50,
+    cuisineMatch: 30,
+    cookingTimeWithinLimit: 30,
+    notRepeatedRecently: 40,
+    kidFriendlyWhenKids: 20,
+    lunchboxFriendlyForLunch: 15,
+    preferredIngredient: 10,
+    recentlyRejected: -80,
+    recentlyCookedWithinGap: -60,
+    missingRequiredPrep: -60,
+    exceedsCookingTime: -40,
+    highDifficultyOnWeekday: -30,
+  },
+  topN: 5,
+  mealtimes: {
+    breakfast: "08:00",
+    lunch: "12:30",
+    dinner: "19:00",
+    snack: "16:00",
+  },
+  diet: {
+    nonVeganCategories: ["dairy", "eggs_meat"],
+    nonVeganTerms: [
+      "milk",
+      "dairy",
+      "paneer",
+      "cheese",
+      "butter",
+      "ghee",
+      "cream",
+      "curd",
+      "yogurt",
+      "yoghurt",
+      "khoya",
+      "mawa",
+      "egg",
+      "eggs",
+      "honey",
+    ],
+    jainExcludedTerms: ["onion", "garlic", "shallot", "leek", "spring onion"],
+  },
+  ingredientRepetition: { enabled: false, penalty: -25, windowDays: 2 },
+} as const;

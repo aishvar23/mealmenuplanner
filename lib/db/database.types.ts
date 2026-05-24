@@ -6,9 +6,10 @@
 // uses `--local`, and the local stack can't run here (no Docker). When Docker is
 // available, `npm run db:types` regenerates this file from the local stack.
 //
-// Reflects migrations P0-5..P0-13 + P1-5 + P1-8 + P2-6 + P2-7 (19 MVP tables,
-// 17 enums, RLS helper fns + create_household / list_household_members /
-// complete_onboarding RPCs + the abandon_stale_drafts job fn).
+// Reflects migrations P0-5..P0-13 + P1-5 + P1-8 + P2-6 + P2-7 + P4-1 (19 MVP
+// tables, 17 enums, RLS helper fns + create_household / list_household_members /
+// list_household_food_preferences / complete_onboarding RPCs + the
+// abandon_stale_drafts job fn).
 // After regenerating, run `npm run format` so the output matches Prettier.
 
 export type Json =
@@ -1089,6 +1090,19 @@ export type Database = {
       create_household: { Args: { p_name: string }; Returns: string };
       has_permission: { Args: { h: string; perm: string }; Returns: boolean };
       is_active_member: { Args: { h: string }; Returns: boolean };
+      list_household_food_preferences: {
+        Args: { p_household_id: string };
+        Returns: {
+          allergies: string[];
+          diet_type: Database["public"]["Enums"]["diet_type"];
+          disliked_dishes: string[];
+          disliked_ingredients: string[];
+          health_preference_tags: string[];
+          liked_dishes: string[];
+          spice_preference: Database["public"]["Enums"]["spice_level"];
+          user_id: string;
+        }[];
+      };
       list_household_members: {
         Args: { p_household_id: string };
         Returns: {

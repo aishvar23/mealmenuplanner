@@ -32,13 +32,13 @@ phases that follow the [MVP roadmap](docs/12_mvp_roadmap.md) and reference the
 | P1    | Auth & household foundation | 8 / 8        | Complete    |
 | P2    | Onboarding (save/resume)    | 7 / 7        | Complete    |
 | P3    | Dish admin / content        | 8 / 8        | Complete    |
-| P4    | Recommendation engine       | 0 / 8        | Not started |
+| P4    | Recommendation engine       | 8 / 8        | Complete    |
 | P5    | Meal planning               | 0 / 7        | Not started |
 | P6    | Household collaboration     | 0 / 9        | Not started |
 | P7    | Grocery & prep              | 0 / 6        | Not started |
 | P8    | Notifications               | 0 / 6        | Not started |
 | P9    | Beta hardening              | 0 / 7        | Not started |
-|       | **Total**                   | **37 / 82**  |             |
+|       | **Total**                   | **45 / 82**  |             |
 
 **Suggested next task:** **P1 is complete** — `P1-1` (Google OAuth) and `P1-3`
 (server-side session resolution + the `proxy.ts` edge gate + the `(app)`-shell
@@ -108,9 +108,30 @@ dish-ingredient / prep-task / pairing editors, and checklist-gated
 activate/archive. The `admin` service runs on the service-role client (the
 admin-tooling path design/02 sanctions) behind `requireAdmin()`, with the
 content-table `app_role` write-RLS as the in-band backstop; no new migration was
-needed (content tables + RLS shipped in P0-7/P0-12). **The suggested next task is
-`P4-1`** (recommendation-engine input loaders), which opens P4 now that operators
-can author + activate dishes. Still open
+needed (content tables + RLS shipped in P0-7/P0-12). **With P4-1..P4-8 done, all
+of P4 is complete** — the deterministic, explainable recommendation engine
+(design/05) now ranks active dishes for a slot and explains every suggestion. It
+splits into a pure, client-safe `lib/recommendation` core (a single tuning config
+with the verbatim doc-04 weights; the hard filters — the diet-type matrix plus
+the vegan dairy/egg and jain onion/garlic ingredient refinements, the active-member
+allergy union, slot match, do-not-suggest-again, and prep-impossible exclusion;
+the soft scoring factors; variety rotation incl. the in-run "used" set; prep
+feasibility on an injected clock; the weight-ordered explanation generator; and
+the `recommendSlot` pipeline that emits the design/05 § 9 output contract with a
+deterministic tiebreak) and a server-only `lib/services/recommendation` (the four
+input loaders plus the composing `recommendForSlot`, gated by active membership
+with existence-hiding 404s). Allergy safety required a new SECURITY DEFINER
+projection RPC `list_household_food_preferences` (migration `20260524162541`) so
+every active member's restrictions load regardless of the caller's
+`can_edit_household_preferences` flag — the same safe-projection pattern as P1-8,
+verified live in a rolled-back tx (an active member sees all co-members' prefs, a
+non-member sees none); the advisor shows only the 6 by-design self-scoped
+SECURITY DEFINER WARNs (the 5 prior plus the new RPC). The engine is read-only and
+persists nothing — the today/week generate endpoints, Today screen, and
+`meal_plan_items` writes are P5, built on `recommendForSlot`. 101 new tests (423
+total); lint, format, typecheck, test, and build all green. **The suggested next
+task is `P5-1`** (the today-generate endpoint + Today screen), which opens P5 now
+that the engine can rank meals. Still open
 from P0: `P0-14` (seed:
 ingredient catalog + 100 starter dishes, needs dish content authored first) and
 `P0-3`'s prod-project step. The advisor is clean (security:
@@ -250,14 +271,31 @@ content-table`app_role` write-RLS backstop to fire under a user JWT, add a
 
 > Design: [05](design/05_recommendation_engine_design.md) · Roadmap: Phase 4
 
-- [ ] **P4-1** Input loaders (household prefs, active members, candidate dishes for slot, recent history/feedback)
-- [ ] **P4-2** Hard filters (diet, allergy, slot, prep-impossible, do-not-suggest-again, guest restrictions)
-- [ ] **P4-3** Soft scoring functions with the exact weights from [design/05](design/05_recommendation_engine_design.md)
-- [ ] **P4-4** Variety/rotation penalty (`variety_gap_days`)
-- [ ] **P4-5** Prep-feasibility scoring (deadline vs `required_before_minutes` vs now)
-- [ ] **P4-6** Explanation generator (human-readable `reason` from winning positive factors)
-- [ ] **P4-7** Ranked output contract (`dishId`, `score`, `reason`, `missingConstraints`, `prepTasks`, `pairedDishes`)
-- [ ] **P4-8** Unit tests over scoring with fixture households/dishes (pure functions)
+- [x] **P4-1** Input loaders (household prefs, active members, candidate dishes for slot, recent history/feedback) — _server-only `lib/services/recommendation/load-inputs.ts` reads each input group under the per-request RLS client and maps rows to the engine's camelCase domain types. Candidate dishes (and their bulk-loaded ingredients, prep tasks, pairings) come straight from RLS (which exposes only `active` content). Member food preferences go through a new `list_household_food_preferences` SECURITY DEFINER RPC (migration `20260524162541`), because `ufp_select` would otherwise hide co-members' allergies from a plain member — breaking allergy safety; the RPC re-checks active membership and returns only the engine-needed fields. History pre-aggregates `meal_plan_items` (within the variety window) and all-time `meal_feedback` into the engine's signal sets._
+- [x] **P4-2** Hard filters (diet, allergy, slot, prep-impossible, do-not-suggest-again, guest restrictions) — _pure predicates in `hard-filters.ts` (+ `diet.ts`, `allergens.ts`, `prep.ts`). Diet is an explicit config matrix tightened by the strictest active-member override, with the vegan (no dairy/egg) and jain (no onion/garlic) ingredient refinements doc 04 calls out. Allergy union matches whole words against ingredient name/common-names/allergen-type (so "egg" excludes egg, not eggplant). Guest restrictions need no special rule: an active guest's prefs are loaded into the member set, so they fold into the diet/allergy rules._
+- [x] **P4-3** Soft scoring functions with the exact weights from [design/05](design/05_recommendation_engine_design.md) — _`scoring.ts`: one config object holds the verbatim doc-04 weights; `scoreDish` returns the labelled factors that fired. Disliked ingredients/dishes and liked dishes fold into the existing factors (per the § 5 note) rather than adding new weights._
+- [x] **P4-4** Variety/rotation penalty (`variety_gap_days`) — _the `+40` not-repeated / `-60` recently-cooked swing, where "recently cooked" is any history row in the window OR a dish already chosen earlier in a weekly run (the in-memory `usedThisRun` set, § 6.1/§ 10)._
+- [x] **P4-5** Prep-feasibility scoring (deadline vs `required_before_minutes` vs now) — _`prep.ts` + `mealtimes.ts`: compares the longest prep lead against minutes-until-mealtime on an injected clock (UTC mealtimes, a documented MVP simplification). Returns none / deferrable (soft `-60` + emit the prep task) / impossible (hard exclude for today)._
+- [x] **P4-6** Explanation generator (human-readable `reason` from winning positive factors) — _`explanation.ts` collects the positive factors that fired, orders them by weight (stable tiebreak), maps each to a phrase, and joins with an Oxford comma. Negative factors are never narrated — they surface as `missingConstraints`._
+- [x] **P4-7** Ranked output contract (`dishId`, `score`, `reason`, `missingConstraints`, `prepTasks`, `pairedDishes`) — _`engine.ts` `recommendSlot` runs the filters, scores survivors, sorts `score desc, total_time asc, id asc`, and returns the top-N output contract. The composing `recommendForSlot` service loads inputs and runs it (read-only; no persistence — that is P5)._
+- [x] **P4-8** Unit tests over scoring with fixture households/dishes (pure functions) — _101 new tests over the text matcher, diet matrix + refinements, allergens, prep/mealtimes, scoring weights, the explanation sentence, and whole-pipeline golden + determinism runs, plus the loaders (stub) and the service gate/integration. 423 total; lint, format, typecheck, test, build all green._
+
+> **P4 architecture & verification.** The engine is a pure, deterministic,
+> rule-based scorer (design/05) with two layers: the client-safe core
+> `lib/recommendation` (no `server-only`, no I/O — config, types, the hard
+> filters, soft scoring, variety, prep, explanation, and the `recommendSlot`
+> pipeline) and the server-only `lib/services/recommendation` (the input loaders +
+> the composing `recommendForSlot`). Decoupling row shapes from the engine's
+> camelCase domain types keeps scoring trivially unit-testable with plain
+> fixtures (`test-fixtures.ts`), and the only clock is an injected `now`, so prep
+> edge cases are reproducible. One new migration (`20260524162541`) adds the
+> `list_household_food_preferences` SECURITY DEFINER projection so allergy
+> filtering sees every active member regardless of the caller's permissions
+> (the P1-8 safe-projection pattern); types were regenerated from cloud dev via
+> MCP. Verified live in a rolled-back tx (active member sees all co-members'
+> prefs, non-member sees none); security advisor clean except the 6 by-design
+> self-scoped SECURITY DEFINER WARNs. The engine is read-only; the generate
+> endpoints + Today/Plan screens that persist `meal_plan_items` are P5.
 
 ## P5 — Meal planning
 
