@@ -16,6 +16,7 @@ import { getDraft } from "./get-draft";
 const USER_ID = "11111111-1111-1111-1111-111111111111";
 
 const DRAFT_ROW = {
+  id: "d3d3d3d3-0000-0000-0000-0000000000d3",
   status: "in_progress",
   current_step: "food_preferences",
   completion_percentage: 50,
@@ -49,6 +50,7 @@ describe("getDraft", () => {
     const dto = await getDraft();
 
     expect(dto).toEqual({
+      id: "d3d3d3d3-0000-0000-0000-0000000000d3",
       status: "in_progress",
       currentStep: "food_preferences",
       completionPercentage: 50,

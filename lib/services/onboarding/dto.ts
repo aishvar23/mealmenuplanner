@@ -18,6 +18,7 @@ type DraftRow = Database["public"]["Tables"]["household_profile_drafts"]["Row"];
 /** The `household_profile_drafts` columns projected into the API DTO. */
 export type DraftProjection = Pick<
   DraftRow,
+  | "id"
   | "status"
   | "current_step"
   | "completion_percentage"
@@ -31,6 +32,8 @@ export type DraftProjection = Pick<
  * the server-recomputed `completionPercentage` and re-stamped `lastSavedAt`.
  */
 export interface DraftDto {
+  /** The draft's id — the client passes it to `POST /complete` (design/04 § 4.2). */
+  id: string;
   status: DraftStatus;
   /** A `current_step` value (a `StepId`); deep-links the resume. */
   currentStep: string;
@@ -47,6 +50,7 @@ export interface DraftDto {
 /** Map a `household_profile_drafts` row to its camelCase DTO. */
 export function toDraftDto(row: DraftProjection): DraftDto {
   return {
+    id: row.id,
     status: row.status,
     currentStep: row.current_step,
     completionPercentage: row.completion_percentage,

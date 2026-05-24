@@ -23,7 +23,7 @@ import { toDraftDto, type DraftDto } from "./dto";
 // Single string literal so supabase-js can statically infer the row shape; matches
 // the DTO projection so GET and PUT return an identical draft object.
 const DRAFT_SELECT =
-  "status, current_step, completion_percentage, last_saved_at, draft_data";
+  "id, status, current_step, completion_percentage, last_saved_at, draft_data";
 
 /**
  * Load the caller's in-progress onboarding draft, or `null` if there is none.

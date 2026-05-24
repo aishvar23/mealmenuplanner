@@ -31,7 +31,7 @@ import { parseDraftUpdate } from "./validate-draft";
 // Single string literal so supabase-js can statically infer the returned row;
 // matches the DTO projection so PUT and GET return an identical draft object.
 const DRAFT_SELECT =
-  "status, current_step, completion_percentage, last_saved_at, draft_data";
+  "id, status, current_step, completion_percentage, last_saved_at, draft_data";
 
 /** Postgres `unique_violation` — the `in_progress` slot was taken concurrently. */
 const UNIQUE_VIOLATION = "23505";

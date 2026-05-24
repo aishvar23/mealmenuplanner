@@ -35,6 +35,7 @@ const COMPLETE_BODY = {
 };
 
 const SAVED_ROW = {
+  id: "d3d3d3d3-0000-0000-0000-0000000000d3",
   status: "in_progress",
   current_step: "review",
   completion_percentage: 100,
@@ -88,6 +89,7 @@ describe("saveDraft", () => {
     const dto = await saveDraft(COMPLETE_BODY);
 
     expect(dto).toEqual({
+      id: "d3d3d3d3-0000-0000-0000-0000000000d3",
       status: "in_progress",
       currentStep: "review",
       completionPercentage: 100,

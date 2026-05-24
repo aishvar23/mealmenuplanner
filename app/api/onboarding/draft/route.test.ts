@@ -14,6 +14,7 @@ import { getDraft, saveDraft } from "@/lib/services/onboarding";
 import { GET, PUT } from "./route";
 
 const DRAFT_DTO = {
+  id: "d3d3d3d3-0000-0000-0000-0000000000d3",
   status: "in_progress" as const,
   currentStep: "food_preferences",
   completionPercentage: 50,

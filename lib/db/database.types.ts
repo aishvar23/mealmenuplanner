@@ -6,8 +6,9 @@
 // uses `--local`, and the local stack can't run here (no Docker). When Docker is
 // available, `npm run db:types` regenerates this file from the local stack.
 //
-// Reflects migrations P0-5..P0-13 + P1-5 + P1-8 (19 MVP tables, 17 enums, RLS
-// helper fns + create_household / list_household_members RPCs).
+// Reflects migrations P0-5..P0-13 + P1-5 + P1-8 + P2-6 + P2-7 (19 MVP tables,
+// 17 enums, RLS helper fns + create_household / list_household_members /
+// complete_onboarding RPCs + the abandon_stale_drafts job fn).
 // After regenerating, run `npm run format` so the output matches Prettier.
 
 export type Json =
@@ -1075,6 +1076,16 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      abandon_stale_drafts: { Args: never; Returns: number };
+      complete_onboarding: {
+        Args: {
+          p_draft_id: string;
+          p_food_preferences?: Json;
+          p_household: Json;
+          p_preferences: Json;
+        };
+        Returns: Json;
+      };
       create_household: { Args: { p_name: string }; Returns: string };
       has_permission: { Args: { h: string; perm: string }; Returns: boolean };
       is_active_member: { Args: { h: string }; Returns: boolean };

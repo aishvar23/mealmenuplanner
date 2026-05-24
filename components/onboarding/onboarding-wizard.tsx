@@ -3,6 +3,7 @@
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { SaveIndicator } from "@/components/onboarding/save-indicator";
 import { AllergiesHealthStep } from "@/components/onboarding/steps/allergies-health-step";
 import { BudgetStep } from "@/components/onboarding/steps/budget-step";
 import { FoodPreferencesStep } from "@/components/onboarding/steps/food-preferences-step";
@@ -16,90 +17,187 @@ import {
   FIRST_STEP,
   isFirstStep,
   isLastStep,
+  missingRequiredFields,
   nextStep,
   prevStep,
   stepMeta,
   type DraftData,
+  type RequiredFieldId,
   type StepId,
 } from "@/lib/onboarding";
 
+import { completeDraft } from "./draft-client";
+import { useDraftAutosave } from "./use-draft-autosave";
+
 /**
- * The onboarding wizard (P2-1): an ordered, navigable set of steps that collects
- * the household-setup `draftData` (design/06 § 2). State is held in memory here;
- * persistence wires in later — autosave + resume hydration in P2-2/P2-3/P2-4 via
- * the `initialStep`/`initialData` seams, and the completion transaction in P2-6
- * via `handleFinish`.
+ * The onboarding wizard (P2-1 UI; P2-3 autosave; P2-5 gating; P2-6 completion).
  *
- * Forward/back navigation is unrestricted (the design allows free movement
- * between steps); minimum-required-field gating is enforced separately in P2-5.
+ * Holds the `draftData` + `currentStep` in memory and persists them through
+ * {@link useDraftAutosave}: edits debounce-save, Next/Back save immediately, and
+ * the save-state indicator reflects progress (design/06 § 5). Finishing is gated
+ * on the minimum required set (design/06 § 2) and promotes the draft via
+ * `POST /api/onboarding/complete`, then redirects to Today (Flow 1).
  */
+
+/** Friendly label + the step that owns each required field (for the gate notice). */
+const REQUIRED_FIELD_META: Record<
+  RequiredFieldId,
+  { label: string; step: StepId }
+> = {
+  name: { label: "Household name", step: "household_basics" },
+  familySize: { label: "Family size", step: "household_basics" },
+  dietType: { label: "Diet type", step: "food_preferences" },
+  preferredCuisines: {
+    label: "At least one cuisine",
+    step: "food_preferences",
+  },
+  mealsToPlan: { label: "Meals to plan", step: "meal_schedule" },
+  weekdayCookingTimeMinutes: {
+    label: "Weekday cooking time",
+    step: "meal_schedule",
+  },
+};
+
+const RELATIVE_TICK_MS = 30_000;
+
 export function OnboardingWizard({
   initialStep = FIRST_STEP,
   initialData = EMPTY_DRAFT_DATA,
+  initialDraftId = null,
+  initialLastSavedAt = null,
 }: {
-  /** Step to open on — used to deep-link a resumed draft (P2-4). */
   initialStep?: StepId;
-  /** Pre-filled draft payload — used to rehydrate a resumed draft (P2-4). */
   initialData?: DraftData;
+  /** Draft id to resume into; `null` until the first autosave creates one. */
+  initialDraftId?: string | null;
+  initialLastSavedAt?: string | null;
 }) {
   const [step, setStep] = useState<StepId>(initialStep);
   const [data, setData] = useState<DraftData>(initialData);
-  const [finished, setFinished] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [completionError, setCompletionError] = useState<string | null>(null);
+  // Re-render periodically so the relative "Last saved …" string stays current.
+  const [, setTick] = useState(0);
+
+  const { status, lastSavedAt, draftId, queueSave, saveNow, retry } =
+    useDraftAutosave({ initialDraftId, initialLastSavedAt });
 
   const meta = stepMeta(step);
+  const missing = missingRequiredFields(data);
+  const isComplete = missing.length === 0;
 
   // Bring the new step into view when navigating on small screens.
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [step]);
 
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), RELATIVE_TICK_MS);
+    return () => clearInterval(id);
+  }, []);
+
   function goTo(target: StepId) {
-    setFinished(false);
     setStep(target);
+    // Per-step autosave (design/06 § 5): persist with the step we moved to.
+    void saveNow({ currentStep: target, draftData: data });
   }
 
-  /**
-   * Merge a step's field patch into its draft slice. Generic over the section
-   * key so each step stays strongly typed to its own fields.
-   */
+  /** Merge a step's field patch into its slice and debounce-save. */
   function updateSection<K extends keyof DraftData>(
     key: K,
     patch: Partial<NonNullable<DraftData[K]>>,
   ) {
-    setData((prev) => ({
-      ...prev,
-      [key]: { ...(prev[key] ?? {}), ...patch },
-    }));
+    const next: DraftData = {
+      ...data,
+      [key]: { ...(data[key] ?? {}), ...patch },
+    };
+    setData(next);
+    queueSave({ currentStep: step, draftData: next });
   }
 
-  function handleFinish() {
-    // P2-6 will POST /api/onboarding/complete here, then redirect to /today on
-    // success. Until then, confirm the wizard reached a finishable state.
-    setFinished(true);
+  async function handleFinish() {
+    if (!isComplete || submitting) return;
+    setSubmitting(true);
+    setCompletionError(null);
+    try {
+      // Flush the latest edits first so completion validates the saved draft.
+      const saved = await saveNow({ currentStep: "review", draftData: data });
+      const id = saved?.id ?? draftId;
+      if (!id) {
+        setCompletionError(
+          "We couldn't save your setup. Check your connection and try again.",
+        );
+        setSubmitting(false);
+        return;
+      }
+      await completeDraft(id);
+      // Success: hand off to Today (full navigation so the new session/household
+      // is picked up server-side). Flow 1 continues with first-meal generation.
+      window.location.assign("/today");
+    } catch {
+      setCompletionError(
+        "We couldn't finish setting up your household. Please try again.",
+      );
+      setSubmitting(false);
+    }
   }
 
   return (
     <div className="space-y-6">
       <WizardProgress current={step} />
 
-      <div>
-        <h2 className="font-heading text-xl font-semibold tracking-tight">
-          {meta.title}
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">{meta.description}</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="font-heading text-xl font-semibold tracking-tight">
+            {meta.title}
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {meta.description}
+          </p>
+        </div>
+        <div className="shrink-0 pt-1">
+          <SaveIndicator
+            status={status}
+            lastSavedAt={lastSavedAt}
+            onRetry={retry}
+          />
+        </div>
       </div>
 
       <div className="rounded-xl border bg-card p-5 text-card-foreground shadow-sm">
         {renderStep()}
       </div>
 
-      {finished ? (
-        <p
+      {isLastStep(step) && !isComplete ? (
+        <div
           role="status"
-          className="rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-sm text-primary"
+          className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm"
         >
-          Your household setup is ready. Saving it and taking you to Today is
-          wired up next (P2-6).
+          <p className="font-medium">
+            A few required details are still missing:
+          </p>
+          <ul className="mt-1 space-y-0.5">
+            {missing.map((field) => (
+              <li key={field}>
+                <button
+                  type="button"
+                  onClick={() => goTo(REQUIRED_FIELD_META[field].step)}
+                  className="text-left underline-offset-2 hover:underline"
+                >
+                  {REQUIRED_FIELD_META[field].label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {completionError ? (
+        <p
+          role="alert"
+          className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        >
+          {completionError}
         </p>
       ) : null}
 
@@ -109,15 +207,20 @@ export function OnboardingWizard({
           variant="outline"
           size="lg"
           onClick={() => goTo(prevStep(step))}
-          disabled={isFirstStep(step)}
+          disabled={isFirstStep(step) || submitting}
         >
           <ArrowLeft />
           Back
         </Button>
 
         {isLastStep(step) ? (
-          <Button type="button" size="lg" onClick={handleFinish}>
-            Finish setup
+          <Button
+            type="button"
+            size="lg"
+            onClick={handleFinish}
+            disabled={!isComplete || submitting}
+          >
+            {submitting ? "Finishing…" : "Finish setup"}
           </Button>
         ) : (
           <Button type="button" size="lg" onClick={() => goTo(nextStep(step))}>

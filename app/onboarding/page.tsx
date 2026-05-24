@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { OnboardingWizard } from "@/components/onboarding/onboarding-wizard";
+import { OnboardingExperience } from "@/components/onboarding/onboarding-experience";
 import { getAuthUser } from "@/lib/auth";
+import { getDraft } from "@/lib/services/onboarding";
+
+export const dynamic = "force-dynamic";
 
 export const metadata = { title: "Set up your household" };
 
@@ -13,15 +16,17 @@ export const metadata = { title: "Set up your household" };
  *
  * Auth is gated by the edge proxy (`/onboarding` is a protected prefix); this
  * server component re-resolves the verified user as a defense-in-depth backstop,
- * matching the `(app)` layout. Resume detection (loading an existing draft to
- * deep-link the wizard) lands in P2-4; for now every visit starts a fresh
- * in-memory wizard.
+ * matching the `(app)` layout. It also loads the caller's in-progress draft so
+ * the client can show the resume prompt vs. start fresh (P2-4) without a render
+ * flash.
  */
 export default async function OnboardingPage() {
   const user = await getAuthUser();
   if (!user) {
     redirect("/sign-in");
   }
+
+  const draft = await getDraft();
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-4 py-10">
@@ -37,7 +42,7 @@ export default async function OnboardingPage() {
       <p className="mt-1 mb-8 text-muted-foreground">
         A few quick questions so we can suggest meals that fit your home.
       </p>
-      <OnboardingWizard />
+      <OnboardingExperience initialDraft={draft} />
     </div>
   );
 }
