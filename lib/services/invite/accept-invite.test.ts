@@ -12,6 +12,12 @@ import {
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/db/server", () => ({ createServerSupabaseClient: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ requireAuthUser: vi.fn() }));
+// invite_accepted fan-out is a best-effort side effect (P8-6) — stub it.
+vi.mock("@/lib/events", () => ({
+  safeEmitHouseholdEvent: vi.fn(),
+  actorDisplayName: () => "Rahul",
+  formatShortDate: () => "May 26",
+}));
 
 import { acceptInvite } from "./accept-invite";
 
@@ -20,7 +26,21 @@ const HOUSEHOLD_ID = "22222222-2222-2222-2222-222222222222";
 
 function stubRpc(result: { data: unknown; error: unknown }) {
   const rpc = vi.fn(() => Promise.resolve(result));
-  vi.mocked(createServerSupabaseClient).mockResolvedValue({ rpc } as never);
+  // The post-accept name/membership reads (for the invite_accepted message).
+  const maybeSingle = vi.fn(() =>
+    Promise.resolve({
+      data: { name: "HH", membership_type: "permanent" },
+      error: null,
+    }),
+  );
+  const builder: Record<string, unknown> = {};
+  for (const m of ["select", "eq"]) builder[m] = vi.fn(() => builder);
+  builder.maybeSingle = maybeSingle;
+  const from = vi.fn(() => builder);
+  vi.mocked(createServerSupabaseClient).mockResolvedValue({
+    rpc,
+    from,
+  } as never);
   return rpc;
 }
 

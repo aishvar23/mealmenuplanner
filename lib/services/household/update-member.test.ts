@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { getActiveMembership, hasPermission } from "@/lib/auth";
+import {
+  getActiveMembership,
+  hasPermission,
+  requireAuthUser,
+} from "@/lib/auth";
 import type { MembershipContext } from "@/lib/auth/permissions";
 import { createServerSupabaseClient } from "@/lib/db/server";
 import {
@@ -15,8 +19,18 @@ vi.mock("@/lib/db/server", () => ({ createServerSupabaseClient: vi.fn() }));
 // Keep the real pure helpers (defaultPermissionsForRole); mock only the I/O guards.
 vi.mock("@/lib/auth", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/auth")>();
-  return { ...actual, getActiveMembership: vi.fn(), hasPermission: vi.fn() };
+  return {
+    ...actual,
+    getActiveMembership: vi.fn(),
+    hasPermission: vi.fn(),
+    requireAuthUser: vi.fn(),
+  };
 });
+// role_changed / permissions_changed fan-out is a best-effort side effect (P8-6).
+vi.mock("@/lib/events", () => ({
+  safeEmitHouseholdEvent: vi.fn(),
+  actorDisplayName: () => "Owner",
+}));
 vi.mock("./member-lookup", () => ({
   loadTargetMember: vi.fn(),
   findMemberDto: vi.fn(),
@@ -86,6 +100,11 @@ beforeEach(() => {
     status: "active",
   });
   vi.mocked(findMemberDto).mockResolvedValue(MEMBER_DTO);
+  vi.mocked(requireAuthUser).mockResolvedValue({
+    id: OWNER_USER,
+    email: "owner@test.local",
+    user_metadata: {},
+  } as never);
 });
 
 describe("updateMember", () => {

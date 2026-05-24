@@ -4,6 +4,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { requireAuthUser } from "@/lib/auth";
 import type { Database } from "@/lib/db/database.types";
+import {
+  actorDisplayName,
+  formatSlotLabel,
+  safeEmitHouseholdEvent,
+} from "@/lib/events";
 import { ConflictError, InternalError, ValidationError } from "@/lib/errors";
 import { safeRegenerateGroceryListForPlan } from "@/lib/services/grocery";
 
@@ -102,6 +107,18 @@ export async function rejectItem(
     reason: input.reason,
   });
 
+  await safeEmitHouseholdEvent(supabase, {
+    householdId: item.household_id,
+    eventType: "meal_rejected",
+    entityType: "meal_plan_item",
+    entityId: item.id,
+    vars: {
+      actorName: actorDisplayName(user),
+      dish: item.dishes?.name ?? null,
+      slotLabel: formatSlotLabel(item.meal_slot, item.date),
+    },
+  });
+
   const { recommendations, nameById } = await suggestForSlot(
     item.household_id,
     item.date,
@@ -143,7 +160,7 @@ export async function replaceItem(
   }
 
   // Rank the slot once; use it to validate a chosen dish or pick a fresh one.
-  const { recommendations } = await suggestForSlot(
+  const { recommendations, nameById } = await suggestForSlot(
     item.household_id,
     item.date,
     item.meal_slot,
@@ -201,8 +218,22 @@ export async function replaceItem(
     item.meal_plan_id,
   );
 
-  // P8 hook: a confirmed meal actually changed → meal_changed notification.
-  // const confirmedChange = item.status === "accepted" || item.status === "cooked";
+  // The planned dish changed → tell the household (design/09 § 2 `meal_changed`).
+  await safeEmitHouseholdEvent(supabase, {
+    householdId: item.household_id,
+    eventType: "meal_changed",
+    entityType: "meal_plan_item",
+    entityId: item.id,
+    oldValue: { dishId: item.dish_id },
+    newValue: { dishId: replacementDishId },
+    vars: {
+      actorName: actorDisplayName(user),
+      slot: item.meal_slot,
+      slotLabel: formatSlotLabel(item.meal_slot, item.date),
+      fromDish: item.dishes?.name ?? null,
+      toDish: nameById.get(replacementDishId) ?? null,
+    },
+  });
 
   return { mealPlanItem: toMealPlanItemDto(updated), groceryListUpdated: true };
 }
@@ -235,7 +266,18 @@ export async function markEatingOut(itemId: string): Promise<MealPlanItemDto> {
     item.meal_plan_id,
   );
 
-  // P8 hook: emit meal_marked_eating_out.
+  await safeEmitHouseholdEvent(supabase, {
+    householdId: item.household_id,
+    eventType: "meal_marked_eating_out",
+    entityType: "meal_plan_item",
+    entityId: item.id,
+    oldValue: { status: item.status, dishId: item.dish_id },
+    newValue: { status: "eating_out" },
+    vars: {
+      actorName: actorDisplayName(user),
+      slotLabel: formatSlotLabel(item.meal_slot, item.date),
+    },
+  });
 
   return toMealPlanItemDto(updated);
 }
@@ -280,9 +322,23 @@ async function setLocked(
   itemId: string,
   locked: boolean,
 ): Promise<MealPlanItemDto> {
-  const { supabase } = await loadItemForAction(itemId);
+  const user = await requireAuthUser();
+  const { supabase, item } = await loadItemForAction(itemId);
   const updated = await applyItemUpdate(supabase, itemId, { locked });
-  // P8 hook: emit meal_locked / meal_unlocked (design/09). No grocery change.
+
+  await safeEmitHouseholdEvent(supabase, {
+    householdId: item.household_id,
+    eventType: locked ? "meal_locked" : "meal_unlocked",
+    entityType: "meal_plan_item",
+    entityId: item.id,
+    newValue: { locked },
+    vars: {
+      actorName: actorDisplayName(user),
+      slot: item.meal_slot,
+      slotLabel: formatSlotLabel(item.meal_slot, item.date),
+    },
+  });
+
   return toMealPlanItemDto(updated);
 }
 

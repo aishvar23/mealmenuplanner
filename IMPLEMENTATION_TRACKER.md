@@ -36,9 +36,9 @@ phases that follow the [MVP roadmap](docs/12_mvp_roadmap.md) and reference the
 | P5    | Meal planning               | 7 / 7        | Complete    |
 | P6    | Household collaboration     | 9 / 9        | Complete    |
 | P7    | Grocery & prep              | 6 / 6        | Complete    |
-| P8    | Notifications               | 0 / 6        | Not started |
+| P8    | Notifications               | 6 / 6        | Complete    |
 | P9    | Beta hardening              | 0 / 7        | Not started |
-|       | **Total**                   | **67 / 82**  |             |
+|       | **Total**                   | **73 / 82**  |             |
 
 **Suggested next task:** **P1 is complete** — `P1-1` (Google OAuth) and `P1-3`
 (server-side session resolution + the `proxy.ts` edge gate + the `(app)`-shell
@@ -445,12 +445,44 @@ content-table`app_role` write-RLS backstop to fire under a user JWT, add a
 
 > Design: [09](design/09_notifications_design.md) · Roadmap: Phase 8
 
-- [ ] **P8-1** `lib/events` activity-event writer (one `household_activity_events` row per domain change)
-- [ ] **P8-2** Notification fan-out (all active members minus actor → one `notifications` row each)
-- [ ] **P8-3** In-app notifications: `GET /api/notifications`, mark read, unread badge
-- [ ] **P8-4** Notifier port abstraction (pluggable channel adapters)
-- [ ] **P8-5** Email adapter for invites (transactional provider) with retry
-- [ ] **P8-6** Wire menu/schedule/member-change events into the relevant services
+- [x] **P8-1** `lib/events` activity-event writer (one `household_activity_events` row per domain change) — _the writer is `emitHouseholdEvent` / `safeEmitHouseholdEvent` (`lib/events/emit.ts`), which renders the title+message (design/09 § 6) and threads one call to the `emit_household_event` SECURITY DEFINER RPC. The RPC writes exactly **one** audit row per change (always — even when fan-out yields no recipients), carrying the actor, `entity_type`/`entity_id`, and `old_value`/`new_value` snapshots. Both `notifications` and `household_activity_events` have NO authenticated insert policy (P0-12: "server/service-role path only"), so rather than the service-role client (banned from request paths), the RPC runs SECURITY DEFINER on the caller's per-request RLS client with an `is_active_member` tenancy guard — the same pattern as `replace_grocery_list`._
+- [x] **P8-2** Notification fan-out (all active members minus actor → one `notifications` row each) — _the same `emit_household_event` RPC (migration `20260524200532`) does the design/09 § 4 fan-out atomically with the audit write: active members (`status = 'active'` AND not expired) **minus the actor**, UNION explicit `extraRecipientIds` (the affected member who is not the actor — e.g. the removed member, or whose role/permissions changed, design/09 § 2 recipient note), deduped, one `notifications` row each with the pre-rendered title+message. **Verified live** in a rolled-back tx (`member_removed` with an extra recipient): 1 audit row; 2 notifications — the active member and the removed member got one each, the actor got none (roadmap acceptance: "actor does not receive duplicate"), and an expired-but-unswept guest was excluded. EXECUTE revoked from anon, granted to authenticated; advisor shows only the expected by-design self-scoped (0029) WARN._
+- [x] **P8-3** In-app notifications: `GET /api/notifications`, mark read, unread badge — _the `notification` service (`lib/services/notification/`): `listNotifications` returns the design/09 § 7 inbox shape (`items` / `unreadCount` / `nextCursor`), recipient-scoped by RLS (`notif_select`) plus an explicit `recipient_user_id` filter, cursor-paginated `(created_at desc, id desc)` via a pure opaque keyset cursor (`cursor.ts`); `markNotificationRead` is idempotent (writes `read_at` only when null, re-reads to disambiguate already-read vs not-found → existence-hiding 404) and `markAllNotificationsRead` clears the badge in one statement. Endpoints `GET /api/notifications`, `POST /api/notifications/{id}/read`, `POST /api/notifications/read-all`, all thin under `withErrorBoundary` and self-guarding via `requireAuthUser` (401, not a redirect — not an `(app)` prefix). UI: the `/notifications` inbox (server-rendered first page + the client `NotificationList` with per-item / mark-all read and "Load more") and the header `NotificationBell` unread badge (server-rendered count, refreshed on mount + tab focus)._
+- [x] **P8-4** Notifier port abstraction (pluggable channel adapters) — _`lib/events/notifier/`: the `Notifier` port (`port.ts`, the design/09 § 1 `Channel` / `NotificationPayload` / `send` interface), a `NotifierRegistry` mapping `Channel` to adapter, and `buildDefaultRegistry()` wiring all five channels — a real `EmailNotifier` plus no-op adapters for `inApp` (in-app rows are the §4 batch insert, not a post-commit send, design/09 § 5), `push`, `whatsapp`, and `sms`. Adding push later is registering one adapter — no domain code changes (the design/02 extraction seam)._
+- [x] **P8-5** Email adapter for invites (transactional provider) with retry — _`EmailNotifier.sendInvite` (`email.ts`) renders the invite email (`invite-email.ts`, pure + HTML-escaped per design/09 § 6) and sends it through a `ResendEmailTransport` (`email-transport.ts`, the Resend REST API) wrapped in `retryWithBackoff` (`retry.ts`, bounded exponential backoff with an injectable clock, design/09 § 9). Unconfigured (no `RESEND_API_KEY`) the adapter is a best-effort no-op, so local dev needs no provider and a failed email never blocks invite creation (the link is also returned for manual sharing). The router's `sendInviteEmail` resolves the adapter from the registry and swallows transport failures._
+- [x] **P8-6** Wire menu/schedule/member-change events into the relevant services — _`safeEmitHouseholdEvent` is called (best-effort, after the mutation, mirroring `safeRegenerateGroceryListForPlan`) from: `mealPlan` items (`meal_changed` on replace, `meal_rejected`, `meal_marked_eating_out`, `meal_locked`/`meal_unlocked`) and weekly generate (`weekly_plan_generated`); `household` services (`member_left` — emitted **before** the status flip so the leaver still passes the tenancy guard; `member_removed` with the removed user as an extra recipient; `role_changed`/`permissions_changed` with the affected member as an extra recipient); and `invite` (`member_invited` in-app fan-out + the invitee email; `invite_accepted` after the accept RPC makes the caller an active member). The actor is excluded inside the RPC, so no self-notifications._
+
+> **P8 architecture & verification.** One migration, function-only — the
+> `notifications` / `household_activity_events` tables + RLS shipped in P0-9/P0-12,
+> so no schema change. The cross-cutting `lib/events` module (design/02) is the
+> single write path: a pure, client-safe core (`types.ts` event taxonomy,
+> `templates.ts` content templates with the verbatim docs/09 examples, `format.ts`
+> slot-label / short-date / actor-name helpers) plus the server-only
+> `emit.ts` orchestrator over the atomic `emit_household_event` RPC, and the
+> `notifier/` port + registry + adapters (a real Resend `EmailNotifier` with
+> retry; no-op `inApp`/`push`/`whatsapp`/`sms`). In-app delivery is the §4 batch
+> insert (durable on commit); external delivery (the invite email) is best-effort
+> and out of band (design/09 § 9). The `notification` service backs the inbox API +
+> the `/notifications` screen + the header badge. Migration `20260524200532` adds
+> `emit_household_event` (SECURITY DEFINER, `search_path = ''`, fully-qualified,
+> `is_active_member` tenancy guard, EXECUTE revoked from anon and granted to
+> authenticated — the P1-5/P7-3 RLS-bootstrap pattern); types were regenerated
+> from cloud dev via MCP (the new RPC's nullable args are hand-annotated, since the
+> generator omits arg nullability). **Verified live** in a rolled-back tx: the
+> fan-out notifies active members + extra recipients, excludes the actor and an
+> expired guest, and writes one audit row; all throwaway rows rolled back (no DB
+> pollution). Security advisor: `emit_household_event` adds the **one** expected
+> by-design self-scoped SECURITY DEFINER (0029) WARN. Prep reminders still deliver
+> in-app rows directly via the P7-6 `prep_reminders` cron job (system actor); a
+> future pass can fold them onto this path. `invite_declined` is intentionally not
+> wired — the decliner is not an active member, so the standard tenancy-guarded
+> fan-out doesn't apply; a clean fix folds it into the `decline_invite` RPC,
+> deferred. 57 new tests (711 total); lint, format, typecheck, test, and build all
+> green. The authenticated inbox/badge render needs a Supabase session not
+> available locally, so the UI is covered by typecheck + build; the API self-guards
+> (401) unauthenticated. **With P8 done, the suggested next task is `P9-1`**
+> (analytics/metrics). Still open from P0: `P0-14` (seed catalog + 100 dishes) and
+> `P0-3`'s prod-project step.
 
 ## P9 — Beta hardening
 

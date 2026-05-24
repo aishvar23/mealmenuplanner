@@ -2,6 +2,7 @@ import "server-only";
 
 import { requireAuthUser } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/db/server";
+import { actorDisplayName, safeEmitHouseholdEvent } from "@/lib/events";
 import { InternalError, ValidationError } from "@/lib/errors";
 import { recommendSlot, type Recommendation } from "@/lib/recommendation";
 import { safeRegenerateGroceryListForPlan } from "@/lib/services/grocery";
@@ -238,8 +239,16 @@ export async function generateWeek(
   // when anything changed. Best-effort so a grocery glitch doesn't fail the plan.
   if (rows.length > 0) {
     await safeRegenerateGroceryListForPlan(supabase, householdId, plan.id);
+    // A new/updated weekly plan → tell the household (design/09 § 2).
+    await safeEmitHouseholdEvent(supabase, {
+      householdId,
+      eventType: "weekly_plan_generated",
+      entityType: "meal_plan",
+      entityId: plan.id,
+      newValue: { startDate, endDate, itemCount: rows.length },
+      vars: { actorName: actorDisplayName(user) },
+    });
   }
-  // P8 hook: emit weekly_plan_generated to active members (design/09).
 
   const itemCount = await countPlanItems(supabase, plan.id);
   return {

@@ -1,7 +1,12 @@
 import "server-only";
 
-import { getActiveMembership, hasPermission } from "@/lib/auth";
+import {
+  getActiveMembership,
+  hasPermission,
+  requireAuthUser,
+} from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/db/server";
+import { actorDisplayName, safeEmitHouseholdEvent } from "@/lib/events";
 import {
   ConflictError,
   ForbiddenError,
@@ -11,7 +16,7 @@ import {
 import { isUuid } from "@/lib/validation";
 
 import type { RemoveMemberResult } from "./dto";
-import { loadTargetMember } from "./member-lookup";
+import { findMemberDto, loadTargetMember } from "./member-lookup";
 
 /**
  * `household` service — remove a member (P6-6, design/04 § 4.4, design/07 § 10).
@@ -50,6 +55,11 @@ export async function removeMember(
     });
   }
 
+  // Resolve the target's display name while they are still in the active roster
+  // (the safe-projection RPC only returns active members).
+  const targetDto = await findMemberDto(supabase, householdId, memberId);
+  const actor = await requireAuthUser();
+
   const { error } = await supabase
     .from("household_members")
     .update({ status: "removed" })
@@ -59,6 +69,21 @@ export async function removeMember(
     throw new InternalError("Failed to remove member.", { cause: error });
   }
 
-  // P8 hook: member_removed activity event + notification to remaining members.
+  // Notify remaining members AND the removed member (design/09 § 2 recipient note)
+  // — the latter via `extraRecipientIds`, since they are no longer active.
+  await safeEmitHouseholdEvent(supabase, {
+    householdId,
+    eventType: "member_removed",
+    entityType: "household_member",
+    entityId: memberId,
+    oldValue: { status: "active" },
+    newValue: { status: "removed" },
+    extraRecipientIds: [target.userId],
+    vars: {
+      actorName: actorDisplayName(actor),
+      memberName: targetDto.displayName ?? "a member",
+    },
+  });
+
   return { memberId, status: "removed" };
 }

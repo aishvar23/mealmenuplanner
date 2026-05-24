@@ -1,7 +1,8 @@
 import "server-only";
 
-import { getActiveMembership } from "@/lib/auth";
+import { getActiveMembership, requireAuthUser } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/db/server";
+import { actorDisplayName, safeEmitHouseholdEvent } from "@/lib/events";
 import { ConflictError, InternalError, NotFoundError } from "@/lib/errors";
 import { isUuid } from "@/lib/validation";
 
@@ -31,6 +32,19 @@ export async function leaveHousehold(
   }
 
   const supabase = await createServerSupabaseClient();
+  const user = await requireAuthUser();
+
+  // Emit BEFORE the status flip so the leaver is still an active member and the
+  // `emit_household_event` tenancy guard passes; the actor is excluded from the
+  // recipient set, so the remaining members are the ones notified (design/09 § 2).
+  await safeEmitHouseholdEvent(supabase, {
+    householdId,
+    eventType: "member_left",
+    entityType: "household_member",
+    newValue: { status: "left" },
+    vars: { actorName: actorDisplayName(user) },
+  });
+
   const { error } = await supabase
     .from("household_members")
     .update({ status: "left" })
@@ -41,6 +55,5 @@ export async function leaveHousehold(
     throw new InternalError("Failed to leave the household.", { cause: error });
   }
 
-  // P8 hook: member_left activity event + notification to the owner.
   return { householdId, status: "left" };
 }

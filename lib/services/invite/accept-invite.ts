@@ -2,6 +2,11 @@ import "server-only";
 
 import { requireAuthUser } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/db/server";
+import {
+  actorDisplayName,
+  formatShortDate,
+  safeEmitHouseholdEvent,
+} from "@/lib/events";
 import { ConflictError, InternalError, NotFoundError } from "@/lib/errors";
 
 import type { AcceptInviteResult } from "./dto";
@@ -34,7 +39,7 @@ interface AcceptRpcResult {
 export async function acceptInvite(token: string): Promise<AcceptInviteResult> {
   // A verified session is required (the acceptor); gives a clean 401 rather than
   // the RPC's 28000 backstop.
-  await requireAuthUser();
+  const user = await requireAuthUser();
 
   const trimmed = typeof token === "string" ? token.trim() : "";
   if (trimmed.length === 0) {
@@ -69,6 +74,39 @@ export async function acceptInvite(token: string): Promise<AcceptInviteResult> {
   if (!result?.householdId) {
     throw new InternalError("Accepting the invite returned no household.");
   }
+
+  // The caller is now an active member, so the fan-out tenancy guard passes and
+  // they are excluded as the actor — the existing members get "X joined …".
+  const [{ data: household }, { data: membership }] = await Promise.all([
+    supabase
+      .from("households")
+      .select("name")
+      .eq("id", result.householdId)
+      .maybeSingle(),
+    supabase
+      .from("household_members")
+      .select("membership_type, expires_at")
+      .eq("household_id", result.householdId)
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .maybeSingle(),
+  ]);
+
+  const guestUntil =
+    membership?.membership_type === "temporary_guest" && membership.expires_at
+      ? formatShortDate(membership.expires_at)
+      : null;
+
+  await safeEmitHouseholdEvent(supabase, {
+    householdId: result.householdId,
+    eventType: "invite_accepted",
+    entityType: "household_member",
+    vars: {
+      memberName: actorDisplayName(user),
+      householdName: household?.name ?? "the household",
+      guestUntil,
+    },
+  });
 
   return { householdId: result.householdId, membershipStatus: "active" };
 }
