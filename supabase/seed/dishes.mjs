@@ -88,6 +88,13 @@ export const MEAL_ROLE_OVERRIDES = {
   "Pasta Arrabbiata": "complete_meal",
   "Pasta Alfredo": "complete_meal",
   "Rajma Quinoa Bowl": "complete_meal",
+  // One-pot rice + lentil meal.
+  Khichdi: "complete_meal",
+  // Accompaniments — need a main to be a meal (BUG-014 required-dish set).
+  "Mango Pickle": "condiment",
+  Papad: "side",
+  Raita: "side",
+  "Green Salad": "side",
 };
 
 export const DISHES = [
@@ -2478,4 +2485,229 @@ export const DISHES = [
       ["Green Cardamom", 1, "piece"],
     ],
   ),
+
+  // ── Required acceptance dishes (BUG-014 "Required seeded dish data") ──────────
+  d(
+    "Paneer Bhurji",
+    "North Indian",
+    "vegetarian",
+    ["breakfast", "lunch", "dinner"],
+    10,
+    15,
+    "easy",
+    "medium",
+    ["kid_friendly", "high_protein", "low_carb"],
+    [
+      ["Paneer", 100, "g"],
+      ["Onion", 50, "g"],
+      ["Tomato", 50, "g"],
+      ["Green Chili", 4, "g"],
+      ["Turmeric", 0.5, "tsp"],
+      ["Cumin Seeds", 1, "tsp"],
+      ["Cooking Oil", 1, "tbsp"],
+      ["Coriander Leaves", 10, "g", false],
+      ["Salt", 1, "tsp"],
+    ],
+    {
+      desc: "Scrambled paneer cooked with onions, tomatoes and spices.",
+      pairings: [["Roti", "bread_pairing"]],
+    },
+  ),
+
+  d(
+    "Khichdi",
+    "North Indian",
+    "vegetarian",
+    ["lunch", "dinner"],
+    10,
+    25,
+    "easy",
+    "mild",
+    ["kid_friendly", "leftover_friendly", "diabetic_friendly"],
+    [
+      ["Rice", 60, "g"],
+      ["Moong Dal", 40, "g"],
+      ["Green Peas", 30, "g", false],
+      ["Carrot", 30, "g", false],
+      ["Turmeric", 0.5, "tsp"],
+      ["Cumin Seeds", 1, "tsp"],
+      ["Ghee", 1, "tbsp"],
+      ["Salt", 1, "tsp"],
+    ],
+    {
+      desc: "A soft one-pot dish of rice and lentils with vegetables.",
+      pairings: [["Raita", "condiment"]],
+    },
+  ),
+
+  d(
+    "Mango Pickle",
+    "North Indian",
+    "vegan",
+    ["lunch", "dinner"],
+    20,
+    0,
+    "easy",
+    "spicy",
+    [],
+    [
+      ["Raw Mango", 100, "g"],
+      ["Mustard Oil", 2, "tbsp"],
+      ["Mustard Seeds", 1, "tsp"],
+      ["Turmeric", 1, "tsp"],
+      ["Red Chili Powder", 1, "tsp"],
+      ["Fenugreek Seeds", 0.5, "tsp"],
+      ["Asafoetida", 1, "pinch"],
+      ["Salt", 2, "tsp"],
+    ],
+    { desc: "Tangy Indian mango pickle (aam ka achaar) in oil and spices." },
+  ),
+
+  d(
+    "Papad",
+    "Indian",
+    "vegan",
+    ["lunch", "dinner"],
+    2,
+    3,
+    "easy",
+    "mild",
+    [],
+    [
+      ["Urad Dal", 30, "g"],
+      ["Cumin Seeds", 0.5, "tsp"],
+      ["Black Pepper", 0.5, "tsp"],
+      ["Asafoetida", 1, "pinch"],
+      ["Salt", 0.5, "tsp"],
+    ],
+    { desc: "A thin crisp roasted Indian papad." },
+  ),
+
+  d(
+    "Raita",
+    "North Indian",
+    "vegetarian",
+    ["lunch", "dinner"],
+    10,
+    0,
+    "easy",
+    "mild",
+    ["kid_friendly", "low_carb", "diabetic_friendly"],
+    [
+      ["Yogurt", 120, "g"],
+      ["Cucumber", 60, "g"],
+      ["Cumin Seeds", 0.5, "tsp"],
+      ["Black Salt", 0.25, "tsp"],
+      ["Coriander Leaves", 5, "g", false],
+      ["Salt", 0.25, "tsp"],
+    ],
+    { desc: "A cooling bowl of Indian yogurt raita with cucumber." },
+  ),
+
+  d(
+    "Green Salad",
+    "Indian",
+    "vegan",
+    ["lunch", "dinner"],
+    10,
+    0,
+    "easy",
+    "mild",
+    ["low_carb", "diabetic_friendly"],
+    [
+      ["Cucumber", 60, "g"],
+      ["Tomato", 50, "g"],
+      ["Onion", 30, "g"],
+      ["Lemon", 0.5, "piece"],
+      ["Coriander Leaves", 5, "g", false],
+      ["Salt", 0.5, "tsp"],
+    ],
+    { desc: "A fresh diced salad of cucumber, tomato and onion (kachumber)." },
+  ),
 ];
+
+/**
+ * Verified dish images (BUG-014 Phase 6). `name` → `{ url, alt }`, where `url` is
+ * a static asset under `public/images/dishes/`. Sourced from openly-licensed
+ * Wikimedia Commons photos — see `public/images/CREDITS.md` for per-file author +
+ * license. generate.mjs flips these rows to `image_status = 'verified'`,
+ * `image_verified = true`; every other dish stays the `placeholder` default.
+ */
+export const DISH_IMAGES = {
+  "Masala Dosa": {
+    url: "/images/dishes/masala-dosa.jpg",
+    alt: "A crisp golden South Indian masala dosa filled with spiced potato.",
+  },
+  "Rajma Masala": {
+    url: "/images/dishes/rajma.jpg",
+    alt: "Red kidney beans simmered in a thick spiced onion-tomato gravy.",
+  },
+  "Chole Masala": {
+    url: "/images/dishes/chole.jpg",
+    alt: "Chickpeas cooked in a spiced tomato-onion masala (chole).",
+  },
+  "Dal Tadka": {
+    url: "/images/dishes/dal-tadka.jpg",
+    alt: "A bowl of yellow lentils tempered with cumin and spices.",
+  },
+  "Paneer Bhurji": {
+    url: "/images/dishes/paneer-bhurji.jpg",
+    alt: "Scrambled paneer cooked with onions, tomatoes and spices.",
+  },
+  "Aloo Paratha": {
+    url: "/images/dishes/paratha.jpg",
+    alt: "A pan-cooked stuffed Indian wheat paratha flatbread.",
+  },
+  Roti: {
+    url: "/images/dishes/roti.jpg",
+    alt: "A soft round Indian wheat chapati (roti) flatbread.",
+  },
+  "Jeera Rice": {
+    url: "/images/dishes/jeera-rice.jpg",
+    alt: "Steamed white rice flavoured with cumin seeds (jeera rice).",
+  },
+  "Veg Pulao": {
+    url: "/images/dishes/vegetable-pulao.jpg",
+    alt: "Spiced rice cooked with mixed vegetables (vegetable pulao).",
+  },
+  Khichdi: {
+    url: "/images/dishes/khichdi.jpg",
+    alt: "A soft one-pot dish of rice and lentils with vegetables (khichdi).",
+  },
+  "Egg Curry": {
+    url: "/images/dishes/egg-curry.jpg",
+    alt: "Boiled eggs simmered in a spiced North Indian curry gravy.",
+  },
+  "Chicken Curry": {
+    url: "/images/dishes/chicken-curry.jpg",
+    alt: "Indian chicken curry in a spiced gravy.",
+  },
+  "Coconut Chutney": {
+    url: "/images/dishes/coconut-chutney.jpg",
+    alt: "A bowl of white South Indian coconut chutney.",
+  },
+  "Mint Chutney": {
+    url: "/images/dishes/mint-chutney.jpg",
+    alt: "A bowl of green mint-coriander chutney.",
+  },
+  "Mango Pickle": {
+    url: "/images/dishes/mango-pickle.jpg",
+    alt: "Indian mango pickle (aam ka achaar) in oil and spices.",
+  },
+  Papad: {
+    url: "/images/dishes/papad.jpg",
+    alt: "A thin crisp roasted Indian papad (papadum).",
+  },
+  Raita: {
+    url: "/images/dishes/raita.jpg",
+    alt: "A bowl of Indian yogurt raita.",
+  },
+  "Green Salad": {
+    url: "/images/dishes/green-salad.jpg",
+    alt: "A fresh diced salad of cucumber, tomato and onion (kachumber).",
+  },
+  "Jeera Aloo": {
+    url: "/images/dishes/jeera-aloo.jpg",
+    alt: "Diced potatoes sautéed with cumin seeds (jeera aloo).",
+  },
+};

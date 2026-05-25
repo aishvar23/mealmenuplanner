@@ -18,8 +18,8 @@ import { createHash } from "node:crypto";
 import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { INGREDIENTS } from "./ingredients.mjs";
-import { DISHES, MEAL_ROLE_OVERRIDES } from "./dishes.mjs";
+import { INGREDIENTS, INGREDIENT_IMAGES } from "./ingredients.mjs";
+import { DISHES, MEAL_ROLE_OVERRIDES, DISH_IMAGES } from "./dishes.mjs";
 
 // ── Enum vocabularies (P0-5 migration is the source of truth) ─────────────────
 const DIET_TYPES = [
@@ -124,6 +124,12 @@ const pgArray = (arr) =>
     : `ARRAY[]::text[]`;
 const pgText = (v) => (v == null ? "null" : `'${sql(v)}'`);
 const pgBool = (v) => (v ? "true" : "false");
+// The four image columns for a row: a verified `/images/...` asset when the row
+// is in the image map, else the neutral `placeholder` default (BUG-014).
+const imageCols = (img) =>
+  img
+    ? `${pgText(img.url)}, ${pgText(img.alt)}, 'verified', true`
+    : `null, null, 'placeholder', false`;
 
 // ── Validate ingredients ────────────────────────────────────────────────────��─
 const ingByName = new Map();
@@ -262,6 +268,28 @@ for (const [name, role] of Object.entries(MEAL_ROLE_OVERRIDES)) {
     fail(`MEAL_ROLE_OVERRIDES["${name}"]: invalid meal_role "${role}"`);
 }
 
+// Validate image maps (BUG-014): every key is a real row, alt is present, and the
+// url is a local /images/ static path. These rows are emitted as image_status
+// 'verified' + image_verified true, so an empty alt would break the IMAGE-006
+// "alt required when verified" rule the admin validator enforces.
+for (const [name, img] of Object.entries(DISH_IMAGES)) {
+  if (!dishNames.has(name)) fail(`DISH_IMAGES: "${name}" is not a seeded dish`);
+  if (!img?.url?.startsWith("/images/"))
+    fail(`DISH_IMAGES["${name}"]: url must be a /images/ static path`);
+  if (!img?.alt?.trim())
+    fail(`DISH_IMAGES["${name}"]: alt text is required for a verified image`);
+}
+for (const [name, img] of Object.entries(INGREDIENT_IMAGES)) {
+  if (!ingByName.has(name))
+    fail(`INGREDIENT_IMAGES: "${name}" is not a seeded ingredient`);
+  if (!img?.url?.startsWith("/images/"))
+    fail(`INGREDIENT_IMAGES["${name}"]: url must be a /images/ static path`);
+  if (!img?.alt?.trim())
+    fail(
+      `INGREDIENT_IMAGES["${name}"]: alt text is required for a verified image`,
+    );
+}
+
 if (errors.length) {
   console.error(`\n✗ Seed validation failed (${errors.length} issue(s)):\n`);
   for (const e of errors) console.error(`  - ${e}`);
@@ -291,12 +319,12 @@ p("");
 // Ingredients
 p(`-- Ingredients (${INGREDIENTS.length}).`);
 p(
-  "insert into ingredients (id, name, category, default_unit, common_names, allergen_type) values",
+  "insert into ingredients (id, name, category, default_unit, common_names, allergen_type, image_url, image_alt_text, image_status, image_verified) values",
 );
 p(
   INGREDIENTS.map(
     (g) =>
-      `  ('${uuid("ingredient:" + g.name)}', '${sql(g.name)}', '${sql(g.category)}', '${sql(g.unit)}', ${pgArray(g.common)}, ${pgText(g.allergen)})`,
+      `  ('${uuid("ingredient:" + g.name)}', '${sql(g.name)}', '${sql(g.category)}', '${sql(g.unit)}', ${pgArray(g.common)}, ${pgText(g.allergen)}, ${imageCols(INGREDIENT_IMAGES[g.name])})`,
   ).join(",\n") + "\non conflict do nothing;",
 );
 p("");
@@ -304,7 +332,7 @@ p("");
 // Dishes
 p(`-- Dishes (${DISHES.length}), seeded active.`);
 p(
-  "insert into dishes (id, name, description, cuisine, region, meal_slots, diet_type, prep_time_minutes, cook_time_minutes, difficulty, spice_level, kid_friendly, lunchbox_friendly, leftover_friendly, batch_cook_friendly, diabetic_friendly, low_sodium, high_protein, low_carb, meal_role, status) values",
+  "insert into dishes (id, name, description, cuisine, region, meal_slots, diet_type, prep_time_minutes, cook_time_minutes, difficulty, spice_level, kid_friendly, lunchbox_friendly, leftover_friendly, batch_cook_friendly, diabetic_friendly, low_sodium, high_protein, low_carb, meal_role, image_url, image_alt_text, image_status, image_verified, status) values",
 );
 p(
   DISHES.map((dish) => {
@@ -313,7 +341,7 @@ p(
       `  ('${uuid("dish:" + dish.name)}', '${sql(dish.name)}', ${pgText(dish.desc)}, ${pgText(dish.cuisine)}, ${pgText(dish.region)}, ` +
       `${pgArray(dish.slots)}, '${dish.diet}', ${dish.prep}, ${dish.cook}, '${dish.difficulty}', '${dish.spice}', ` +
       `${f("kid_friendly")}, ${f("lunchbox_friendly")}, ${f("leftover_friendly")}, ${f("batch_cook_friendly")}, ` +
-      `${f("diabetic_friendly")}, ${f("low_sodium")}, ${f("high_protein")}, ${f("low_carb")}, '${mealRoleOf(dish.name)}', 'active')`
+      `${f("diabetic_friendly")}, ${f("low_sodium")}, ${f("high_protein")}, ${f("low_carb")}, '${mealRoleOf(dish.name)}', ${imageCols(DISH_IMAGES[dish.name])}, 'active')`
     );
   }).join(",\n") + "\non conflict do nothing;",
 );
@@ -333,6 +361,42 @@ p(
 p(") as v(id, role)");
 p(
   "where d.id = v.id::uuid and d.meal_role is distinct from v.role::meal_role;",
+);
+p("");
+
+// Verified images are data too (BUG-014): re-apply on every seed so already-seeded
+// rows (skipped by `on conflict do nothing` above) converge to the catalog's
+// images. Only mapped rows are touched — everything else keeps the DB default
+// `placeholder`, so an operator's hand-set image is never clobbered.
+const dishImageRows = Object.entries(DISH_IMAGES).map(
+  ([name, img]) =>
+    `  ('${uuid("dish:" + name)}', ${pgText(img.url)}, ${pgText(img.alt)})`,
+);
+p("-- Sync verified dish images onto existing rows (idempotent).");
+p(
+  "update dishes d set image_url = v.url, image_alt_text = v.alt, image_status = 'verified', image_verified = true",
+);
+p("from (values");
+p(dishImageRows.join(",\n"));
+p(") as v(id, url, alt)");
+p(
+  "where d.id = v.id::uuid and (d.image_url is distinct from v.url or d.image_alt_text is distinct from v.alt or d.image_status is distinct from 'verified'::image_status or d.image_verified is distinct from true);",
+);
+p("");
+
+const ingImageRows = Object.entries(INGREDIENT_IMAGES).map(
+  ([name, img]) =>
+    `  ('${uuid("ingredient:" + name)}', ${pgText(img.url)}, ${pgText(img.alt)})`,
+);
+p("-- Sync verified ingredient images onto existing rows (idempotent).");
+p(
+  "update ingredients g set image_url = v.url, image_alt_text = v.alt, image_status = 'verified', image_verified = true",
+);
+p("from (values");
+p(ingImageRows.join(",\n"));
+p(") as v(id, url, alt)");
+p(
+  "where g.id = v.id::uuid and (g.image_url is distinct from v.url or g.image_alt_text is distinct from v.alt or g.image_status is distinct from 'verified'::image_status or g.image_verified is distinct from true);",
 );
 p("");
 
