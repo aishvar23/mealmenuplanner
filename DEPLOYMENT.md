@@ -52,7 +52,7 @@ project for now; Production gets repointed in Phase B). See the
 - [ ] `SUPABASE_SERVICE_ROLE_KEY` — dev service-role key. Mark **Sensitive**.
       Server/edge only; it is intentionally not `NEXT_PUBLIC_*` so it never
       reaches the browser. Do **not** add it to any client bundle.
-- [ ] `NEXT_PUBLIC_SITE_URL` — the deployed base URL. For the Production scope
+- [ ] `NEXT_PUBLIC_APP_URL` — the deployed base URL. For the Production scope
       use the project's stable `*.vercel.app` URL until the domain is attached;
       previews are handled by the wildcard step below.
 - [ ] **Skip** `RESEND_API_KEY` for now — it's only needed once P8 (invite
@@ -125,7 +125,7 @@ is the live environment.
       Email provider is on.
 - [ ] **Domain:** attach `mymealtoday.com` (and `www.` if used) to the Vercel
       project; set DNS as Vercel instructs.
-- [ ] Set Production `NEXT_PUBLIC_SITE_URL=https://mymealtoday.com`.
+- [ ] Set Production `NEXT_PUBLIC_APP_URL=https://mymealtoday.com`.
 - [ ] In the **prod** Supabase project, set **Site URL** + add
       `https://mymealtoday.com/auth/callback` (and `www.`) to the Redirect URLs
       allow-list. Add the prod Google Authorized redirect URI
@@ -143,7 +143,7 @@ is the live environment.
 | `NEXT_PUBLIC_SUPABASE_URL`      | Prod + Preview | no        | Supabase Dashboard → Project Settings → API (per project)      |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Prod + Preview | no        | same — anon (public) key                                       |
 | `SUPABASE_SERVICE_ROLE_KEY`     | Prod + Preview | **yes**   | same — service-role key; server/edge only, never in browser    |
-| `NEXT_PUBLIC_SITE_URL`          | Prod + Preview | no        | deployed base URL (vercel.app, then `https://mymealtoday.com`) |
+| `NEXT_PUBLIC_APP_URL`           | Prod + Preview | no        | deployed base URL (vercel.app, then `https://mymealtoday.com`) |
 | `RESEND_API_KEY`                | Prod (+ Prev)  | **yes**   | Resend dashboard — only needed from P8 (invite emails)         |
 
 ## What does NOT go in Vercel
