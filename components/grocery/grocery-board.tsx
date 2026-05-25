@@ -4,6 +4,7 @@ import { Check, RotateCcw, ShoppingBasket } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { FoodImage } from "@/components/ui/food-image";
 import { categoryLabel, formatQuantity } from "@/lib/grocery/labels";
 import type {
   GroceryItemDto,
@@ -202,6 +203,14 @@ export function GroceryBoard({
                         >
                           {item.checked ? <Check className="size-4" /> : null}
                         </span>
+                        <FoodImage
+                          kind="ingredient"
+                          src={item.ingredientImageUrl}
+                          status={item.ingredientImageStatus}
+                          altText={item.ingredientImageAltText ?? item.name}
+                          className="size-11 shrink-0"
+                          sizes="2.75rem"
+                        />
                         <span
                           className={cn(
                             "min-w-0 flex-1 text-sm font-semibold",

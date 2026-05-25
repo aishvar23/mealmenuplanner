@@ -28,7 +28,7 @@ type ServerClient = SupabaseClient<Database>;
 
 /** The `meal_plan_items` columns every item action reads, with the joined dish name. */
 export const ITEM_ACTION_SELECT =
-  "id, household_id, meal_plan_id, date, meal_slot, dish_id, status, locked, reason, changed_by_user_id, dishes(name)";
+  "id, household_id, meal_plan_id, date, meal_slot, dish_id, status, locked, reason, changed_by_user_id, dishes(name, image_url, image_alt_text, image_status)";
 
 /** One `meal_plan_items` row loaded for an action (shape of `ITEM_ACTION_SELECT`). */
 export interface ActionItemRow {
@@ -42,7 +42,12 @@ export interface ActionItemRow {
   locked: boolean;
   reason: string | null;
   changed_by_user_id: string | null;
-  dishes: { name: string } | null;
+  dishes: {
+    name: string;
+    image_url: string | null;
+    image_alt_text: string | null;
+    image_status: Database["public"]["Enums"]["image_status"];
+  } | null;
 }
 
 /**

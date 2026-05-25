@@ -35,6 +35,9 @@ describe("PATCH grocery-list-items/{id}", () => {
       quantity: 400,
       unit: "g",
       checked: true,
+      ingredientImageUrl: null,
+      ingredientImageAltText: null,
+      ingredientImageStatus: "placeholder",
     });
 
     const res = await PATCH(req('{"checked":true}'), ctx);

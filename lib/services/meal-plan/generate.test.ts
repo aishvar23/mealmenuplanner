@@ -19,10 +19,21 @@ vi.mock("./suggest", () => ({
   toAlternatives: (
     recs: { dishId: string; score: number; reason: string }[],
     nameById: Map<string, string>,
+    imageById: Map<
+      string,
+      {
+        imageUrl: string | null;
+        imageAltText: string | null;
+        imageStatus: string;
+      }
+    > = new Map(),
   ) =>
     recs.map((r) => ({
       dishId: r.dishId,
       dishName: nameById.get(r.dishId) ?? null,
+      dishImageUrl: imageById.get(r.dishId)?.imageUrl ?? null,
+      dishImageAltText: imageById.get(r.dishId)?.imageAltText ?? null,
+      dishImageStatus: imageById.get(r.dishId)?.imageStatus ?? null,
       score: r.score,
       reason: r.reason,
     })),
@@ -140,6 +151,7 @@ describe("generateToday", () => {
     vi.mocked(suggestForSlot).mockResolvedValue({
       recommendations: [],
       nameById: new Map(),
+      imageById: new Map(),
     });
     const result = await generateToday(HH, "2026-05-25", "dinner");
     expect(result.mealPlanItem).toBeNull();
@@ -175,13 +187,40 @@ describe("generateToday", () => {
         ["top", "Top Dish"],
         ["alt", "Alt Dish"],
       ]),
+      imageById: new Map([
+        [
+          "top",
+          {
+            imageUrl: "/images/top.jpg",
+            imageAltText: "Top Dish plated",
+            imageStatus: "verified",
+          },
+        ],
+        [
+          "alt",
+          {
+            imageUrl: "/images/alt.jpg",
+            imageAltText: "Alt Dish plated",
+            imageStatus: "verified",
+          },
+        ],
+      ]),
     });
 
     const result = await generateToday(HH, "2026-05-25", "dinner");
 
     expect(result.mealPlanItem?.dishName).toBe("Top Dish");
+    expect(result.mealPlanItem?.dishImageUrl).toBe("/images/top.jpg");
     expect(result.alternatives).toEqual([
-      { dishId: "alt", dishName: "Alt Dish", score: 5, reason: "ok" },
+      {
+        dishId: "alt",
+        dishName: "Alt Dish",
+        dishImageUrl: "/images/alt.jpg",
+        dishImageAltText: "Alt Dish plated",
+        dishImageStatus: "verified",
+        score: 5,
+        reason: "ok",
+      },
     ]);
   });
 });

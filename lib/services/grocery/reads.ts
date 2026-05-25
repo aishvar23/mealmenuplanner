@@ -29,7 +29,7 @@ type ServerClient = SupabaseClient<Database>;
 
 const LIST_SELECT = "id, meal_plan_id, status";
 const ITEM_SELECT =
-  "id, ingredient_id, name, category, quantity, unit, checked";
+  "id, ingredient_id, name, category, quantity, unit, checked, ingredients(image_url, image_alt_text, image_status)";
 
 /** A resolved plan for the grocery screen. */
 export interface GroceryPlanRef {

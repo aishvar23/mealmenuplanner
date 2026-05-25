@@ -24,21 +24,22 @@ phases that follow the [MVP roadmap](docs/12_mvp_roadmap.md) and reference the
 
 ## Progress summary
 
-| Phase | Area                        | Done / Total | Status      |
-| ----- | --------------------------- | ------------ | ----------- |
-| —     | Product specs (`docs/`)     | ✅           | Complete    |
-| —     | Design docs (`design/`)     | ✅           | Complete    |
-| P0    | Project setup & schema      | 15 / 16      | In progress |
-| P1    | Auth & household foundation | 8 / 8        | Complete    |
-| P2    | Onboarding (save/resume)    | 7 / 7        | Complete    |
-| P3    | Dish admin / content        | 8 / 8        | Complete    |
-| P4    | Recommendation engine       | 8 / 8        | Complete    |
-| P5    | Meal planning               | 7 / 7        | Complete    |
-| P6    | Household collaboration     | 9 / 9        | Complete    |
-| P7    | Grocery & prep              | 6 / 6        | Complete    |
-| P8    | Notifications               | 6 / 6        | Complete    |
-| P9    | Beta hardening              | 0 / 7        | Not started |
-|       | **Total**                   | **74 / 82**  |             |
+| Phase   | Area                        | Done / Total | Status      |
+| ------- | --------------------------- | ------------ | ----------- |
+| —       | Product specs (`docs/`)     | ✅           | Complete    |
+| —       | Design docs (`design/`)     | ✅           | Complete    |
+| P0      | Project setup & schema      | 15 / 16      | In progress |
+| P1      | Auth & household foundation | 8 / 8        | Complete    |
+| P2      | Onboarding (save/resume)    | 7 / 7        | Complete    |
+| P3      | Dish admin / content        | 8 / 8        | Complete    |
+| P4      | Recommendation engine       | 8 / 8        | Complete    |
+| P5      | Meal planning               | 7 / 7        | Complete    |
+| P6      | Household collaboration     | 9 / 9        | Complete    |
+| P7      | Grocery & prep              | 6 / 6        | Complete    |
+| P8      | Notifications               | 6 / 6        | Complete    |
+| P9      | Beta hardening              | 0 / 7        | Not started |
+| BUG-014 | Dish & ingredient images    | 2 / 7        | In progress |
+|         | **Total**                   | **74 / 82**  |             |
 
 **Suggested next task:** **P1 is complete** — `P1-1` (Google OAuth) and `P1-3`
 (server-side session resolution + the `proxy.ts` edge gate + the `(app)`-shell

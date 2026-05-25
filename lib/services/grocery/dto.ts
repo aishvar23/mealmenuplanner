@@ -10,6 +10,7 @@
 import type { Database } from "@/lib/db/database.types";
 
 type GroceryListStatus = Database["public"]["Enums"]["grocery_list_status"];
+type ImageStatus = Database["public"]["Enums"]["image_status"];
 
 /** The `grocery_list_items` columns the API projects. */
 export interface GroceryItemRow {
@@ -20,6 +21,11 @@ export interface GroceryItemRow {
   quantity: number;
   unit: string;
   checked: boolean;
+  ingredients?: {
+    image_url: string | null;
+    image_alt_text: string | null;
+    image_status: ImageStatus;
+  } | null;
 }
 
 /** The `grocery_lists` columns the API projects. */
@@ -40,6 +46,9 @@ export interface GroceryItemDto {
   quantity: number;
   unit: string;
   checked: boolean;
+  ingredientImageUrl: string | null;
+  ingredientImageAltText: string | null;
+  ingredientImageStatus: ImageStatus | null;
 }
 
 /** A grocery list with its lines (design/04 § 4.6). Items are category-ordered. */
@@ -59,6 +68,9 @@ export function toGroceryItemDto(row: GroceryItemRow): GroceryItemDto {
     quantity: row.quantity,
     unit: row.unit,
     checked: row.checked,
+    ingredientImageUrl: row.ingredients?.image_url ?? null,
+    ingredientImageAltText: row.ingredients?.image_alt_text ?? null,
+    ingredientImageStatus: row.ingredients?.image_status ?? null,
   };
 }
 

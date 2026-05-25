@@ -6,7 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { INGREDIENT_CATEGORIES } from "@/lib/admin/options";
+import {
+  IMAGE_STATUS_OPTIONS,
+  INGREDIENT_CATEGORIES,
+} from "@/lib/admin/options";
 import type { IngredientDto } from "@/lib/services/admin/dto";
 
 import {
@@ -16,12 +19,28 @@ import {
   updateIngredient,
 } from "./admin-api";
 
-const EMPTY = {
+interface FormState {
+  name: string;
+  category: string;
+  defaultUnit: string;
+  commonNames: string;
+  allergenType: string;
+  imageUrl: string;
+  imageAltText: string;
+  imageStatus: string;
+  imageVerified: boolean;
+}
+
+const EMPTY: FormState = {
   name: "",
   category: INGREDIENT_CATEGORIES[0] ?? "pantry",
   defaultUnit: "",
   commonNames: "",
   allergenType: "",
+  imageUrl: "",
+  imageAltText: "",
+  imageStatus: "placeholder",
+  imageVerified: false,
 };
 
 /**
@@ -37,7 +56,7 @@ export function IngredientManager({ initial }: { initial: IngredientDto[] }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function set<K extends keyof typeof EMPTY>(key: K, value: string) {
+  function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
@@ -55,6 +74,10 @@ export function IngredientManager({ initial }: { initial: IngredientDto[] }) {
       defaultUnit: item.defaultUnit,
       commonNames: item.commonNames.join(", "),
       allergenType: item.allergenType ?? "",
+      imageUrl: item.imageUrl ?? "",
+      imageAltText: item.imageAltText ?? "",
+      imageStatus: item.imageStatus,
+      imageVerified: item.imageVerified,
     });
     setError(null);
   }
@@ -76,6 +99,10 @@ export function IngredientManager({ initial }: { initial: IngredientDto[] }) {
         .map((value) => value.trim())
         .filter(Boolean),
       allergenType: form.allergenType.trim() || null,
+      imageUrl: form.imageUrl.trim() || null,
+      imageAltText: form.imageAltText.trim() || null,
+      imageStatus: form.imageStatus,
+      imageVerified: form.imageVerified,
     };
     try {
       if (editingId) {
@@ -240,6 +267,46 @@ export function IngredientManager({ initial }: { initial: IngredientDto[] }) {
               placeholder="e.g. dairy, nuts (optional)"
             />
           </div>
+          <div className="grid gap-1">
+            <Label htmlFor="ing-image-url">Image URL</Label>
+            <Input
+              id="ing-image-url"
+              value={form.imageUrl}
+              onChange={(event) => set("imageUrl", event.target.value)}
+              placeholder="https://... or /images/ingredients/name.jpg"
+            />
+          </div>
+          <div className="grid gap-1">
+            <Label htmlFor="ing-image-alt">Alt text</Label>
+            <Input
+              id="ing-image-alt"
+              value={form.imageAltText}
+              onChange={(event) => set("imageAltText", event.target.value)}
+              placeholder="Describe the ingredient image"
+            />
+          </div>
+          <div className="grid gap-1">
+            <Label htmlFor="ing-image-status">Image status</Label>
+            <Select
+              id="ing-image-status"
+              value={form.imageStatus}
+              onChange={(event) => set("imageStatus", event.target.value)}
+            >
+              {IMAGE_STATUS_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={form.imageVerified}
+              onChange={(event) => set("imageVerified", event.target.checked)}
+            />
+            Verified image
+          </label>
 
           {error ? (
             <p role="alert" className="text-sm text-destructive">

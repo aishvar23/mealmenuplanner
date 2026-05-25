@@ -32,6 +32,10 @@ const DISH_ROW: DishRow = {
   low_sodium: false,
   high_protein: true,
   low_carb: false,
+  image_url: null,
+  image_alt_text: null,
+  image_status: "placeholder",
+  image_verified: false,
   status: "draft",
   created_at: "2026-05-01T00:00:00Z",
   updated_at: "2026-05-02T00:00:00Z",
@@ -50,6 +54,10 @@ describe("toDishDto", () => {
       totalTimeMinutes: 60,
       kidFriendly: true,
       highProtein: true,
+      imageUrl: null,
+      imageAltText: null,
+      imageStatus: "placeholder",
+      imageVerified: false,
       status: "draft",
     });
   });
@@ -64,6 +72,10 @@ describe("toIngredientDto", () => {
       default_unit: "g",
       common_names: ["Palak"],
       allergen_type: null,
+      image_url: null,
+      image_alt_text: null,
+      image_status: "placeholder",
+      image_verified: false,
       created_at: "t",
       updated_at: "t",
     });
@@ -74,6 +86,10 @@ describe("toIngredientDto", () => {
       defaultUnit: "g",
       commonNames: ["Palak"],
       allergenType: null,
+      imageUrl: null,
+      imageAltText: null,
+      imageStatus: "placeholder",
+      imageVerified: false,
       createdAt: "t",
       updatedAt: "t",
     });

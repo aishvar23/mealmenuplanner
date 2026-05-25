@@ -9,10 +9,10 @@ import {
   Utensils,
   XCircle,
 } from "lucide-react";
-import Image from "next/image";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { FoodImage } from "@/components/ui/food-image";
 import { mealSlotLabel } from "@/lib/admin/options";
 import {
   mealItemStatusLabel,
@@ -208,14 +208,14 @@ function SlotCard({
     >
       {featured ? (
         <div className="relative min-h-48 border-b">
-          <Image
-            src="/images/meal-hero.png"
-            alt=""
-            fill
-            loading="eager"
-            fetchPriority="high"
+          <FoodImage
+            kind="dish"
+            src={item?.dishImageUrl}
+            status={item?.dishImageStatus}
+            altText={item?.dishImageAltText ?? item?.dishName}
+            className="absolute inset-0 aspect-auto rounded-none"
+            imageClassName="object-cover object-[34%_50%]"
             sizes="(min-width: 1280px) 55vw, 100vw"
-            className="absolute inset-0 object-cover object-[34%_50%]"
           />
           <div className="absolute inset-0 bg-[linear-gradient(90deg,oklch(0.14_0.035_145/0.78),oklch(0.14_0.035_145/0.3)_62%,transparent)]" />
           <div className="relative flex min-h-48 flex-col justify-end p-5 text-white">
@@ -249,13 +249,23 @@ function SlotCard({
               {mealSlotLabel(slot)}
             </p>
             {!featured ? (
-              <h3 className="mt-2 font-heading text-xl font-bold tracking-tight">
-                {hasDish
-                  ? (item?.dishName ?? "Selected dish")
-                  : isEatingOut
-                    ? "Eating out"
-                    : "Ready for a suggestion"}
-              </h3>
+              <div className="mt-2 flex items-center gap-3">
+                <FoodImage
+                  kind="dish"
+                  src={item?.dishImageUrl}
+                  status={item?.dishImageStatus}
+                  altText={item?.dishImageAltText ?? item?.dishName}
+                  className="size-14 shrink-0"
+                  sizes="3.5rem"
+                />
+                <h3 className="font-heading text-xl font-bold tracking-tight">
+                  {hasDish
+                    ? (item?.dishName ?? "Selected dish")
+                    : isEatingOut
+                      ? "Eating out"
+                      : "Ready for a suggestion"}
+                </h3>
+              </div>
             ) : null}
           </div>
           {item ? (
@@ -329,8 +339,18 @@ function SlotCard({
                     key={alt.dishId}
                     className="flex items-center justify-between gap-2"
                   >
-                    <span className="truncate text-sm font-medium">
-                      {alt.dishName ?? "Dish"}
+                    <span className="flex min-w-0 items-center gap-2">
+                      <FoodImage
+                        kind="dish"
+                        src={alt.dishImageUrl}
+                        status={alt.dishImageStatus}
+                        altText={alt.dishImageAltText ?? alt.dishName}
+                        className="size-10 shrink-0"
+                        sizes="2.5rem"
+                      />
+                      <span className="truncate text-sm font-medium">
+                        {alt.dishName ?? "Dish"}
+                      </span>
                     </span>
                     {canChange ? (
                       <Button

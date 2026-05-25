@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   DIET_TYPE_OPTIONS,
   DIFFICULTY_OPTIONS,
+  IMAGE_STATUS_OPTIONS,
   MEAL_SLOT_OPTIONS,
   SPICE_LEVEL_OPTIONS,
 } from "@/lib/admin/options";
@@ -43,6 +44,10 @@ interface FormState {
   cookTimeMinutes: string;
   difficulty: string;
   spiceLevel: string;
+  imageUrl: string;
+  imageAltText: string;
+  imageStatus: string;
+  imageVerified: boolean;
   flags: Record<FlagKey, boolean>;
 }
 
@@ -58,6 +63,10 @@ function initialState(dish?: DishDto): FormState {
     cookTimeMinutes: dish ? String(dish.cookTimeMinutes) : "0",
     difficulty: dish?.difficulty ?? "easy",
     spiceLevel: dish?.spiceLevel ?? "medium",
+    imageUrl: dish?.imageUrl ?? "",
+    imageAltText: dish?.imageAltText ?? "",
+    imageStatus: dish?.imageStatus ?? "placeholder",
+    imageVerified: dish?.imageVerified ?? false,
     flags: {
       kidFriendly: dish?.kidFriendly ?? false,
       lunchboxFriendly: dish?.lunchboxFriendly ?? false,
@@ -84,6 +93,10 @@ function toPayload(state: FormState): Record<string, unknown> {
     cookTimeMinutes: Number(state.cookTimeMinutes) || 0,
     difficulty: state.difficulty,
     spiceLevel: state.spiceLevel,
+    imageUrl: state.imageUrl.trim() || null,
+    imageAltText: state.imageAltText.trim() || null,
+    imageStatus: state.imageStatus,
+    imageVerified: state.imageVerified,
     ...state.flags,
   };
 }
@@ -285,6 +298,52 @@ export function DishForm({
               {label}
             </label>
           ))}
+        </div>
+      </fieldset>
+
+      <fieldset className="grid gap-4 rounded-lg border p-4">
+        <legend className="px-1 text-sm font-medium">Image metadata</legend>
+        <div className="grid gap-2">
+          <Label htmlFor="imageUrl">Image URL</Label>
+          <Input
+            id="imageUrl"
+            value={state.imageUrl}
+            onChange={(event) => set("imageUrl", event.target.value)}
+            placeholder="https://... or /images/dishes/name.jpg"
+          />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="imageAltText">Alt text</Label>
+          <Input
+            id="imageAltText"
+            value={state.imageAltText}
+            onChange={(event) => set("imageAltText", event.target.value)}
+            placeholder="Describe the actual dish image"
+          />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-2">
+            <Label htmlFor="imageStatus">Image status</Label>
+            <Select
+              id="imageStatus"
+              value={state.imageStatus}
+              onChange={(event) => set("imageStatus", event.target.value)}
+            >
+              {IMAGE_STATUS_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <label className="flex items-center gap-2 self-end text-sm">
+            <input
+              type="checkbox"
+              checked={state.imageVerified}
+              onChange={(event) => set("imageVerified", event.target.checked)}
+            />
+            Verified image
+          </label>
         </div>
       </fieldset>
 

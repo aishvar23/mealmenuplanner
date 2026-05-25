@@ -119,7 +119,7 @@ export async function rejectItem(
     },
   });
 
-  const { recommendations, nameById } = await suggestForSlot(
+  const { recommendations, nameById, imageById } = await suggestForSlot(
     item.household_id,
     item.date,
     item.meal_slot,
@@ -128,7 +128,7 @@ export async function rejectItem(
 
   return {
     mealPlanItem: toMealPlanItemDto(updated),
-    alternatives: toAlternatives(recommendations, nameById),
+    alternatives: toAlternatives(recommendations, nameById, imageById),
   };
 }
 
@@ -160,7 +160,7 @@ export async function replaceItem(
   }
 
   // Rank the slot once; use it to validate a chosen dish or pick a fresh one.
-  const { recommendations, nameById } = await suggestForSlot(
+  const { recommendations, nameById, imageById } = await suggestForSlot(
     item.household_id,
     item.date,
     item.meal_slot,
@@ -235,7 +235,14 @@ export async function replaceItem(
     },
   });
 
-  return { mealPlanItem: toMealPlanItemDto(updated), groceryListUpdated: true };
+  return {
+    mealPlanItem: toMealPlanItemDto(
+      updated,
+      nameById.get(replacementDishId) ?? null,
+      imageById?.get(replacementDishId) ?? null,
+    ),
+    groceryListUpdated: true,
+  };
 }
 
 /**

@@ -18,6 +18,7 @@ export type DietType = Database["public"]["Enums"]["diet_type"];
 export type DifficultyLevel = Database["public"]["Enums"]["difficulty_level"];
 export type MealSlot = Database["public"]["Enums"]["meal_slot"];
 export type PairingType = Database["public"]["Enums"]["pairing_type"];
+export type ImageStatus = Database["public"]["Enums"]["image_status"];
 
 // ───────────────────────────── loaded inputs (§3) ─────────────────────────────
 
@@ -56,6 +57,9 @@ export interface CandidateIngredient {
   category: string;
   commonNames: string[];
   allergenType: string | null;
+  imageUrl: string | null;
+  imageAltText: string | null;
+  imageStatus: ImageStatus;
   quantityPerServing: number;
   isRequired: boolean;
   isOptional: boolean;
@@ -86,6 +90,9 @@ export interface CandidateDish {
   difficulty: DifficultyLevel;
   kidFriendly: boolean;
   lunchboxFriendly: boolean;
+  imageUrl: string | null;
+  imageAltText: string | null;
+  imageStatus: ImageStatus;
   ingredients: CandidateIngredient[];
   prepTasks: CandidatePrepTask[];
   pairings: CandidatePairing[];

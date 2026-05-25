@@ -36,7 +36,7 @@ const HOUSEHOLD_PREFERENCES_SELECT =
   "diet_type, preferred_cuisines, weekday_cooking_time_minutes, weekend_cooking_time_minutes, variety_gap_days, kids_count";
 
 const DISH_SELECT =
-  "id, name, diet_type, cuisine, meal_slots, total_time_minutes, difficulty, kid_friendly, lunchbox_friendly";
+  "id, name, diet_type, cuisine, meal_slots, total_time_minutes, difficulty, kid_friendly, lunchbox_friendly, image_url, image_alt_text, image_status";
 
 /** Household-level inputs (design/05 § 3.1). `null` when the row doesn't exist. */
 export async function loadHouseholdContext(
@@ -134,6 +134,9 @@ export async function loadCandidateDishes(
     difficulty: dish.difficulty,
     kidFriendly: dish.kid_friendly,
     lunchboxFriendly: dish.lunchbox_friendly,
+    imageUrl: dish.image_url,
+    imageAltText: dish.image_alt_text,
+    imageStatus: dish.image_status,
     ingredients: ingredientsByDish.get(dish.id) ?? [],
     prepTasks: prepByDish.get(dish.id) ?? [],
     pairings: pairingsByDish.get(dish.id) ?? [],
@@ -242,6 +245,9 @@ async function loadDishIngredients(
       category: attr?.category ?? "",
       commonNames: attr?.commonNames ?? [],
       allergenType: attr?.allergenType ?? null,
+      imageUrl: attr?.imageUrl ?? null,
+      imageAltText: attr?.imageAltText ?? null,
+      imageStatus: attr?.imageStatus ?? "placeholder",
       quantityPerServing: row.quantity_per_serving,
       isRequired: row.is_required,
       isOptional: row.is_optional,
@@ -258,6 +264,9 @@ interface IngredientAttrs {
   category: string;
   commonNames: string[];
   allergenType: string | null;
+  imageUrl: string | null;
+  imageAltText: string | null;
+  imageStatus: Database["public"]["Enums"]["image_status"];
 }
 
 async function loadIngredientAttrs(
@@ -269,7 +278,9 @@ async function loadIngredientAttrs(
 
   const { data, error } = await supabase
     .from("ingredients")
-    .select("id, name, category, common_names, allergen_type")
+    .select(
+      "id, name, category, common_names, allergen_type, image_url, image_alt_text, image_status",
+    )
     .in("id", ingredientIds);
 
   if (error) {
@@ -281,6 +292,9 @@ async function loadIngredientAttrs(
       category: row.category,
       commonNames: row.common_names,
       allergenType: row.allergen_type,
+      imageUrl: row.image_url,
+      imageAltText: row.image_alt_text,
+      imageStatus: row.image_status,
     });
   }
   return map;
