@@ -1,7 +1,8 @@
 "use client";
 
 import { Menu } from "@base-ui/react/menu";
-import { LogOut } from "lucide-react";
+import { LogOut, Settings } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 
 /**
@@ -61,6 +62,13 @@ export function AccountMenu({
               </p>
             </div>
             <Menu.Separator className="my-1 h-px bg-border" />
+            <Menu.Item
+              render={<Link href="/household" />}
+              className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm font-medium text-foreground outline-none select-none data-highlighted:bg-primary/10 data-highlighted:text-primary"
+            >
+              <Settings className="size-4" />
+              Household &amp; preferences
+            </Menu.Item>
             <Menu.Item
               closeOnClick={false}
               disabled={pending}

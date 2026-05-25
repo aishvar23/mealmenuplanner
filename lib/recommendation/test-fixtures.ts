@@ -65,6 +65,7 @@ export function makeDish(
     dietType: "vegetarian",
     cuisine: "North Indian",
     mealSlots: ["lunch", "dinner"],
+    mealRole: "main_component",
     totalTimeMinutes: 30,
     difficulty: "easy",
     kidFriendly: false,

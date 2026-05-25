@@ -36,7 +36,7 @@ const HOUSEHOLD_PREFERENCES_SELECT =
   "diet_type, preferred_cuisines, weekday_cooking_time_minutes, weekend_cooking_time_minutes, variety_gap_days, kids_count";
 
 const DISH_SELECT =
-  "id, name, diet_type, cuisine, meal_slots, total_time_minutes, difficulty, kid_friendly, lunchbox_friendly";
+  "id, name, diet_type, cuisine, meal_slots, meal_role, total_time_minutes, difficulty, kid_friendly, lunchbox_friendly";
 
 /** Household-level inputs (design/05 § 3.1). `null` when the row doesn't exist. */
 export async function loadHouseholdContext(
@@ -130,6 +130,7 @@ export async function loadCandidateDishes(
     dietType: dish.diet_type,
     cuisine: dish.cuisine,
     mealSlots: dish.meal_slots,
+    mealRole: dish.meal_role,
     totalTimeMinutes: dish.total_time_minutes,
     difficulty: dish.difficulty,
     kidFriendly: dish.kid_friendly,

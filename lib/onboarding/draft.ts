@@ -36,6 +36,19 @@ export interface FoodPreferences {
   spiceLevel?: SpiceLevel;
 }
 
+/**
+ * Step 3 — preferred dishes (BUG-006, PREFDISH-001..005). The household can pick
+ * dishes it likes (`manual`) or delegate to the engine (`system`). Stored as dish
+ * **names** because that's what the engine's liked-dish bonus matches on
+ * (`lib/recommendation/scoring.ts`); on completion they become the owner's
+ * `user_food_preferences.liked_dishes`.
+ */
+export interface PreferredDishes {
+  mode?: "manual" | "system";
+  /** Dish names the household likes (only meaningful in `manual` mode). */
+  dishNames?: string[];
+}
+
 /** Step 3 — `household_preferences` meals + cooking time + variety. */
 export interface MealSchedule {
   mealsToPlan?: MealSlot[];
@@ -65,6 +78,7 @@ export interface BudgetSection {
 export interface DraftData {
   householdBasics?: HouseholdBasics;
   foodPreferences?: FoodPreferences;
+  preferredDishes?: PreferredDishes;
   mealSchedule?: MealSchedule;
   allergiesHealth?: AllergiesHealth;
   budget?: BudgetSection;

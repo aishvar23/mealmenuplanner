@@ -9,7 +9,7 @@
  * these are plain same-origin requests — no Authorization header to manage.
  */
 
-import type { DraftData, StepId } from "@/lib/onboarding";
+import type { DraftData, PreferencesPatch, StepId } from "@/lib/onboarding";
 import type { DraftDto } from "@/lib/services/onboarding/dto";
 
 const DRAFT_URL = "/api/onboarding/draft";
@@ -78,4 +78,22 @@ export async function completeDraft(
   });
   if (!res.ok) throw new Error(`Failed to complete onboarding (${res.status})`);
   return (await res.json()) as { householdId: string };
+}
+
+/**
+ * `PATCH /api/households/{householdId}/preferences` — the edit-mode counterpart
+ * to {@link completeDraft}. Re-running the wizard on an existing household saves
+ * by partially updating its preferences rather than creating a new household.
+ * Throws on any non-2xx so the wizard can surface a retry affordance.
+ */
+export async function savePreferences(
+  householdId: string,
+  patch: PreferencesPatch,
+): Promise<void> {
+  const res = await fetch(`/api/households/${householdId}/preferences`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) throw new Error(`Failed to save preferences (${res.status})`);
 }

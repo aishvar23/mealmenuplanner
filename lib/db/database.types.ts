@@ -178,6 +178,7 @@ export type Database = {
           low_carb: boolean;
           low_sodium: boolean;
           lunchbox_friendly: boolean;
+          meal_role: Database["public"]["Enums"]["meal_role"];
           meal_slots: string[];
           name: string;
           prep_time_minutes: number;
@@ -203,6 +204,7 @@ export type Database = {
           low_carb?: boolean;
           low_sodium?: boolean;
           lunchbox_friendly?: boolean;
+          meal_role?: Database["public"]["Enums"]["meal_role"];
           meal_slots?: string[];
           name: string;
           prep_time_minutes?: number;
@@ -228,6 +230,7 @@ export type Database = {
           low_carb?: boolean;
           low_sodium?: boolean;
           lunchbox_friendly?: boolean;
+          meal_role?: Database["public"]["Enums"]["meal_role"];
           meal_slots?: string[];
           name?: string;
           prep_time_minutes?: number;
@@ -1204,6 +1207,14 @@ export type Database = {
         | "skipped"
         | "eating_out";
       meal_plan_status: "draft" | "active" | "archived";
+      meal_role:
+        | "complete_meal"
+        | "main_component"
+        | "rice_component"
+        | "bread_component"
+        | "side"
+        | "condiment"
+        | "beverage";
       meal_slot: "breakfast" | "lunch" | "dinner" | "snack";
       member_role: "owner" | "admin" | "member" | "viewer";
       member_status:
@@ -1391,6 +1402,15 @@ export const Constants = {
         "eating_out",
       ],
       meal_plan_status: ["draft", "active", "archived"],
+      meal_role: [
+        "complete_meal",
+        "main_component",
+        "rice_component",
+        "bread_component",
+        "side",
+        "condiment",
+        "beverage",
+      ],
       meal_slot: ["breakfast", "lunch", "dinner", "snack"],
       member_role: ["owner", "admin", "member", "viewer"],
       member_status: [

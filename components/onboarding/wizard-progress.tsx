@@ -2,12 +2,7 @@
 
 import { Check } from "lucide-react";
 
-import {
-  ONBOARDING_STEPS,
-  stepIndex,
-  stepMeta,
-  type StepId,
-} from "@/lib/onboarding";
+import { STEP_IDS, stepMeta, type StepId } from "@/lib/onboarding";
 import { cn } from "@/lib/utils";
 
 /**
@@ -15,10 +10,20 @@ import { cn } from "@/lib/utils";
  * ordered step labels with the current/completed state marked. Purely a view of
  * the current {@link StepId} — navigation is driven by the wizard's Back/Next
  * controls (P2-1), so the labels are not interactive here.
+ *
+ * `steps` is the active step list: the full create flow ({@link STEP_IDS}, the
+ * default) or edit mode's subset, so the count and labels track whichever flow
+ * is running.
  */
-export function WizardProgress({ current }: { current: StepId }) {
-  const currentIndex = stepIndex(current);
-  const total = ONBOARDING_STEPS.length;
+export function WizardProgress({
+  current,
+  steps = STEP_IDS,
+}: {
+  current: StepId;
+  steps?: readonly StepId[];
+}) {
+  const currentIndex = steps.indexOf(current);
+  const total = steps.length;
   const percent = Math.round(((currentIndex + 1) / total) * 100);
 
   return (
@@ -45,12 +50,12 @@ export function WizardProgress({ current }: { current: StepId }) {
       </div>
 
       <ol className="hidden flex-wrap gap-2 text-xs sm:flex">
-        {ONBOARDING_STEPS.map((step, index) => {
+        {steps.map((id, index) => {
           const done = index < currentIndex;
           const active = index === currentIndex;
           return (
             <li
-              key={step.id}
+              key={id}
               aria-current={active ? "step" : undefined}
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5",
@@ -76,7 +81,7 @@ export function WizardProgress({ current }: { current: StepId }) {
                   {index + 1}
                 </span>
               )}
-              {step.label}
+              {stepMeta(id).label}
             </li>
           );
         })}

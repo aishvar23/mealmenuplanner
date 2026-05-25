@@ -74,16 +74,19 @@ export default function LandingPage() {
                     Today
                   </p>
                   <h2 className="mt-1 font-heading text-xl font-bold">
-                    Coconut Chutney
+                    Masala Dosa
                   </h2>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    with Coconut Chutney
+                  </p>
                 </div>
                 <span className="rounded-lg bg-saffron px-2.5 py-1 text-xs font-bold text-saffron-foreground">
                   Suggested
                 </span>
               </div>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                Vegan, breakfast-ready, South Indian, and inside the weekday
-                cooking window.
+                Vegetarian, breakfast-ready, South Indian, and inside the
+                weekday cooking window.
               </p>
               <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs font-semibold">
                 {["Breakfast", "Lunch", "Dinner"].map((slot, index) => (

@@ -18,6 +18,7 @@ const DISH_ROW: DishRow = {
   cuisine: "North Indian",
   region: "Punjab",
   meal_slots: ["lunch", "dinner"],
+  meal_role: "main_component",
   diet_type: "vegetarian",
   prep_time_minutes: 20,
   cook_time_minutes: 40,

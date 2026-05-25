@@ -18,6 +18,7 @@ import type {
   CurrentUserPermissionsDto,
   MemberDto,
 } from "@/lib/services/household/dto";
+import type { PendingInviteDto } from "@/lib/services/invite/dto";
 
 import * as api from "./household-client";
 
@@ -36,12 +37,14 @@ export function HouseholdMembers({
   currentUserId,
   currentUserPermissions,
   members,
+  pendingInvites,
 }: {
   householdId: string;
   householdName: string;
   currentUserId: string;
   currentUserPermissions: CurrentUserPermissionsDto;
   members: MemberDto[];
+  pendingInvites: PendingInviteDto[];
 }) {
   const isOwner = currentUserPermissions.role === "owner";
 
@@ -49,6 +52,19 @@ export function HouseholdMembers({
     <div className="flex flex-col gap-6">
       {currentUserPermissions.canInviteMembers && (
         <InvitePanel householdId={householdId} />
+      )}
+
+      {currentUserPermissions.canInviteMembers && pendingInvites.length > 0 && (
+        <section>
+          <h2 className="font-heading text-xl font-bold tracking-tight">
+            Pending invites
+          </h2>
+          <ul className="mt-3 divide-y rounded-lg border bg-card shadow-xs">
+            {pendingInvites.map((invite) => (
+              <PendingInviteRow key={invite.inviteId} invite={invite} />
+            ))}
+          </ul>
+        </section>
       )}
 
       <section>
@@ -74,7 +90,29 @@ export function HouseholdMembers({
   );
 }
 
+/** A created-but-not-yet-accepted invite shown to inviters (BUG-012). */
+function PendingInviteRow({ invite }: { invite: PendingInviteDto }) {
+  const target =
+    invite.invitedEmail ?? invite.invitedPhone ?? "Invited contact";
+  return (
+    <li className="flex flex-col gap-1 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <p className="font-semibold">{target}</p>
+        <p className="text-xs text-muted-foreground">
+          {memberRoleLabel(invite.role)} ·{" "}
+          {membershipTypeLabel(invite.membershipType)} · Pending · expires{" "}
+          {formatDate(invite.expiresAt)}
+        </p>
+      </div>
+      <span className="inline-flex w-fit items-center rounded-full bg-saffron/15 px-2.5 py-0.5 text-xs font-semibold text-saffron-foreground ring-1 ring-saffron/30 ring-inset">
+        Awaiting acceptance
+      </span>
+    </li>
+  );
+}
+
 function InvitePanel({ householdId }: { householdId: string }) {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("member");
   const [membershipType, setMembershipType] = useState("permanent");
@@ -103,6 +141,8 @@ function InvitePanel({ householdId }: { householdId: string }) {
       const result = await api.createInvite(householdId, input);
       setLink(result.inviteLink);
       setEmail("");
+      // Surface the new invite in the "Pending invites" section immediately.
+      router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't create the invite.");
     } finally {
@@ -242,8 +282,8 @@ function MemberRow({
     <li className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <p className="font-semibold">
-          {member.displayName ?? "Member"}
-          {isSelf && (
+          {member.displayName ?? (isSelf ? "You" : "Member")}
+          {isSelf && member.displayName && (
             <span className="ml-1 text-xs text-muted-foreground">(You)</span>
           )}
         </p>

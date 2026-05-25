@@ -6,6 +6,7 @@ export * from "./token";
 export * from "./validate";
 export * from "./dto";
 export * from "./create-invite";
+export * from "./list-pending-invites";
 export * from "./preview-invite";
 export * from "./accept-invite";
 export * from "./decline-invite";

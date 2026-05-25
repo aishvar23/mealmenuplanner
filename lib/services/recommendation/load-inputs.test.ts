@@ -125,6 +125,7 @@ describe("loadCandidateDishes", () => {
               diet_type: "vegetarian",
               cuisine: "North Indian",
               meal_slots: ["lunch", "dinner"],
+              meal_role: "main_component",
               total_time_minutes: 40,
               difficulty: "medium",
               kid_friendly: true,

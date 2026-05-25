@@ -19,7 +19,7 @@ import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { INGREDIENTS } from "./ingredients.mjs";
-import { DISHES } from "./dishes.mjs";
+import { DISHES, MEAL_ROLE_OVERRIDES } from "./dishes.mjs";
 
 // ── Enum vocabularies (P0-5 migration is the source of truth) ─────────────────
 const DIET_TYPES = [
@@ -40,6 +40,18 @@ const PAIRING_TYPES = [
   "condiment",
   "beverage",
 ];
+// meal_role enum (P9 migration). Default for an unlisted dish is main_component.
+const MEAL_ROLES = [
+  "complete_meal",
+  "main_component",
+  "rice_component",
+  "bread_component",
+  "side",
+  "condiment",
+  "beverage",
+];
+const DEFAULT_MEAL_ROLE = "main_component";
+const mealRoleOf = (name) => MEAL_ROLE_OVERRIDES[name] ?? DEFAULT_MEAL_ROLE;
 const FLAGS = [
   "kid_friendly",
   "lunchbox_friendly",
@@ -242,6 +254,14 @@ for (const dish of DISHES) {
   }
 }
 
+// Validate meal-role overrides: every key is a real dish, every value a valid role.
+for (const [name, role] of Object.entries(MEAL_ROLE_OVERRIDES)) {
+  if (!dishNames.has(name))
+    fail(`MEAL_ROLE_OVERRIDES: "${name}" is not a seeded dish`);
+  if (!MEAL_ROLES.includes(role))
+    fail(`MEAL_ROLE_OVERRIDES["${name}"]: invalid meal_role "${role}"`);
+}
+
 if (errors.length) {
   console.error(`\n✗ Seed validation failed (${errors.length} issue(s)):\n`);
   for (const e of errors) console.error(`  - ${e}`);
@@ -284,7 +304,7 @@ p("");
 // Dishes
 p(`-- Dishes (${DISHES.length}), seeded active.`);
 p(
-  "insert into dishes (id, name, description, cuisine, region, meal_slots, diet_type, prep_time_minutes, cook_time_minutes, difficulty, spice_level, kid_friendly, lunchbox_friendly, leftover_friendly, batch_cook_friendly, diabetic_friendly, low_sodium, high_protein, low_carb, status) values",
+  "insert into dishes (id, name, description, cuisine, region, meal_slots, diet_type, prep_time_minutes, cook_time_minutes, difficulty, spice_level, kid_friendly, lunchbox_friendly, leftover_friendly, batch_cook_friendly, diabetic_friendly, low_sodium, high_protein, low_carb, meal_role, status) values",
 );
 p(
   DISHES.map((dish) => {
@@ -293,9 +313,26 @@ p(
       `  ('${uuid("dish:" + dish.name)}', '${sql(dish.name)}', ${pgText(dish.desc)}, ${pgText(dish.cuisine)}, ${pgText(dish.region)}, ` +
       `${pgArray(dish.slots)}, '${dish.diet}', ${dish.prep}, ${dish.cook}, '${dish.difficulty}', '${dish.spice}', ` +
       `${f("kid_friendly")}, ${f("lunchbox_friendly")}, ${f("leftover_friendly")}, ${f("batch_cook_friendly")}, ` +
-      `${f("diabetic_friendly")}, ${f("low_sodium")}, ${f("high_protein")}, ${f("low_carb")}, 'active')`
+      `${f("diabetic_friendly")}, ${f("low_sodium")}, ${f("high_protein")}, ${f("low_carb")}, '${mealRoleOf(dish.name)}', 'active')`
     );
   }).join(",\n") + "\non conflict do nothing;",
+);
+p("");
+
+// meal_role is data, not a one-time DDL default: re-apply it on every seed so an
+// already-seeded DB (where `on conflict do nothing` skips the insert above) still
+// converges to the catalog's roles (BUG-008/009/010).
+p("-- Sync meal_role onto existing rows (idempotent).");
+p("update dishes d set meal_role = v.role::meal_role");
+p("from (values");
+p(
+  DISHES.map(
+    (dish) => `  ('${uuid("dish:" + dish.name)}', '${mealRoleOf(dish.name)}')`,
+  ).join(",\n"),
+);
+p(") as v(id, role)");
+p(
+  "where d.id = v.id::uuid and d.meal_role is distinct from v.role::meal_role;",
 );
 p("");
 

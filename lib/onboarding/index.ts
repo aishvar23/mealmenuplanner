@@ -5,3 +5,4 @@ export * from "./draft";
 export * from "./options";
 export * from "./completion";
 export * from "./save-state";
+export * from "./edit";
