@@ -20,13 +20,16 @@ import {
 export function FoodPreferencesStep({
   value,
   onChange,
+  errors,
 }: {
   value: FoodPreferences;
   onChange: (patch: Partial<FoodPreferences>) => void;
+  /** Per-step validation messages, shown when advancing is attempted (BUG-004). */
+  errors?: { dietType?: string | null; preferredCuisines?: string | null };
 }) {
   return (
     <div className="flex flex-col gap-5">
-      <Field label="Diet type" required>
+      <Field label="Diet type" required error={errors?.dietType}>
         <OptionGroup
           ariaLabel="Diet type"
           options={DIET_TYPE_OPTIONS}
@@ -38,6 +41,7 @@ export function FoodPreferencesStep({
       <Field
         label="Preferred cuisines"
         required
+        error={errors?.preferredCuisines}
         hint="Pick at least one — you can add more later."
       >
         <OptionChips

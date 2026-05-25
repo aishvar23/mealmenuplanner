@@ -7,3 +7,5 @@ export * from "./guards";
 // Operator (admin) role model (pure predicate; the `requireAdmin` guard lives
 // in ./guards, re-exported above).
 export * from "./admin";
+// Local-only dev quick sign-in (disabled in production builds; server-only).
+export * from "./dev-login";

@@ -39,6 +39,23 @@ export function toInvitePreviewDto(row: InvitePreviewRow): InvitePreviewDto {
   };
 }
 
+/**
+ * A pending invite as the owner-facing household UI lists it (P6, BUG-012).
+ * The plaintext token is never read back (only its hash is stored), so a
+ * pending row exposes the invitee + role/access + expiry, not a re-shareable
+ * link. Active members can read these under the `hi_select` RLS policy.
+ */
+export interface PendingInviteDto {
+  inviteId: string;
+  /** One of email/phone is always set (the `invite_has_target` check). */
+  invitedEmail: string | null;
+  invitedPhone: string | null;
+  role: MemberRole;
+  membershipType: MembershipType;
+  expiresAt: string;
+  createdAt: string;
+}
+
 /** `POST /api/invites/{token}/accept` response (design/04 § 4.3). */
 export interface AcceptInviteResult {
   householdId: string;

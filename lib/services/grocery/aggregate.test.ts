@@ -81,6 +81,30 @@ describe("aggregateGroceryLines", () => {
     expect(lines.map((l) => l.unit).sort()).toEqual(["g", "tsp"]);
   });
 
+  it("merges the same ingredient across compatible units (BUG-011)", () => {
+    // Cooking Oil listed as 8 tbsp in one dish and 3 tsp in another: both are
+    // volume, so they merge into one line (3 tsp = 1 tbsp → 9 tbsp), shown in the
+    // coarsest unit seen.
+    const oil: DishIngredientLine = {
+      ingredientId: "ing-oil",
+      name: "Cooking Oil",
+      category: "pantry",
+      unit: "tbsp",
+      quantityPerServing: 8,
+    };
+    const lines = aggregateGroceryLines(
+      ["dish-a", "dish-b"],
+      ingredientsMap({
+        "dish-a": [oil],
+        "dish-b": [{ ...oil, unit: "tsp", quantityPerServing: 3 }],
+      }),
+      1,
+    );
+    expect(lines).toHaveLength(1);
+    expect(lines[0]?.unit).toBe("tbsp");
+    expect(lines[0]?.quantity).toBe(9);
+  });
+
   it("orders lines by the doc-01 category order, then name", () => {
     const lines = aggregateGroceryLines(
       ["dish-a"],

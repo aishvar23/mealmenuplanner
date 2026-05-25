@@ -7,3 +7,4 @@ export * from "./validate-completion";
 export * from "./get-draft";
 export * from "./save-draft";
 export * from "./complete-draft";
+export * from "./list-dish-catalog";

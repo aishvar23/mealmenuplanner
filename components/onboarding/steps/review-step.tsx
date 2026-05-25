@@ -17,16 +17,22 @@ import {
  * far and lets the user jump back to any step to edit. Saving and finishing the
  * draft into live rows is the completion transaction wired in P2-6; here the
  * Finish action is handled by the wizard.
+ *
+ * In `edit` mode the personal allergies/health section is hidden — that step is
+ * not part of the preferences-edit flow (it has no update endpoint).
  */
 export function ReviewStep({
   data,
   onEditStep,
+  mode = "create",
 }: {
   data: DraftData;
   onEditStep: (step: StepId) => void;
+  mode?: "create" | "edit";
 }) {
   const basics = data.householdBasics ?? {};
   const food = data.foodPreferences ?? {};
+  const preferred = data.preferredDishes ?? {};
   const schedule = data.mealSchedule ?? {};
   const health = data.allergiesHealth ?? {};
   const budget = data.budget ?? {};
@@ -68,6 +74,25 @@ export function ReviewStep({
         ]}
       />
 
+      {mode === "edit" ? null : (
+        <Section
+          title="Preferred dishes"
+          step="preferred_dishes"
+          onEditStep={onEditStep}
+          rows={[
+            [
+              "Selection",
+              preferred.mode === "manual"
+                ? "Hand-picked"
+                : preferred.mode === "system"
+                  ? "System chooses"
+                  : undefined,
+            ],
+            ["Dishes", joinList(preferred.dishNames)],
+          ]}
+        />
+      )}
+
       <Section
         title="Schedule"
         step="meal_schedule"
@@ -88,29 +113,31 @@ export function ReviewStep({
         ]}
       />
 
-      <Section
-        title="Allergies & health"
-        step="allergies_health"
-        onEditStep={onEditStep}
-        rows={[
-          ["Allergies", joinList(health.allergies)],
-          ["Disliked ingredients", joinList(health.dislikedIngredients)],
-          [
-            "Dietary goals",
-            joinList(
-              health.healthPreferenceTags?.map((tag) =>
-                optionLabel(HEALTH_TAG_OPTIONS, tag),
+      {mode === "edit" ? null : (
+        <Section
+          title="Allergies & health"
+          step="allergies_health"
+          onEditStep={onEditStep}
+          rows={[
+            ["Allergies", joinList(health.allergies)],
+            ["Disliked ingredients", joinList(health.dislikedIngredients)],
+            [
+              "Dietary goals",
+              joinList(
+                health.healthPreferenceTags?.map((tag) =>
+                  optionLabel(HEALTH_TAG_OPTIONS, tag),
+                ),
               ),
-            ),
-          ],
-          [
-            "Spice preference",
-            health.spicePreference
-              ? optionLabel(SPICE_LEVEL_OPTIONS, health.spicePreference)
-              : undefined,
-          ],
-        ]}
-      />
+            ],
+            [
+              "Spice preference",
+              health.spicePreference
+                ? optionLabel(SPICE_LEVEL_OPTIONS, health.spicePreference)
+                : undefined,
+            ],
+          ]}
+        />
+      )}
 
       <Section
         title="Budget"

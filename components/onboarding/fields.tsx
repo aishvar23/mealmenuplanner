@@ -21,12 +21,15 @@ export function Field({
   htmlFor,
   required,
   hint,
+  error,
   children,
 }: {
   label: string;
   htmlFor?: string;
   required?: boolean;
   hint?: string;
+  /** A per-step validation message shown in place of the hint (P2-5, BUG-004). */
+  error?: string | null;
   children: React.ReactNode;
 }) {
   return (
@@ -40,7 +43,13 @@ export function Field({
         ) : null}
       </Label>
       {children}
-      {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
+      {error ? (
+        <p role="alert" className="text-xs font-medium text-destructive">
+          {error}
+        </p>
+      ) : hint ? (
+        <p className="text-xs text-muted-foreground">{hint}</p>
+      ) : null}
     </div>
   );
 }

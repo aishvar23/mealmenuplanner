@@ -98,8 +98,29 @@ describe("buildCompletionPayload", () => {
       allergies: ["peanuts"],
       dislikedIngredients: [],
       healthPreferenceTags: ["high_protein"],
+      likedDishes: [],
       spicePreference: "mild",
     });
+  });
+
+  it("maps manual preferred dishes to liked dishes (BUG-006)", () => {
+    const draft = completeDraft();
+    draft.preferredDishes = {
+      mode: "manual",
+      dishNames: ["Masala Dosa", "  ", "Rajma Masala"],
+    };
+    const payload = buildCompletionPayload(draft);
+    expect(payload.foodPreferences?.likedDishes).toEqual([
+      "Masala Dosa",
+      "Rajma Masala",
+    ]);
+  });
+
+  it("ignores preferred dishes when the system-choose mode is selected", () => {
+    const draft = completeDraft();
+    draft.preferredDishes = { mode: "system", dishNames: ["Masala Dosa"] };
+    // No other food prefs → no user_food_preferences row at all.
+    expect(buildCompletionPayload(draft).foodPreferences).toBeNull();
   });
 
   it("collects every missing required field into one ValidationError", () => {

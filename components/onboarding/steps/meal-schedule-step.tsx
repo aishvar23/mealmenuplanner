@@ -17,13 +17,24 @@ import { MEAL_SLOT_OPTIONS, type MealSchedule } from "@/lib/onboarding";
 export function MealScheduleStep({
   value,
   onChange,
+  errors,
 }: {
   value: MealSchedule;
   onChange: (patch: Partial<MealSchedule>) => void;
+  /** Per-step validation messages, shown when advancing is attempted (BUG-004). */
+  errors?: {
+    mealsToPlan?: string | null;
+    weekdayCookingTimeMinutes?: string | null;
+  };
 }) {
   return (
     <div className="flex flex-col gap-5">
-      <Field label="Meals to plan" required hint="Pick at least one.">
+      <Field
+        label="Meals to plan"
+        required
+        error={errors?.mealsToPlan}
+        hint="Pick at least one."
+      >
         <OptionChips
           ariaLabel="Meals to plan"
           options={MEAL_SLOT_OPTIONS}
@@ -37,6 +48,7 @@ export function MealScheduleStep({
           label="Weekday cooking time"
           htmlFor="weekday-cooking-time"
           required
+          error={errors?.weekdayCookingTimeMinutes}
           hint="Minutes you usually have."
         >
           <NumberInput

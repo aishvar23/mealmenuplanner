@@ -19,12 +19,13 @@ describe("step model", () => {
     expect(STEP_IDS).toEqual([
       "household_basics",
       "food_preferences",
+      "preferred_dishes",
       "meal_schedule",
       "allergies_health",
       "budget",
       "review",
     ]);
-    expect(TOTAL_STEPS).toBe(6);
+    expect(TOTAL_STEPS).toBe(7);
   });
 
   it("has metadata for every step, in order", () => {
@@ -47,8 +48,8 @@ describe("step model", () => {
 describe("stepIndex", () => {
   it("returns the zero-based position", () => {
     expect(stepIndex("household_basics")).toBe(0);
-    expect(stepIndex("meal_schedule")).toBe(2);
-    expect(stepIndex("review")).toBe(5);
+    expect(stepIndex("meal_schedule")).toBe(3);
+    expect(stepIndex("review")).toBe(6);
   });
 });
 
