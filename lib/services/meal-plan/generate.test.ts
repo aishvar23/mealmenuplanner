@@ -89,6 +89,9 @@ function todayClient(opts: { cell?: unknown; inserted?: unknown }) {
     const b = {
       select: () => b,
       eq: () => b,
+      // `attachPackages` issues `.in(...)` list queries against dish_pairings /
+      // dishes; resolve them empty so generation needs no extra fixtures.
+      in: () => b,
       insert: () => builder("insert"),
       maybeSingle: () =>
         Promise.resolve(
@@ -96,6 +99,8 @@ function todayClient(opts: { cell?: unknown; inserted?: unknown }) {
             ? { data: opts.inserted ?? null, error: null }
             : { data: opts.cell ?? null, error: null },
         ),
+      then: (resolve: (v: unknown) => unknown) =>
+        resolve({ data: [], error: null }),
     };
     return b;
   }
@@ -181,7 +186,13 @@ describe("generateToday", () => {
 
     expect(result.mealPlanItem?.dishName).toBe("Top Dish");
     expect(result.alternatives).toEqual([
-      { dishId: "alt", dishName: "Alt Dish", score: 5, reason: "ok" },
+      {
+        dishId: "alt",
+        dishName: "Alt Dish",
+        score: 5,
+        reason: "ok",
+        pairedDishes: [],
+      },
     ]);
   });
 });

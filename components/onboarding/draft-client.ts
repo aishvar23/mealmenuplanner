@@ -97,3 +97,24 @@ export async function savePreferences(
   });
   if (!res.ok) throw new Error(`Failed to save preferences (${res.status})`);
 }
+
+/**
+ * `PATCH /api/households/{householdId}/food-preferences` — save the caller's
+ * preferred dishes (the member-level half of an edit-mode save, BUG-006). Liked
+ * dishes live in `user_food_preferences`, not `household_preferences`, so they
+ * round-trip through this endpoint rather than {@link savePreferences}. Throws
+ * on any non-2xx so the wizard can surface a retry affordance.
+ */
+export async function saveFoodPreferences(
+  householdId: string,
+  likedDishes: string[],
+): Promise<void> {
+  const res = await fetch(`/api/households/${householdId}/food-preferences`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ likedDishes }),
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to save food preferences (${res.status})`);
+  }
+}

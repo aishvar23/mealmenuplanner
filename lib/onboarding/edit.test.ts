@@ -4,6 +4,7 @@ import type { PreferencesDto } from "@/lib/services/household/dto";
 
 import type { DraftData } from "./draft";
 import {
+  draftDataToLikedDishes,
   draftDataToPreferencesPatch,
   EDIT_STEP_IDS,
   preferencesToDraftData,
@@ -25,10 +26,11 @@ const PREFS: PreferencesDto = {
 };
 
 describe("EDIT_STEP_IDS", () => {
-  it("covers the household-preference steps and omits the personal allergies step", () => {
+  it("covers the household-preference + preferred-dishes steps and omits the allergies step", () => {
     expect(EDIT_STEP_IDS).toEqual([
       "household_basics",
       "food_preferences",
+      "preferred_dishes",
       "meal_schedule",
       "budget",
       "review",
@@ -39,7 +41,10 @@ describe("EDIT_STEP_IDS", () => {
 
 describe("preferencesToDraftData", () => {
   it("seeds every editable preference field, with the name for display", () => {
-    const draft = preferencesToDraftData("The Suhane Household", PREFS);
+    const draft = preferencesToDraftData("The Suhane Household", PREFS, [
+      "Rajma Chawal",
+      "Masala Dosa",
+    ]);
 
     expect(draft).toEqual({
       householdBasics: {
@@ -53,6 +58,10 @@ describe("preferencesToDraftData", () => {
         preferredCuisines: ["north_indian", "south_indian"],
         spiceLevel: "medium",
       },
+      preferredDishes: {
+        mode: "manual",
+        dishNames: ["Rajma Chawal", "Masala Dosa"],
+      },
       mealSchedule: {
         mealsToPlan: ["lunch", "dinner"],
         weekdayCookingTimeMinutes: 30,
@@ -61,6 +70,17 @@ describe("preferencesToDraftData", () => {
         allowLeftovers: true,
       },
       budget: { budgetPreference: "medium" },
+    });
+  });
+
+  it("opens the preferred-dishes step in system mode when no dishes are liked", () => {
+    const draft = preferencesToDraftData("Home", PREFS);
+    expect(draft.preferredDishes).toEqual({ mode: "system", dishNames: [] });
+
+    const explicitEmpty = preferencesToDraftData("Home", PREFS, []);
+    expect(explicitEmpty.preferredDishes).toEqual({
+      mode: "system",
+      dishNames: [],
     });
   });
 
@@ -119,5 +139,40 @@ describe("draftDataToPreferencesPatch", () => {
     expect(patch).not.toHaveProperty("name");
     expect(patch).not.toHaveProperty("allergies");
     expect(patch).toEqual({ familySize: 3 });
+  });
+
+  it("never carries preferred dishes into the household preferences patch", () => {
+    const patch = draftDataToPreferencesPatch({
+      preferredDishes: { mode: "manual", dishNames: ["Rajma Chawal"] },
+    });
+    expect(patch).not.toHaveProperty("likedDishes");
+    expect(patch).not.toHaveProperty("preferredDishes");
+    expect(patch).toEqual({});
+  });
+});
+
+describe("draftDataToLikedDishes", () => {
+  it("passes manual picks through, trimmed and de-duplicated in order", () => {
+    expect(
+      draftDataToLikedDishes({
+        preferredDishes: {
+          mode: "manual",
+          dishNames: ["  Rajma Chawal ", "Masala Dosa", "Rajma Chawal", "  "],
+        },
+      }),
+    ).toEqual(["Rajma Chawal", "Masala Dosa"]);
+  });
+
+  it("clears favourites when the household delegates to the system", () => {
+    expect(
+      draftDataToLikedDishes({
+        // A user who switches to "let the system decide" drops their old picks.
+        preferredDishes: { mode: "system", dishNames: ["Rajma Chawal"] },
+      }),
+    ).toEqual([]);
+  });
+
+  it("returns an empty list when the step was never touched", () => {
+    expect(draftDataToLikedDishes({})).toEqual([]);
   });
 });

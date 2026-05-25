@@ -14,6 +14,7 @@ import { ReviewStep } from "@/components/onboarding/steps/review-step";
 import { WizardProgress } from "@/components/onboarding/wizard-progress";
 import { Button } from "@/components/ui/button";
 import {
+  draftDataToLikedDishes,
   draftDataToPreferencesPatch,
   EDIT_STEP_IDS,
   EMPTY_DRAFT_DATA,
@@ -30,7 +31,11 @@ import {
   type StepId,
 } from "@/lib/onboarding";
 
-import { completeDraft, savePreferences } from "./draft-client";
+import {
+  completeDraft,
+  saveFoodPreferences,
+  savePreferences,
+} from "./draft-client";
 import { useDraftAutosave } from "./use-draft-autosave";
 
 /**
@@ -193,7 +198,13 @@ export function OnboardingWizard({
         return;
       }
       try {
-        await savePreferences(householdId, draftDataToPreferencesPatch(data));
+        // Household-scoped preferences and the member's own preferred dishes
+        // live in different tables behind different endpoints (BUG-006); save
+        // both before navigating.
+        await Promise.all([
+          savePreferences(householdId, draftDataToPreferencesPatch(data)),
+          saveFoodPreferences(householdId, draftDataToLikedDishes(data)),
+        ]);
         // Full navigation back to the household so the updated preferences are
         // re-read server-side.
         window.location.assign("/household");

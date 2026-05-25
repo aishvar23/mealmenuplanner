@@ -9,6 +9,7 @@ import { getAuthUser } from "@/lib/auth";
 import { preferencesToDraftData } from "@/lib/onboarding";
 import {
   getHousehold,
+  getMyLikedDishes,
   resolveCurrentHousehold,
 } from "@/lib/services/household";
 import { getDraft } from "@/lib/services/onboarding";
@@ -45,11 +46,15 @@ export default async function OnboardingPage() {
     if (!current.currentUserPermissions.canEditHouseholdPreferences) {
       redirect("/today");
     }
-    const household = await getHousehold(current.householdId);
+    const [household, likedDishes] = await Promise.all([
+      getHousehold(current.householdId),
+      getMyLikedDishes(current.householdId),
+    ]);
     if (household.preferences) {
       const initialData = preferencesToDraftData(
         household.name,
         household.preferences,
+        likedDishes,
       );
       return (
         <OnboardingShell

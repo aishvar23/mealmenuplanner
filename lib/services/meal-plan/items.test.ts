@@ -105,11 +105,26 @@ function makeClient() {
       return Promise.resolve({ error: null });
     },
   };
+  // `attachPackages` reads dish_pairings + dishes after each action; resolve them
+  // empty so the item actions need no package fixtures (covered in packaging.test).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const empty: any = {
+    select: () => empty,
+    eq: () => empty,
+    in: () => empty,
+    then: (resolve: (v: unknown) => unknown) =>
+      resolve({ data: [], error: null }),
+  };
 
   return {
     calls,
     client: {
-      from: (table: string) => (table === "meal_feedback" ? mf : mpi),
+      from: (table: string) =>
+        table === "meal_feedback"
+          ? mf
+          : table === "meal_plan_items"
+            ? mpi
+            : empty,
     },
   };
 }

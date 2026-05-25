@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { mealSlotLabel } from "@/lib/admin/options";
 import {
   mealItemStatusLabel,
+  packagePairingSuffix,
   REJECT_FEEDBACK_OPTIONS,
 } from "@/lib/meal-plan/labels";
 import type {
@@ -198,6 +199,9 @@ function SlotCard({
 
   const hasDish = Boolean(item?.dishId);
   const isEatingOut = item?.status === "eating_out";
+  // The "+ Steamed Rice" package line, when the chosen main has accompaniments.
+  const pairingSuffix =
+    hasDish && item ? packagePairingSuffix(item.pairedDishes) : null;
 
   return (
     <section
@@ -230,6 +234,11 @@ function SlotCard({
                   ? "Eating out"
                   : `Plan ${mealSlotLabel(slot).toLowerCase()}`}
             </h2>
+            {pairingSuffix ? (
+              <p className="mt-1 text-base font-semibold text-white/90">
+                {pairingSuffix}
+              </p>
+            ) : null}
             <p className="mt-2 max-w-xl text-sm leading-6 text-white/80">
               {hasDish
                 ? (item?.reason ??
@@ -249,13 +258,20 @@ function SlotCard({
               {mealSlotLabel(slot)}
             </p>
             {!featured ? (
-              <h3 className="mt-2 font-heading text-xl font-bold tracking-tight">
-                {hasDish
-                  ? (item?.dishName ?? "Selected dish")
-                  : isEatingOut
-                    ? "Eating out"
-                    : "Ready for a suggestion"}
-              </h3>
+              <>
+                <h3 className="mt-2 font-heading text-xl font-bold tracking-tight">
+                  {hasDish
+                    ? (item?.dishName ?? "Selected dish")
+                    : isEatingOut
+                      ? "Eating out"
+                      : "Ready for a suggestion"}
+                </h3>
+                {pairingSuffix ? (
+                  <p className="mt-1 text-sm font-semibold text-primary">
+                    {pairingSuffix}
+                  </p>
+                ) : null}
+              </>
             ) : null}
           </div>
           {item ? (
@@ -329,8 +345,13 @@ function SlotCard({
                     key={alt.dishId}
                     className="flex items-center justify-between gap-2"
                   >
-                    <span className="truncate text-sm font-medium">
+                    <span className="min-w-0 truncate text-sm font-medium">
                       {alt.dishName ?? "Dish"}
+                      {packagePairingSuffix(alt.pairedDishes) ? (
+                        <span className="ml-1 font-normal text-muted-foreground">
+                          {packagePairingSuffix(alt.pairedDishes)}
+                        </span>
+                      ) : null}
                     </span>
                     {canChange ? (
                       <Button

@@ -25,6 +25,7 @@ import {
   type TodayGenerateResult,
 } from "./dto";
 import { generateToday } from "./generate";
+import { attachPackages } from "./packaging";
 import { suggestForSlot, toAlternatives } from "./suggest";
 import type { FeedbackType } from "./validate";
 
@@ -56,7 +57,9 @@ export async function acceptItem(itemId: string): Promise<MealPlanItemDto> {
     status: "accepted",
     changed_by_user_id: user.id,
   });
-  return toMealPlanItemDto(updated);
+  const dto = toMealPlanItemDto(updated);
+  await attachPackages(supabase, [dto]);
+  return dto;
 }
 
 /**
@@ -126,10 +129,12 @@ export async function rejectItem(
     { excludeDishIds: [item.dish_id] },
   );
 
-  return {
+  const result: RejectResult = {
     mealPlanItem: toMealPlanItemDto(updated),
     alternatives: toAlternatives(recommendations, nameById),
   };
+  await attachPackages(supabase, [result.mealPlanItem, ...result.alternatives]);
+  return result;
 }
 
 /**
@@ -235,7 +240,9 @@ export async function replaceItem(
     },
   });
 
-  return { mealPlanItem: toMealPlanItemDto(updated), groceryListUpdated: true };
+  const dto = toMealPlanItemDto(updated);
+  await attachPackages(supabase, [dto]);
+  return { mealPlanItem: dto, groceryListUpdated: true };
 }
 
 /**
@@ -310,7 +317,9 @@ export async function markCookedItem(itemId: string): Promise<MealPlanItemDto> {
     status: "cooked",
     changed_by_user_id: user.id,
   });
-  return toMealPlanItemDto(updated);
+  const dto = toMealPlanItemDto(updated);
+  await attachPackages(supabase, [dto]);
+  return dto;
 }
 
 // ──────────────────────────────── helpers ────────────────────────────────
@@ -339,7 +348,9 @@ async function setLocked(
     },
   });
 
-  return toMealPlanItemDto(updated);
+  const dto = toMealPlanItemDto(updated);
+  await attachPackages(supabase, [dto]);
+  return dto;
 }
 
 /** Apply a partial update to an item and return the refreshed row (with dish name). */

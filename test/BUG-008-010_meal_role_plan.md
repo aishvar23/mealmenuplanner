@@ -67,26 +67,32 @@ only appear _inside_ a package.
 - **Verify:** new table tests in `hard-filters.test.ts`; raita/chutney never
   returned as the primary; existing engine tests still pass.
 
-### Phase 4 — Package composition (Medium) — _fixes criteria 10, BUG-009/010_
+### Phase 4 — Package composition (Medium) — ✅ done — _fixes criterion 10, BUG-009/010_
 
-- When the chosen primary is a `main_component`, attach its best pairing(s) from
-  `pairedDishes` so the recommendation reads `Rajma + Jeera Rice`. Define a
-  selection rule (prefer `rice_pairing`/`bread_pairing`/`main_side` in that
-  order; fall back to none if a main legitimately stands alone).
-- Ensure paired components are not _also_ offered as separate primaries the same
-  slot (they're already filtered out by Phase 3).
-- Apply to both today (`lib/services/meal-plan/suggest.ts`) and weekly
-  (`lib/services/meal-plan/generate.ts`) flows.
-- **Verify:** generate.test / suggest fixtures assert package shape; MEALCOMP-002
-  (Masala Dosa + Chutney), MEALCOMP-004/005 (base/main paired).
+- A `main_component` primary is presented with its best accompaniments so the
+  recommendation reads `Rajma Masala + Steamed Rice`. **Selection rule** (pure
+  `selectPackagePairings`): one base — `rice_pairing` → `bread_pairing` →
+  `main_side` in priority order — for a `main_component` only, plus one
+  `condiment` for any primary (so Masala Dosa carries its chutney, MEALCOMP-002).
+  A `complete_meal` never gets a base; `beverage` pairings are excluded.
+- Implemented as a **display concern**, not a stored package: the plan row keeps
+  a single primary `dish_id`. `attachPackages` resolves the components from
+  active `dish_pairings`/`dishes` and fills `pairedDishes` on the DTO. Applied to
+  the read path (`reads.ts`), today generation, and every item action so the
+  package is consistent however a card was produced.
+- Paired components are already kept out of the primary slot by the Phase 3
+  hard filter.
+- **Verified:** pure selector + resolver/attach unit tests; runtime — Chole
+  Masala renders "+ Bhature", and generated alternatives are all standalone mains.
 
-### Phase 5 — UI: render the package (Medium)
+### Phase 5 — UI: render the package (Medium) — ✅ done
 
-- `components/meal-plan/today-board.tsx` + `week-board.tsx`: show the primary
-  dish and its paired component(s) as one card ("+ Jeera Rice"), and the
-  human-readable reason already returned by the engine.
-- Quick-swaps list (BUG-009): only offer standalone-eligible dishes/packages.
-- **Verify:** manual pass on `/today` and `/plan`; no orphan side/component card.
+- `today-board.tsx` + `week-board.tsx` render the primary dish with a
+  `+ Steamed Rice` package line (hero, supporting cards, week cells) alongside
+  the engine's human-readable reason.
+- Quick-swaps show each alternative's package and are already standalone-eligible
+  (Phase 3 filter), so no orphan side/component is ever offered.
+- **Verified:** server-rendered `/today` shows "Chole Masala" with "+ Bhature".
 
 ### Phase 6 — E2E (Small/Med)
 
@@ -97,11 +103,10 @@ only appear _inside_ a package.
 
 ## What lands THIS session vs. follow-up
 
-- **This session:** Phases 1–3 (schema, seed roles, standalone hard filter) — this
-  alone clears the reported standalone-side bugs and global criterion 9. Phase 4
-  package composition is implemented if time permits; otherwise the engine
-  already returns `pairedDishes` data and Phase 5/6 follow.
-- **Follow-up:** Phases 4–6 polish package presentation + E2E (criterion 10).
+- **Done:** Phases 1–3 (schema, seed roles, standalone hard filter — criterion 9)
+  and Phases 4–5 (package composition + UI — criterion 10).
+- **Follow-up:** Phase 6, the formal MEALCOMP-001..009 / PLAN-001 E2E suite, and
+  image thumbnails once BUG-014 lands.
 
 ## Dependencies / risks
 

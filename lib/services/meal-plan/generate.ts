@@ -23,6 +23,7 @@ import {
   type TodayGenerateResult,
   type WeekGenerateResult,
 } from "./dto";
+import { attachPackages } from "./packaging";
 import { resolveOrCreateDayPlan, resolveOrCreateRangePlan } from "./plans";
 import { suggestForSlot, toAlternatives } from "./suggest";
 import { eachDateInRange, type MealSlot } from "./validate";
@@ -75,19 +76,19 @@ export async function generateToday(
   // Idempotency on the cell (design/08 § 2 step 2): one row per (plan,date,slot).
   const existing = await loadCell(supabase, plan.id, date, mealSlot);
   if (existing?.locked) {
-    return {
+    return finalizeTodayResult(supabase, {
       mealPlanId: plan.id,
       mealPlanItem: toMealPlanItemDto(existing),
       alternatives: [],
-    };
+    });
   }
   if (existing?.status === "eating_out") {
     // Do not overwrite an eating-out slot — use replace / re-plan instead.
-    return {
+    return finalizeTodayResult(supabase, {
       mealPlanId: plan.id,
       mealPlanItem: toMealPlanItemDto(existing),
       alternatives: [],
-    };
+    });
   }
 
   // Rank candidates (existence-hidden 404 if the caller isn't a member).
@@ -101,11 +102,11 @@ export async function generateToday(
 
   // No eligible dish for the slot — leave the cell as-is (design/08 § 3 "no eligible dish").
   if (!top) {
-    return {
+    return finalizeTodayResult(supabase, {
       mealPlanId: plan.id,
       mealPlanItem: existing ? toMealPlanItemDto(existing) : null,
       alternatives: [],
-    };
+    });
   }
 
   const saved = existing
@@ -116,11 +117,11 @@ export async function generateToday(
   // § 9/§ 10, P7-3). Best-effort: a grocery glitch must not fail the suggestion.
   await safeRegenerateGroceryListForPlan(supabase, householdId, plan.id);
 
-  return {
+  return finalizeTodayResult(supabase, {
     mealPlanId: plan.id,
     mealPlanItem: toMealPlanItemDto(saved, nameById.get(top.dishId) ?? null),
     alternatives: toAlternatives(recommendations.slice(1), nameById),
-  };
+  });
 }
 
 /**
@@ -261,6 +262,23 @@ export async function generateWeek(
 }
 
 // ──────────────────────────────── helpers ────────────────────────────────
+
+/**
+ * Attach display packages (design/08 criterion 10, BUG-008/009/010) to a today
+ * result's item and alternatives so every card reads as a complete meal — the
+ * primary main plus its starch base / condiment. Mutates in place and returns
+ * the result for a tidy `return finalizeTodayResult(...)`.
+ */
+async function finalizeTodayResult(
+  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+  result: TodayGenerateResult,
+): Promise<TodayGenerateResult> {
+  await attachPackages(supabase, [
+    ...(result.mealPlanItem ? [result.mealPlanItem] : []),
+    ...result.alternatives,
+  ]);
+  return result;
+}
 
 async function loadCell(
   supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,

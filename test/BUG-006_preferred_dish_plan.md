@@ -62,16 +62,26 @@ Verified 2026-05-25:
 - **Verify:** picking dishes autosaves to the draft; refresh restores them
   (PREFDISH-004 persistence across refresh).
 
-### Phase 4 — Persist on completion + edit (Medium)
+### Phase 4 — Persist on completion + edit (Medium) — ✅ done
 
 - Map the draft slice → owner's `liked_dishes` on completion: extend the
   complete-onboarding service/RPC (or set `liked_dishes` in the same write that
   stores allergies/disliked) using the **dish names** for the selected ids
-  (engine matches liked dishes by normalized name).
-- Edit mode (`lib/onboarding/edit.ts` + `draftDataToPreferencesPatch`): seed the
-  step from current `liked_dishes`; "Save changes" PATCHes them back.
-- **Verify:** complete onboarding with 3 picks → owner `user_food_preferences.liked_dishes`
-  has those names; re-open edit shows them checked.
+  (engine matches liked dishes by normalized name). **Done** — the
+  `complete_onboarding` RPC writes `liked_dishes` from the draft.
+- Edit mode: seed the step from current `liked_dishes`; "Save changes" PATCHes
+  them back. **Done** — `preferred_dishes` is in `EDIT_STEP_IDS`;
+  `preferencesToDraftData(name, prefs, likedDishes)` seeds it and
+  `draftDataToLikedDishes` builds the payload. Liked dishes live in
+  member-level `user_food_preferences`, not `household_preferences`, so the
+  household preferences PATCH can't carry them — a separate member-scoped
+  endpoint `PATCH /api/households/{id}/food-preferences` (service
+  `updateMyFoodPreferences`, read `getMyLikedDishes`) upserts the caller's own
+  row. The wizard saves both PATCHes in parallel on "Save changes".
+- **Verified:** authed PATCH inserts a row when none exists and updates
+  `liked_dishes` while preserving allergies/dislikes/health/spice; the edit page
+  renders the "Dishes" step seeded from the live row (see the tracker's
+  "BUG-006 edit-mode follow-up" verification).
 
 ### Phase 5 — Influence + reason surfacing (Small) — _mostly already wired_
 
@@ -87,11 +97,12 @@ Verified 2026-05-25:
 
 ## What lands THIS session vs. follow-up
 
-- **This session:** Phases 1, 3, 4 (draft slice, step UI with both modes, persist
-  picks → `liked_dishes`). Phase 2 picker uses a simple active-dish list. Phase 5
-  is largely existing behavior to confirm.
+- **Done:** Phases 1, 3, 4 (draft slice, step UI with both modes, persist picks
+  → `liked_dishes` on completion **and** via edit-mode round-trip). Phase 2
+  picker uses a simple active-dish list. Phase 5 is largely existing behavior,
+  confirmed.
 - **Follow-up:** richer search/filter, image thumbnails (after BUG-014), and the
-  full E2E suite.
+  formal PREFDISH-001..006 E2E suite (Phase 6).
 
 ## Dependencies
 

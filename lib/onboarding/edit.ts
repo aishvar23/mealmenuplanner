@@ -27,13 +27,16 @@ type MealSlot = Database["public"]["Enums"]["meal_slot"];
 
 /**
  * The wizard steps shown when editing an existing household (vs. the full create
- * flow). The personal allergies/health step is omitted — it writes member-level
- * `user_food_preferences`, which the preferences PATCH does not touch — and
+ * flow). The `preferred_dishes` step is included — it round-trips the owner's
+ * `liked_dishes` through the member-scoped food-preferences PATCH (BUG-006). The
+ * personal allergies/health step stays omitted: it writes the *rest* of
+ * `user_food_preferences` (allergies/health), which no edit endpoint covers yet.
  * Review closes the flow.
  */
 export const EDIT_STEP_IDS = [
   "household_basics",
   "food_preferences",
+  "preferred_dishes",
   "meal_schedule",
   "budget",
   "review",
@@ -65,10 +68,16 @@ export interface PreferencesPatch {
  * read-only — there is no household-name update endpoint); location is omitted
  * for the same reason. The `null` cooking-time columns become `undefined` to
  * match the optional draft shape.
+ *
+ * `likedDishes` (the caller's current `user_food_preferences.liked_dishes`, read
+ * separately from the household preferences) seeds the preferred-dishes step:
+ * any saved favourites open it in `manual` mode with them pre-selected;
+ * otherwise it opens in `system` mode (BUG-006).
  */
 export function preferencesToDraftData(
   name: string,
   prefs: PreferencesDto,
+  likedDishes: string[] = [],
 ): DraftData {
   return {
     householdBasics: {
@@ -82,6 +91,10 @@ export function preferencesToDraftData(
       preferredCuisines: prefs.preferredCuisines,
       spiceLevel: prefs.spiceLevel,
     },
+    preferredDishes:
+      likedDishes.length > 0
+        ? { mode: "manual", dishNames: likedDishes }
+        : { mode: "system", dishNames: [] },
     mealSchedule: {
       mealsToPlan: prefs.mealsToPlan as MealSlot[],
       weekdayCookingTimeMinutes: prefs.weekdayCookingTimeMinutes ?? undefined,
@@ -141,4 +154,29 @@ export function draftDataToPreferencesPatch(data: DraftData): PreferencesPatch {
   }
 
   return patch;
+}
+
+/**
+ * The preferred-dish picks to send to `PATCH .../food-preferences` (BUG-006).
+ * Mirrors the completion mapping (`validate-completion.ts`): choosing "let the
+ * system decide" clears the favourites (`[]`); manual picks pass through,
+ * trimmed and de-duplicated. The food-preferences PATCH is a separate call from
+ * {@link draftDataToPreferencesPatch} because liked dishes live in the member's
+ * `user_food_preferences`, not the household's `household_preferences`.
+ */
+export function draftDataToLikedDishes(data: DraftData): string[] {
+  const preferred = data.preferredDishes ?? {};
+  if (preferred.mode === "system") return [];
+
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const name of preferred.dishNames ?? []) {
+    if (typeof name !== "string") continue;
+    const trimmed = name.trim();
+    if (trimmed.length > 0 && !seen.has(trimmed)) {
+      seen.add(trimmed);
+      out.push(trimmed);
+    }
+  }
+  return out;
 }
