@@ -3,6 +3,7 @@
 import {
   CheckCircle2,
   Lock,
+  LockOpen,
   RefreshCw,
   Sparkles,
   Utensils,
@@ -411,7 +412,7 @@ function ActionRow({
         aria-label={item.locked ? "Unlock meal" : "Lock meal"}
         title={item.locked ? "Unlock meal" : "Lock meal"}
       >
-        <Lock />
+        {item.locked ? <Lock /> : <LockOpen />}
       </Button>
       <Button
         variant="ghost"

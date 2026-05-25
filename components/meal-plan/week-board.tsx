@@ -3,6 +3,7 @@
 import {
   CalendarRange,
   Lock,
+  LockOpen,
   RefreshCw,
   Sparkles,
   Utensils,
@@ -238,7 +239,7 @@ function MealCell({
             aria-label={item.locked ? "Unlock meal" : "Lock meal"}
             title={item.locked ? "Unlock meal" : "Lock meal"}
           >
-            <Lock />
+            {item.locked ? <Lock /> : <LockOpen />}
           </Button>
         </div>
       ) : null}

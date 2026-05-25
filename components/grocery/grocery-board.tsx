@@ -194,7 +194,7 @@ export function GroceryBoard({
                         />
                         <span
                           className={cn(
-                            "flex size-6 items-center justify-center rounded-lg border text-primary transition-colors",
+                            "flex size-6 items-center justify-center rounded-lg border text-primary transition-colors peer-focus-visible:border-ring peer-focus-visible:ring-3 peer-focus-visible:ring-ring/30",
                             item.checked
                               ? "border-primary bg-primary text-primary-foreground"
                               : "border-input bg-background",
