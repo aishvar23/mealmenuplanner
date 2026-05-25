@@ -9,8 +9,8 @@ Started: 2026-05-25 · Owner: Claude Code
 
 ## Status legend
 
-- ✅ **Fixed** — change landed and verified (see Verification: most are runtime
-  end-to-end checks; BUG-004/005/007 are unit + code-level pending a browser pass).
+- ✅ **Fixed** — change landed and verified (see Verification: runtime end-to-end
+  checks + a Chrome browser click-through).
 - 🟡 **Partially fixed** — core symptom resolved this session; remaining polish in a phased plan doc.
 - 🔁 **Cannot reproduce** — not reproducible in current code (stale or test-spec naming mismatch).
 - 📄 **Deferred (planned)** — real but large; phased plan doc created; chunks land across sessions.
@@ -191,13 +191,22 @@ end-to-end confirmations, not just compilation:
   invites" section with the invitee and "Awaiting acceptance".
 - **BUG-013** — `/household` renders role "Owner" + membership "Permanent member".
 
-### Not yet browser-verified (need the Chrome extension for a click-through)
+### Chrome browser click-through (dev-login session)
 
-These are client-side interactions that the headless HTTP checks can't exercise;
-they are covered by unit tests + code review but **not** a visual/browser pass:
+Driven via the Claude-in-Chrome extension against the live app:
 
-- **BUG-004** — validation messages appearing on a blocked "Next" click.
-- **BUG-005** — the "Skip for now" button on optional steps (create flow).
-- **BUG-006 (picker UI)** — selecting a mode, searching, picking dishes, and the
-  picks surviving a refresh.
-- **BUG-007** — the account-menu dropdown opening with the preferences link.
+- **BUG-007** — clicking the header avatar opens the account menu showing
+  "Signed in as", "Household & preferences", and "Sign out".
+- **BUG-004** — on a fresh create-flow onboarding, clicking "Next" with the
+  household name + family size empty stays on Step 1 and shows field errors
+  ("Enter a household name.", "Enter your family size."); filling them clears
+  the errors and advances.
+- **BUG-006** — the create flow is now 7 steps incl. "Dishes"; choosing "Choose
+  my preferred dishes" loads the diet-filtered catalog (mains only — no
+  chutney/raita/plain rice), search filters it, and selecting a dish shows a
+  checkmark + "1 dish selected".
+- **BUG-005** — the optional Allergies and Budget steps show a "Skip for now"
+  control next to Next; clicking it advances without entering anything.
+
+All four were exercised end-to-end in the browser, so the whole backlog is now
+either runtime/browser-verified or (BUG-014) handed to Codex.
