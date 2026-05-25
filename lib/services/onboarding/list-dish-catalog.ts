@@ -6,6 +6,7 @@ import { createServerSupabaseClient } from "@/lib/db/server";
 import { InternalError } from "@/lib/errors";
 
 type DietType = Database["public"]["Enums"]["diet_type"];
+type ImageStatus = Database["public"]["Enums"]["image_status"];
 
 /**
  * Diet → the dish `diet_type`s safe to *offer* a household on that diet, mirroring
@@ -35,6 +36,9 @@ export interface DishCatalogItem {
   name: string;
   cuisine: string | null;
   dietType: DietType;
+  imageUrl: string | null;
+  imageAltText: string | null;
+  imageStatus: ImageStatus;
 }
 
 /**
@@ -56,7 +60,9 @@ export async function listDishCatalog(
   const supabase = await createServerSupabaseClient();
   let query = supabase
     .from("dishes")
-    .select("id, name, cuisine, diet_type")
+    .select(
+      "id, name, cuisine, diet_type, image_url, image_alt_text, image_status",
+    )
     .eq("status", "active")
     .in("meal_role", ["complete_meal", "main_component"])
     .order("name", { ascending: true });
@@ -81,5 +87,8 @@ export async function listDishCatalog(
     name: row.name,
     cuisine: row.cuisine,
     dietType: row.diet_type,
+    imageUrl: row.image_url,
+    imageAltText: row.image_alt_text,
+    imageStatus: row.image_status,
   }));
 }
