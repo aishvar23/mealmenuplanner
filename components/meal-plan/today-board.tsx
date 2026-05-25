@@ -27,6 +27,17 @@ import { cn } from "@/lib/utils";
 import * as api from "./meal-plan-client";
 
 /**
+ * Whether a slot still needs the user's attention — no item yet, an empty
+ * non-eating-out slot, or a suggestion awaiting approval. Mirrors the slots that
+ * surface a primary "Suggest"/"Approve" CTA in {@link ActionRow}.
+ */
+function needsDecision(item: MealPlanItemDto | null): boolean {
+  if (!item) return true;
+  if (!item.dishId && item.status !== "eating_out") return true;
+  return item.status === "suggested";
+}
+
+/**
  * Today screen board (P5-1/P5-2/P5-5/P5-6, design/08 § 2). One card per planned
  * slot: generate a suggestion, see its recommendation reason, then accept,
  * suggest another, reject (with a reason → recorded feedback), replace with an
@@ -50,16 +61,21 @@ export function TodayBoard({
   const seeded = new Map<string, MealPlanItemDto>(
     initialItems.map((item) => [item.mealSlot, item]),
   );
-  const [primarySlot, ...supportingSlots] = slots;
-  if (!primarySlot) return null;
+  // Feature the slot that most needs a decision (the first undecided one) so the
+  // hero's "Best next decision" label is honest; fall back to the first slot
+  // when everything is already settled.
+  const featuredSlot =
+    slots.find((slot) => needsDecision(seeded.get(slot) ?? null)) ?? slots[0];
+  if (!featuredSlot) return null;
+  const supportingSlots = slots.filter((slot) => slot !== featuredSlot);
 
   return (
     <div className="grid gap-5 2xl:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.65fr)]">
       <SlotCard
         householdId={householdId}
         date={date}
-        slot={primarySlot}
-        initialItem={seeded.get(primarySlot) ?? null}
+        slot={featuredSlot}
+        initialItem={seeded.get(featuredSlot) ?? null}
         canChange={canChange}
         featured
       />

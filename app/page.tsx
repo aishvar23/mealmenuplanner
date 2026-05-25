@@ -36,7 +36,7 @@ export default function LandingPage() {
               Home Meal Planner
             </Link>
             <h1 className="font-heading text-5xl leading-[0.96] font-bold tracking-tight text-balance sm:text-6xl lg:text-7xl">
-              Home Meal Planner
+              What should we eat today?
             </h1>
             <p className="mt-5 max-w-xl text-lg leading-8 text-white/80">
               Approve today&apos;s meals, generate a practical week, and shop a

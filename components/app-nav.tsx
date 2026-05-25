@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  CalendarDays,
-  CalendarRange,
-  ShoppingCart,
-  Sparkles,
-  Users,
-} from "lucide-react";
+import { CalendarDays, CalendarRange, ShoppingCart, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -115,15 +109,6 @@ export function AppNav({
           </Link>
         );
       })}
-      <div className="mt-4 rounded-lg border border-sidebar-border bg-sidebar-accent/40 p-3 text-sidebar-foreground/80">
-        <div className="flex items-center gap-2 text-xs font-semibold tracking-[0.16em] text-sidebar-foreground/50 uppercase">
-          <Sparkles className="size-3.5" />
-          Next best action
-        </div>
-        <p className="mt-2 text-sm font-semibold text-sidebar-foreground">
-          Approve today, then generate the empty week.
-        </p>
-      </div>
     </nav>
   );
 }
