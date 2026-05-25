@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { AppNav } from "@/components/app-nav";
+import { AccountMenu } from "@/components/auth/account-menu";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { getAuthUser } from "@/lib/auth";
 import { getUnreadNotificationCount } from "@/lib/services/notification";
@@ -47,7 +48,10 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           </Link>
           <div className="ml-auto flex items-center gap-2">
             <NotificationBell initialUnreadCount={unreadCount} />
-            <AccountAvatar user={user} />
+            <AccountMenu
+              email={user.email ?? null}
+              initial={accountInitial(user)}
+            />
           </div>
         </div>
       </header>
@@ -83,7 +87,10 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="hidden h-16 items-center justify-end gap-2 px-6 lg:flex">
             <NotificationBell initialUnreadCount={unreadCount} />
-            <AccountAvatar user={user} />
+            <AccountMenu
+              email={user.email ?? null}
+              initial={accountInitial(user)}
+            />
           </header>
           <main className="flex-1 pb-24 lg:pb-0">{children}</main>
         </div>
@@ -92,18 +99,6 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       <div className="fixed inset-x-0 bottom-0 z-30 border-t bg-background/94 px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-12px_28px_oklch(0_0_0/0.08)] backdrop-blur lg:hidden">
         <AppNav variant="mobile" />
       </div>
-    </div>
-  );
-}
-
-function AccountAvatar({ user }: { user: User }) {
-  return (
-    <div
-      className="flex size-10 items-center justify-center rounded-lg border border-border bg-card text-sm font-bold text-primary shadow-xs"
-      title={user.email ?? undefined}
-      aria-label={`Signed in as ${user.email ?? "your account"}`}
-    >
-      {accountInitial(user)}
     </div>
   );
 }
