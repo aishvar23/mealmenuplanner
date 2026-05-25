@@ -1,5 +1,14 @@
 "use client";
 
+import {
+  CheckCircle2,
+  Lock,
+  RefreshCw,
+  Sparkles,
+  Utensils,
+  XCircle,
+} from "lucide-react";
+import Image from "next/image";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -12,6 +21,7 @@ import type {
   AlternativeDto,
   MealPlanItemDto,
 } from "@/lib/services/meal-plan/dto";
+import { cn } from "@/lib/utils";
 
 import * as api from "./meal-plan-client";
 
@@ -39,19 +49,32 @@ export function TodayBoard({
   const seeded = new Map<string, MealPlanItemDto>(
     initialItems.map((item) => [item.mealSlot, item]),
   );
+  const [primarySlot, ...supportingSlots] = slots;
+  if (!primarySlot) return null;
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {slots.map((slot) => (
-        <SlotCard
-          key={slot}
-          householdId={householdId}
-          date={date}
-          slot={slot}
-          initialItem={seeded.get(slot) ?? null}
-          canChange={canChange}
-        />
-      ))}
+    <div className="grid gap-5 2xl:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.65fr)]">
+      <SlotCard
+        householdId={householdId}
+        date={date}
+        slot={primarySlot}
+        initialItem={seeded.get(primarySlot) ?? null}
+        canChange={canChange}
+        featured
+      />
+
+      <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-1">
+        {supportingSlots.map((slot) => (
+          <SlotCard
+            key={slot}
+            householdId={householdId}
+            date={date}
+            slot={slot}
+            initialItem={seeded.get(slot) ?? null}
+            canChange={canChange}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -62,12 +85,14 @@ function SlotCard({
   slot,
   initialItem,
   canChange,
+  featured = false,
 }: {
   householdId: string;
   date: string;
   slot: string;
   initialItem: MealPlanItemDto | null;
   canChange: boolean;
+  featured?: boolean;
 }) {
   const [item, setItem] = useState<MealPlanItemDto | null>(initialItem);
   const [alternatives, setAlternatives] = useState<AlternativeDto[]>([]);
@@ -154,152 +179,250 @@ function SlotCard({
       (updated) => setItem(updated),
     );
 
+  const hasDish = Boolean(item?.dishId);
+  const isEatingOut = item?.status === "eating_out";
+
   return (
-    <section className="flex flex-col rounded-lg border p-4">
-      <div className="flex items-center justify-between">
-        <h3 className="font-heading text-sm font-semibold tracking-tight">
-          {mealSlotLabel(slot)}
-        </h3>
-        {item && (
-          <span className="flex items-center gap-2 text-xs text-muted-foreground">
-            {item.locked && <span title="Locked">🔒</span>}
-            {mealItemStatusLabel(item.status)}
-          </span>
-        )}
-      </div>
-
-      <div className="mt-3 flex-1">
-        {item?.dishId ? (
-          <>
-            <p className="font-medium">{item.dishName ?? "Selected dish"}</p>
-            {item.reason && (
-              <p className="mt-1 text-sm text-muted-foreground">
-                {item.reason}
-              </p>
-            )}
-          </>
-        ) : item?.status === "eating_out" ? (
-          <p className="text-sm text-muted-foreground">
-            Eating out — no dish planned.
-          </p>
-        ) : (
-          <p className="text-sm text-muted-foreground">No suggestion yet.</p>
-        )}
-      </div>
-
-      {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
-
-      {canChange && (
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {!item || (!item.dishId && item.status !== "eating_out") ? (
-            <Button size="sm" disabled={pending} onClick={onGenerate}>
-              {pending ? "Working…" : "Suggest a meal"}
-            </Button>
-          ) : item.status === "eating_out" ? (
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={pending}
-              onClick={onGenerate}
-            >
-              Plan a meal instead
-            </Button>
-          ) : (
-            <>
-              {item.status === "suggested" && (
-                <Button
-                  size="sm"
-                  disabled={pending}
-                  onClick={() => onAccept(item.mealPlanItemId)}
-                >
-                  Accept
-                </Button>
-              )}
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={pending}
-                onClick={() => onSuggestAnother(item.mealPlanItemId)}
-              >
-                Suggest another
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={pending}
-                onClick={() => setRejecting((v) => !v)}
-              >
-                Reject
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={pending}
-                onClick={() => onEatingOut(item.mealPlanItemId)}
-              >
-                Eating out
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={pending}
-                onClick={() => onToggleLock(item)}
-              >
-                {item.locked ? "Unlock" : "Lock"}
-              </Button>
-            </>
-          )}
-        </div>
+    <section
+      className={cn(
+        "overflow-hidden rounded-lg border bg-card text-card-foreground shadow-xs",
+        featured && "min-h-[28rem]",
       )}
-
-      {rejecting && item && (
-        <div className="mt-3 rounded-md border bg-muted/30 p-2">
-          <p className="mb-1.5 text-xs text-muted-foreground">
-            Why not this dish?
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {REJECT_FEEDBACK_OPTIONS.map((option) => (
-              <Button
-                key={option.value}
-                size="xs"
-                variant="outline"
-                disabled={pending}
-                onClick={() => onReject(item.mealPlanItemId, option.value)}
-              >
-                {option.label}
-              </Button>
-            ))}
+    >
+      {featured ? (
+        <div className="relative min-h-48 border-b">
+          <Image
+            src="/images/meal-hero.png"
+            alt=""
+            fill
+            loading="eager"
+            fetchPriority="high"
+            sizes="(min-width: 1280px) 55vw, 100vw"
+            className="absolute inset-0 object-cover object-[34%_50%]"
+          />
+          <div className="absolute inset-0 bg-[linear-gradient(90deg,oklch(0.14_0.035_145/0.78),oklch(0.14_0.035_145/0.3)_62%,transparent)]" />
+          <div className="relative flex min-h-48 flex-col justify-end p-5 text-white">
+            <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-white/80">
+              <Sparkles className="size-4" />
+              Best next decision
+            </div>
+            <h2 className="font-heading text-3xl font-bold tracking-tight">
+              {hasDish
+                ? (item?.dishName ?? "Selected dish")
+                : isEatingOut
+                  ? "Eating out"
+                  : `Plan ${mealSlotLabel(slot).toLowerCase()}`}
+            </h2>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-white/80">
+              {hasDish
+                ? (item?.reason ??
+                  "This suggestion fits your household preferences.")
+                : isEatingOut
+                  ? "No cooking needed for this meal slot."
+                  : "Generate one practical suggestion, then approve it or try another."}
+            </p>
           </div>
         </div>
-      )}
+      ) : null}
 
-      {alternatives.length > 0 && item && (
-        <div className="mt-3 border-t pt-3">
-          <p className="mb-1.5 text-xs text-muted-foreground">Other options</p>
-          <ul className="space-y-1.5">
-            {alternatives.map((alt) => (
-              <li
-                key={alt.dishId}
-                className="flex items-center justify-between gap-2"
-              >
-                <span className="truncate text-sm">
-                  {alt.dishName ?? "Dish"}
-                </span>
-                {canChange && (
+      <div className="flex min-h-56 flex-col gap-4 p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-bold tracking-[0.16em] text-muted-foreground uppercase">
+              {mealSlotLabel(slot)}
+            </p>
+            {!featured ? (
+              <h3 className="mt-2 font-heading text-xl font-bold tracking-tight">
+                {hasDish
+                  ? (item?.dishName ?? "Selected dish")
+                  : isEatingOut
+                    ? "Eating out"
+                    : "Ready for a suggestion"}
+              </h3>
+            ) : null}
+          </div>
+          {item ? (
+            <span className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-2.5 py-1 text-xs font-bold text-accent-foreground">
+              {item.locked ? <Lock className="size-3.5" /> : null}
+              {mealItemStatusLabel(item.status)}
+            </span>
+          ) : null}
+        </div>
+
+        {!featured ? (
+          <p className="text-sm leading-6 text-muted-foreground">
+            {hasDish
+              ? (item?.reason ??
+                "This suggestion fits your household preferences.")
+              : isEatingOut
+                ? "No dish planned for this slot."
+                : "No suggestion yet. Start with one tap."}
+          </p>
+        ) : null}
+
+        {error ? (
+          <p className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {error}
+          </p>
+        ) : null}
+
+        <div className="mt-auto flex flex-col gap-3">
+          {canChange ? (
+            <ActionRow
+              item={item}
+              pending={pending}
+              onGenerate={onGenerate}
+              onAccept={onAccept}
+              onSuggestAnother={onSuggestAnother}
+              onEatingOut={onEatingOut}
+              onToggleLock={onToggleLock}
+              onToggleReject={() => setRejecting((v) => !v)}
+            />
+          ) : null}
+
+          {rejecting && item ? (
+            <div className="rounded-lg border bg-muted/40 p-3">
+              <p className="mb-2 text-xs font-semibold text-muted-foreground">
+                What should the planner learn?
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {REJECT_FEEDBACK_OPTIONS.map((option) => (
                   <Button
+                    key={option.value}
                     size="xs"
                     variant="outline"
                     disabled={pending}
-                    onClick={() => onReplace(item.mealPlanItemId, alt.dishId)}
+                    onClick={() => onReject(item.mealPlanItemId, option.value)}
                   >
-                    Choose
+                    {option.label}
                   </Button>
-                )}
-              </li>
-            ))}
-          </ul>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {alternatives.length > 0 && item ? (
+            <div className="rounded-lg border bg-background p-3">
+              <p className="mb-2 text-xs font-semibold text-muted-foreground">
+                Quick swaps
+              </p>
+              <ul className="flex flex-col gap-2">
+                {alternatives.map((alt) => (
+                  <li
+                    key={alt.dishId}
+                    className="flex items-center justify-between gap-2"
+                  >
+                    <span className="truncate text-sm font-medium">
+                      {alt.dishName ?? "Dish"}
+                    </span>
+                    {canChange ? (
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        disabled={pending}
+                        onClick={() =>
+                          onReplace(item.mealPlanItemId, alt.dishId)
+                        }
+                      >
+                        Choose
+                      </Button>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </div>
-      )}
+      </div>
     </section>
+  );
+}
+
+function ActionRow({
+  item,
+  pending,
+  onGenerate,
+  onAccept,
+  onSuggestAnother,
+  onEatingOut,
+  onToggleLock,
+  onToggleReject,
+}: {
+  item: MealPlanItemDto | null;
+  pending: boolean;
+  onGenerate: () => void;
+  onAccept: (id: string) => void;
+  onSuggestAnother: (id: string) => void;
+  onEatingOut: (id: string) => void;
+  onToggleLock: (item: MealPlanItemDto) => void;
+  onToggleReject: () => void;
+}) {
+  if (!item || (!item.dishId && item.status !== "eating_out")) {
+    return (
+      <Button disabled={pending} onClick={onGenerate}>
+        <Sparkles data-icon="inline-start" />
+        {pending ? "Working..." : "Suggest a meal"}
+      </Button>
+    );
+  }
+
+  if (item.status === "eating_out") {
+    return (
+      <Button variant="outline" disabled={pending} onClick={onGenerate}>
+        <Utensils data-icon="inline-start" />
+        Plan a meal instead
+      </Button>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {item.status === "suggested" ? (
+        <Button
+          className="flex-1 sm:flex-none"
+          disabled={pending}
+          onClick={() => onAccept(item.mealPlanItemId)}
+        >
+          <CheckCircle2 data-icon="inline-start" />
+          Approve
+        </Button>
+      ) : null}
+      <Button
+        variant="outline"
+        disabled={pending}
+        onClick={() => onSuggestAnother(item.mealPlanItemId)}
+      >
+        <RefreshCw data-icon="inline-start" />
+        Try another
+      </Button>
+      <Button
+        variant="ghost"
+        disabled={pending}
+        onClick={() => onEatingOut(item.mealPlanItemId)}
+      >
+        <Utensils data-icon="inline-start" />
+        Eating out
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        disabled={pending}
+        onClick={() => onToggleLock(item)}
+        aria-label={item.locked ? "Unlock meal" : "Lock meal"}
+        title={item.locked ? "Unlock meal" : "Lock meal"}
+      >
+        <Lock />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        disabled={pending}
+        onClick={onToggleReject}
+        aria-label="Reject with feedback"
+        title="Reject with feedback"
+      >
+        <XCircle />
+      </Button>
+    </div>
   );
 }

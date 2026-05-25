@@ -10,11 +10,8 @@ export const metadata = { title: "Household" };
 export const dynamic = "force-dynamic";
 
 /**
- * Household members & collaboration screen (P6-4, design/07 § 8). Resolves the
- * caller's household and its active roster, then hands them to the interactive
- * members panel. The caller's permissions (from the resolved membership) decide
- * which management controls render; the server re-checks every mutation. A caller
- * with no household is routed into onboarding.
+ * Household members and collaboration screen. Resolves the caller's household
+ * and active roster, then hands them to the interactive members panel.
  */
 export default async function HouseholdPage() {
   const current = await resolveCurrentHousehold();
@@ -28,25 +25,26 @@ export default async function HouseholdPage() {
   const count = members.data.length;
 
   return (
-    <section className="mx-auto w-full max-w-3xl px-4 py-8">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold tracking-tight">
-          Household
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {current.name} · {count} member{count === 1 ? "" : "s"}
+    <section className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 lg:px-8">
+      <header>
+        <p className="text-sm font-semibold tracking-[0.18em] text-primary uppercase">
+          {count} member{count === 1 ? "" : "s"}
         </p>
-      </div>
+        <h1 className="mt-2 font-heading text-4xl font-bold tracking-tight text-balance">
+          {current.name}
+        </h1>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+          Invite members, manage roles, and keep the household meal plan shared.
+        </p>
+      </header>
 
-      <div className="mt-6">
-        <HouseholdMembers
-          householdId={current.householdId}
-          householdName={current.name}
-          currentUserId={user?.id ?? ""}
-          currentUserPermissions={current.currentUserPermissions}
-          members={members.data}
-        />
-      </div>
+      <HouseholdMembers
+        householdId={current.householdId}
+        householdName={current.name}
+        currentUserId={user?.id ?? ""}
+        currentUserPermissions={current.currentUserPermissions}
+        members={members.data}
+      />
     </section>
   );
 }

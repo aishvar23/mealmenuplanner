@@ -46,16 +46,16 @@ export function HouseholdMembers({
   const isOwner = currentUserPermissions.role === "owner";
 
   return (
-    <div className="space-y-8">
+    <div className="flex flex-col gap-6">
       {currentUserPermissions.canInviteMembers && (
         <InvitePanel householdId={householdId} />
       )}
 
       <section>
-        <h2 className="font-heading text-lg font-semibold tracking-tight">
+        <h2 className="font-heading text-xl font-bold tracking-tight">
           Members
         </h2>
-        <ul className="mt-3 divide-y rounded-lg border">
+        <ul className="mt-3 divide-y rounded-lg border bg-card shadow-xs">
           {members.map((member) => (
             <MemberRow
               key={member.memberId}
@@ -122,12 +122,12 @@ function InvitePanel({ householdId }: { householdId: string }) {
   }
 
   return (
-    <section className="rounded-lg border p-4">
-      <h2 className="font-heading text-lg font-semibold tracking-tight">
+    <section className="rounded-lg border bg-card p-5 shadow-xs">
+      <h2 className="font-heading text-xl font-bold tracking-tight">
         Invite someone
       </h2>
       <form onSubmit={submit} className="mt-3 grid gap-3 sm:grid-cols-2">
-        <div className="sm:col-span-2">
+        <div className="flex flex-col gap-2 sm:col-span-2">
           <Label htmlFor="invite-email">Email</Label>
           <Input
             id="invite-email"
@@ -138,7 +138,7 @@ function InvitePanel({ householdId }: { householdId: string }) {
             placeholder="name@example.com"
           />
         </div>
-        <div>
+        <div className="flex flex-col gap-2">
           <Label htmlFor="invite-role">Role</Label>
           <Select
             id="invite-role"
@@ -152,7 +152,7 @@ function InvitePanel({ householdId }: { householdId: string }) {
             ))}
           </Select>
         </div>
-        <div>
+        <div className="flex flex-col gap-2">
           <Label htmlFor="invite-type">Access</Label>
           <Select
             id="invite-type"
@@ -164,7 +164,7 @@ function InvitePanel({ householdId }: { householdId: string }) {
           </Select>
         </div>
         {membershipType === "temporary_guest" && (
-          <div>
+          <div className="flex flex-col gap-2">
             <Label htmlFor="invite-days">Guest access for</Label>
             <Select
               id="invite-days"
@@ -189,7 +189,7 @@ function InvitePanel({ householdId }: { householdId: string }) {
       {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
 
       {link && (
-        <div className="mt-3 rounded-md border bg-muted/30 p-3">
+        <div className="mt-3 rounded-lg border bg-muted/30 p-3">
           <p className="text-xs text-muted-foreground">
             Share this link — it can be used once and expires.
           </p>
@@ -239,9 +239,9 @@ function MemberRow({
   }
 
   return (
-    <li className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+    <li className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
       <div>
-        <p className="font-medium">
+        <p className="font-semibold">
           {member.displayName ?? "Member"}
           {isSelf && (
             <span className="ml-1 text-xs text-muted-foreground">(You)</span>
@@ -349,8 +349,8 @@ function LeaveSection({ householdId }: { householdId: string }) {
   }
 
   return (
-    <section className="rounded-lg border border-destructive/30 p-4">
-      <h2 className="font-heading text-lg font-semibold tracking-tight">
+    <section className="rounded-lg border border-destructive/30 bg-card p-5 shadow-xs">
+      <h2 className="font-heading text-xl font-bold tracking-tight">
         Leave household
       </h2>
       <p className="mt-1 text-sm text-muted-foreground">

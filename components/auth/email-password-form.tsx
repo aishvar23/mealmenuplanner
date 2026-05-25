@@ -85,8 +85,8 @@ export function EmailPasswordForm({ next }: { next?: string }) {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-3" noValidate>
-      <div className="space-y-1.5">
+    <form onSubmit={onSubmit} className="flex flex-col gap-3" noValidate>
+      <div className="flex flex-col gap-2">
         <Label htmlFor="email">Email</Label>
         <Input
           id="email"
@@ -101,7 +101,7 @@ export function EmailPasswordForm({ next }: { next?: string }) {
         />
       </div>
 
-      <div className="space-y-1.5">
+      <div className="flex flex-col gap-2">
         <Label htmlFor="password">Password</Label>
         <Input
           id="password"
@@ -126,7 +126,7 @@ export function EmailPasswordForm({ next }: { next?: string }) {
       {notice ? (
         <p
           role="status"
-          className="rounded-md border border-border bg-muted px-3 py-2 text-sm text-muted-foreground"
+          className="rounded-lg border border-border bg-muted px-3 py-2 text-sm text-muted-foreground"
         >
           {notice}
         </p>

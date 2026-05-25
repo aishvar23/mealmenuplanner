@@ -11,18 +11,18 @@ export default async function SignInPage({
   const { error, next } = await searchParams;
 
   return (
-    <div className="rounded-xl border bg-card p-6 text-card-foreground shadow-sm">
-      <h1 className="font-heading text-xl font-semibold tracking-tight">
+    <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-xl shadow-foreground/5">
+      <h1 className="font-heading text-3xl font-bold tracking-tight">
         Sign in
       </h1>
-      <p className="mt-1 text-sm text-muted-foreground">
+      <p className="mt-2 text-sm leading-6 text-muted-foreground">
         Continue to Home Meal Planner to plan meals with your household.
       </p>
 
       {error ? (
         <p
           role="alert"
-          className="mt-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
         >
           {error}
         </p>
