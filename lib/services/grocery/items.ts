@@ -25,7 +25,7 @@ import {
  */
 
 const ITEM_SELECT =
-  "id, ingredient_id, name, category, quantity, unit, checked";
+  "id, ingredient_id, name, category, quantity, unit, checked, ingredients(image_url, image_alt_text, image_status)";
 
 export async function setGroceryItemChecked(
   itemId: string,

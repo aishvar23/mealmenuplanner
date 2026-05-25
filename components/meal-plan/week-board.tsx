@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
+import { FoodImage } from "@/components/ui/food-image";
 import { mealSlotLabel } from "@/lib/admin/options";
 import {
   mealItemStatusLabel,
@@ -206,16 +207,28 @@ function MealCell({
           !hasDish && "text-muted-foreground",
         )}
       >
-        {hasDish
-          ? (item?.dishName ?? "Selected dish")
-          : item?.status === "eating_out"
-            ? "Eating out"
-            : "Open"}
-        {pairingSuffix ? (
-          <span className="mt-0.5 block text-xs font-medium text-muted-foreground">
-            {pairingSuffix}
+        <span className="flex items-center gap-2">
+          <FoodImage
+            kind="dish"
+            src={item?.dishImageUrl}
+            status={item?.dishImageStatus}
+            altText={item?.dishImageAltText ?? item?.dishName}
+            className="size-12 shrink-0"
+            sizes="3rem"
+          />
+          <span>
+            {hasDish
+              ? (item?.dishName ?? "Selected dish")
+              : item?.status === "eating_out"
+                ? "Eating out"
+                : "Open"}
+            {pairingSuffix ? (
+              <span className="mt-0.5 block text-xs font-medium text-muted-foreground">
+                {pairingSuffix}
+              </span>
+            ) : null}
           </span>
-        ) : null}
+        </span>
       </p>
 
       {canChange && item ? (

@@ -27,7 +27,7 @@ import type { MealSlot } from "./validate";
 type ServerClient = SupabaseClient<Database>;
 
 const READ_SELECT =
-  "id, meal_plan_id, date, meal_slot, dish_id, status, locked, reason, changed_by_user_id, dishes(name)";
+  "id, meal_plan_id, date, meal_slot, dish_id, status, locked, reason, changed_by_user_id, dishes(name, image_url, image_alt_text, image_status)";
 
 /** Canonical slot display order (doc 01 `meal_slot` enum order). */
 const SLOT_ORDER: Record<MealSlot, number> = {

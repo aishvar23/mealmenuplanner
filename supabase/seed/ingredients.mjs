@@ -182,3 +182,28 @@ export const INGREDIENTS = [
   i("Tea Leaves", "pantry", "tsp", ["chai patti"]),
   i("Poppy Seeds", "pantry", "tsp", ["khus khus"]),
 ];
+
+/**
+ * Verified ingredient images (BUG-014 Phase 6). `name` → `{ url, alt }`, a static
+ * asset under `public/images/ingredients/`. Openly-licensed Wikimedia Commons
+ * photos — see `public/images/CREDITS.md`. generate.mjs flips these rows to
+ * `image_status = 'verified'`; every other ingredient stays `placeholder`.
+ */
+export const INGREDIENT_IMAGES = {
+  Tomato: {
+    url: "/images/ingredients/tomato.jpg",
+    alt: "A single whole ripe red tomato.",
+  },
+  Rice: {
+    url: "/images/ingredients/rice.jpg",
+    alt: "Uncooked long-grain white basmati rice.",
+  },
+  Paneer: {
+    url: "/images/ingredients/paneer.jpg",
+    alt: "A block of fresh white Indian paneer cheese.",
+  },
+  Onion: {
+    url: "/images/ingredients/onion.jpg",
+    alt: "A whole onion bulb.",
+  },
+};

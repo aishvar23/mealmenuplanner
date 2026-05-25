@@ -19,6 +19,7 @@ export type DifficultyLevel = Database["public"]["Enums"]["difficulty_level"];
 export type MealSlot = Database["public"]["Enums"]["meal_slot"];
 export type MealRole = Database["public"]["Enums"]["meal_role"];
 export type PairingType = Database["public"]["Enums"]["pairing_type"];
+export type ImageStatus = Database["public"]["Enums"]["image_status"];
 
 /**
  * Meal roles that may be a **standalone** primary recommendation. A dish in any
@@ -68,6 +69,9 @@ export interface CandidateIngredient {
   category: string;
   commonNames: string[];
   allergenType: string | null;
+  imageUrl: string | null;
+  imageAltText: string | null;
+  imageStatus: ImageStatus;
   quantityPerServing: number;
   isRequired: boolean;
   isOptional: boolean;
@@ -100,6 +104,9 @@ export interface CandidateDish {
   difficulty: DifficultyLevel;
   kidFriendly: boolean;
   lunchboxFriendly: boolean;
+  imageUrl: string | null;
+  imageAltText: string | null;
+  imageStatus: ImageStatus;
   ingredients: CandidateIngredient[];
   prepTasks: CandidatePrepTask[];
   pairings: CandidatePairing[];

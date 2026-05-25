@@ -7,7 +7,7 @@
 // available, `npm run db:types` regenerates this file from the local stack.
 //
 // Reflects migrations P0-5..P0-13 + P1-5 + P1-8 + P2-6 + P2-7 + P4-1 + P6-2/3 +
-// P6-5/8 + P6-9 + P7-1/3 + P7-6 (19 MVP tables, 17 enums, RLS helper fns +
+// P6-5/8 + P6-9 + P7-1/3 + P7-6 + P9 image metadata (19 MVP tables, 18 enums, RLS helper fns +
 // create_household / list_household_members / list_household_food_preferences /
 // complete_onboarding / get_invite_preview / accept_invite / decline_invite /
 // transfer_ownership / replace_grocery_list RPCs + the abandon_stale_drafts /
@@ -173,6 +173,10 @@ export type Database = {
           difficulty: Database["public"]["Enums"]["difficulty_level"];
           high_protein: boolean;
           id: string;
+          image_alt_text: string | null;
+          image_status: Database["public"]["Enums"]["image_status"];
+          image_url: string | null;
+          image_verified: boolean;
           kid_friendly: boolean;
           leftover_friendly: boolean;
           low_carb: boolean;
@@ -199,6 +203,10 @@ export type Database = {
           difficulty?: Database["public"]["Enums"]["difficulty_level"];
           high_protein?: boolean;
           id?: string;
+          image_alt_text?: string | null;
+          image_status?: Database["public"]["Enums"]["image_status"];
+          image_url?: string | null;
+          image_verified?: boolean;
           kid_friendly?: boolean;
           leftover_friendly?: boolean;
           low_carb?: boolean;
@@ -225,6 +233,10 @@ export type Database = {
           difficulty?: Database["public"]["Enums"]["difficulty_level"];
           high_protein?: boolean;
           id?: string;
+          image_alt_text?: string | null;
+          image_status?: Database["public"]["Enums"]["image_status"];
+          image_url?: string | null;
+          image_verified?: boolean;
           kid_friendly?: boolean;
           leftover_friendly?: boolean;
           low_carb?: boolean;
@@ -727,6 +739,10 @@ export type Database = {
           created_at: string;
           default_unit: string;
           id: string;
+          image_alt_text: string | null;
+          image_status: Database["public"]["Enums"]["image_status"];
+          image_url: string | null;
+          image_verified: boolean;
           name: string;
           updated_at: string;
         };
@@ -737,6 +753,10 @@ export type Database = {
           created_at?: string;
           default_unit: string;
           id?: string;
+          image_alt_text?: string | null;
+          image_status?: Database["public"]["Enums"]["image_status"];
+          image_url?: string | null;
+          image_verified?: boolean;
           name: string;
           updated_at?: string;
         };
@@ -747,6 +767,10 @@ export type Database = {
           created_at?: string;
           default_unit?: string;
           id?: string;
+          image_alt_text?: string | null;
+          image_status?: Database["public"]["Enums"]["image_status"];
+          image_url?: string | null;
+          image_verified?: boolean;
           name?: string;
           updated_at?: string;
         };
@@ -1192,6 +1216,7 @@ export type Database = {
         | "do_not_suggest_again"
         | "suggest_more_often";
       grocery_list_status: "draft" | "active" | "archived";
+      image_status: "verified" | "missing" | "broken" | "placeholder";
       invite_status:
         | "pending"
         | "accepted"
@@ -1385,6 +1410,7 @@ export const Constants = {
         "suggest_more_often",
       ],
       grocery_list_status: ["draft", "active", "archived"],
+      image_status: ["verified", "missing", "broken", "placeholder"],
       invite_status: [
         "pending",
         "accepted",

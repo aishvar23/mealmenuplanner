@@ -3,6 +3,7 @@
 import { Check, Sparkles, UtensilsCrossed } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { FoodImage } from "@/components/ui/food-image";
 import { Input } from "@/components/ui/input";
 import type { PreferredDishes } from "@/lib/onboarding";
 import type { DishCatalogItem } from "@/lib/services/onboarding/list-dish-catalog";
@@ -134,13 +135,21 @@ export function PreferredDishesStep({
                       aria-pressed={isOn}
                       onClick={() => toggleDish(dish.name)}
                       className={cn(
-                        "flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/25",
+                        "flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left text-sm transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/25",
                         isOn
                           ? "border-primary bg-primary/10 text-primary"
                           : "border-border bg-card hover:border-primary/30 hover:bg-primary/5",
                       )}
                     >
-                      <span className="min-w-0">
+                      <FoodImage
+                        kind="dish"
+                        src={dish.imageUrl}
+                        status={dish.imageStatus}
+                        altText={dish.imageAltText ?? dish.name}
+                        className="size-11 shrink-0"
+                        sizes="2.75rem"
+                      />
+                      <span className="min-w-0 flex-1">
                         <span className="block truncate font-semibold">
                           {dish.name}
                         </span>

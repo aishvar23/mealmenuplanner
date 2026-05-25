@@ -17,10 +17,21 @@ vi.mock("./suggest", () => ({
   toAlternatives: (
     recs: { dishId: string; score: number; reason: string }[],
     nameById: Map<string, string>,
+    imageById: Map<
+      string,
+      {
+        imageUrl: string | null;
+        imageAltText: string | null;
+        imageStatus: string;
+      }
+    > = new Map(),
   ) =>
     recs.map((r) => ({
       dishId: r.dishId,
       dishName: nameById.get(r.dishId) ?? null,
+      dishImageUrl: imageById.get(r.dishId)?.imageUrl ?? null,
+      dishImageAltText: imageById.get(r.dishId)?.imageAltText ?? null,
+      dishImageStatus: imageById.get(r.dishId)?.imageStatus ?? null,
       score: r.score,
       reason: r.reason,
     })),
@@ -140,6 +151,16 @@ function recommend(dishIds: string[]) {
       pairedDishes: [],
     })),
     nameById: new Map(dishIds.map((id) => [id, `Name ${id}`])),
+    imageById: new Map(
+      dishIds.map((id) => [
+        id,
+        {
+          imageUrl: null,
+          imageAltText: null,
+          imageStatus: "placeholder",
+        },
+      ]),
+    ),
   };
 }
 

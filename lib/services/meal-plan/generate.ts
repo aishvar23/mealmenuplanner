@@ -92,7 +92,7 @@ export async function generateToday(
   }
 
   // Rank candidates (existence-hidden 404 if the caller isn't a member).
-  const { recommendations, nameById } = await suggestForSlot(
+  const { recommendations, nameById, imageById } = await suggestForSlot(
     householdId,
     date,
     mealSlot,
@@ -119,8 +119,12 @@ export async function generateToday(
 
   return finalizeTodayResult(supabase, {
     mealPlanId: plan.id,
-    mealPlanItem: toMealPlanItemDto(saved, nameById.get(top.dishId) ?? null),
-    alternatives: toAlternatives(recommendations.slice(1), nameById),
+    mealPlanItem: toMealPlanItemDto(
+      saved,
+      nameById.get(top.dishId) ?? null,
+      imageById.get(top.dishId) ?? null,
+    ),
+    alternatives: toAlternatives(recommendations.slice(1), nameById, imageById),
   });
 }
 

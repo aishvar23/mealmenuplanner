@@ -122,7 +122,7 @@ export async function rejectItem(
     },
   });
 
-  const { recommendations, nameById } = await suggestForSlot(
+  const { recommendations, nameById, imageById } = await suggestForSlot(
     item.household_id,
     item.date,
     item.meal_slot,
@@ -131,7 +131,7 @@ export async function rejectItem(
 
   const result: RejectResult = {
     mealPlanItem: toMealPlanItemDto(updated),
-    alternatives: toAlternatives(recommendations, nameById),
+    alternatives: toAlternatives(recommendations, nameById, imageById),
   };
   await attachPackages(supabase, [result.mealPlanItem, ...result.alternatives]);
   return result;
@@ -165,7 +165,7 @@ export async function replaceItem(
   }
 
   // Rank the slot once; use it to validate a chosen dish or pick a fresh one.
-  const { recommendations, nameById } = await suggestForSlot(
+  const { recommendations, nameById, imageById } = await suggestForSlot(
     item.household_id,
     item.date,
     item.meal_slot,
@@ -240,7 +240,11 @@ export async function replaceItem(
     },
   });
 
-  const dto = toMealPlanItemDto(updated);
+  const dto = toMealPlanItemDto(
+    updated,
+    nameById.get(replacementDishId) ?? null,
+    imageById.get(replacementDishId) ?? null,
+  );
   await attachPackages(supabase, [dto]);
   return { mealPlanItem: dto, groceryListUpdated: true };
 }

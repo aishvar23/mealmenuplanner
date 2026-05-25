@@ -12,7 +12,12 @@ const ROW: MealPlanItemRow = {
   locked: false,
   reason: "Vegetarian, fits your window.",
   changed_by_user_id: null,
-  dishes: { name: "Palak Paneer" },
+  dishes: {
+    name: "Palak Paneer",
+    image_url: null,
+    image_alt_text: null,
+    image_status: "placeholder",
+  },
 };
 
 describe("toMealPlanItemDto", () => {
@@ -24,6 +29,9 @@ describe("toMealPlanItemDto", () => {
       mealSlot: "dinner",
       dishId: "d1",
       dishName: "Palak Paneer",
+      dishImageUrl: null,
+      dishImageAltText: null,
+      dishImageStatus: "placeholder",
       status: "suggested",
       locked: false,
       reason: "Vegetarian, fits your window.",
@@ -38,8 +46,23 @@ describe("toMealPlanItemDto", () => {
 
   it("uses an explicit dishName override when provided", () => {
     expect(
-      toMealPlanItemDto({ ...ROW, dishes: null }, "Rajma Chawal").dishName,
+      toMealPlanItemDto({ ...ROW, dishes: null }, "Rajma Chawal", {
+        imageUrl: "/rajma.jpg",
+        imageAltText: "Rajma Chawal",
+        imageStatus: "verified",
+      }).dishName,
     ).toBe("Rajma Chawal");
+  });
+
+  it("uses an explicit dish image override when provided", () => {
+    const dto = toMealPlanItemDto({ ...ROW, dishes: null }, "Rajma Chawal", {
+      imageUrl: "/rajma.jpg",
+      imageAltText: "Rajma Chawal in a bowl",
+      imageStatus: "verified",
+    });
+    expect(dto.dishImageUrl).toBe("/rajma.jpg");
+    expect(dto.dishImageAltText).toBe("Rajma Chawal in a bowl");
+    expect(dto.dishImageStatus).toBe("verified");
   });
 
   it("maps an eating-out cell (null dish)", () => {
@@ -52,6 +75,7 @@ describe("toMealPlanItemDto", () => {
     expect(dto.dishId).toBeNull();
     expect(dto.status).toBe("eating_out");
     expect(dto.dishName).toBeNull();
+    expect(dto.dishImageStatus).toBeNull();
   });
 });
 

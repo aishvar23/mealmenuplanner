@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 240" role="img" aria-labelledby="title desc">
+  <title id="title">Dish image unavailable</title>
+  <desc id="desc">A neutral placeholder plate icon.</desc>
+  <rect width="320" height="240" fill="#f6f1e8"/>
+  <circle cx="160" cy="124" r="72" fill="none" stroke="#b9ad9a" stroke-width="10"/>
+  <circle cx="160" cy="124" r="44" fill="none" stroke="#d8cebf" stroke-width="8"/>
+  <path d="M94 190h132" fill="none" stroke="#b9ad9a" stroke-linecap="round" stroke-width="10"/>
+  <path d="M74 58c18-16 44-24 78-24 40 0 72 12 94 36" fill="none" stroke="#d8cebf" stroke-linecap="round" stroke-width="8"/>
+</svg>
+

@@ -13,6 +13,7 @@ import type { Database } from "@/lib/db/database.types";
 type MealSlot = Database["public"]["Enums"]["meal_slot"];
 type MealItemStatus = Database["public"]["Enums"]["meal_item_status"];
 type MealPlanStatus = Database["public"]["Enums"]["meal_plan_status"];
+type ImageStatus = Database["public"]["Enums"]["image_status"];
 type PairingType = Database["public"]["Enums"]["pairing_type"];
 
 /**
@@ -39,8 +40,13 @@ export interface MealPlanItemRow {
   locked: boolean;
   reason: string | null;
   changed_by_user_id: string | null;
-  /** Present when the query joins `dishes(name)`; the dish may be archived/absent. */
-  dishes?: { name: string } | null;
+  /** Present when the query joins `dishes(...)`; the dish may be archived/absent. */
+  dishes?: {
+    name: string;
+    image_url: string | null;
+    image_alt_text: string | null;
+    image_status: ImageStatus;
+  } | null;
 }
 
 /** One planned meal cell as the API exposes it (design/04 § 4.5). */
@@ -52,6 +58,9 @@ export interface MealPlanItemDto {
   dishId: string | null;
   /** Null for an eating-out slot, or when the dish is no longer an active row. */
   dishName: string | null;
+  dishImageUrl: string | null;
+  dishImageAltText: string | null;
+  dishImageStatus: ImageStatus | null;
   status: MealItemStatus;
   locked: boolean;
   reason: string | null;
@@ -74,6 +83,11 @@ export interface MealPlanItemDto {
 export function toMealPlanItemDto(
   row: MealPlanItemRow,
   dishName?: string | null,
+  dishImage?: {
+    imageUrl: string | null;
+    imageAltText: string | null;
+    imageStatus: ImageStatus;
+  } | null,
 ): MealPlanItemDto {
   return {
     mealPlanItemId: row.id,
@@ -82,6 +96,18 @@ export function toMealPlanItemDto(
     mealSlot: row.meal_slot,
     dishId: row.dish_id,
     dishName: dishName !== undefined ? dishName : (row.dishes?.name ?? null),
+    dishImageUrl:
+      dishImage !== undefined
+        ? (dishImage?.imageUrl ?? null)
+        : (row.dishes?.image_url ?? null),
+    dishImageAltText:
+      dishImage !== undefined
+        ? (dishImage?.imageAltText ?? null)
+        : (row.dishes?.image_alt_text ?? null),
+    dishImageStatus:
+      dishImage !== undefined
+        ? (dishImage?.imageStatus ?? null)
+        : (row.dishes?.image_status ?? null),
     status: row.status,
     locked: row.locked,
     reason: row.reason,
@@ -94,6 +120,9 @@ export function toMealPlanItemDto(
 export interface AlternativeDto {
   dishId: string;
   dishName: string | null;
+  dishImageUrl: string | null;
+  dishImageAltText: string | null;
+  dishImageStatus: ImageStatus | null;
   score: number;
   reason: string;
   /** Package accompaniments for this alternative; filled by `attachPackages`. */

@@ -29,6 +29,7 @@ const SPICE_LEVELS = Constants.public.Enums.spice_level;
 const DIFFICULTY_LEVELS = Constants.public.Enums.difficulty_level;
 const MEAL_SLOTS = Constants.public.Enums.meal_slot;
 const DISH_STATUSES = Constants.public.Enums.dish_status;
+const IMAGE_STATUSES = Constants.public.Enums.image_status;
 
 type MealSlot = Database["public"]["Enums"]["meal_slot"];
 type DietType = Database["public"]["Enums"]["diet_type"];
@@ -86,11 +87,15 @@ type DishWriteFields = Omit<
 
 /** Nullable free-text fields cleared with `null` or set with a bounded string. */
 const NULLABLE_TEXT_FIELDS: ReadonlyArray<
-  [camel: string, snake: "description" | "cuisine" | "region"]
+  [
+    camel: string,
+    snake: "description" | "cuisine" | "region" | "image_alt_text",
+  ]
 > = [
   ["description", "description"],
   ["cuisine", "cuisine"],
   ["region", "region"],
+  ["imageAltText", "image_alt_text"],
 ];
 
 /** Boolean descriptor flags on `dishes` (design/01). */
@@ -206,6 +211,39 @@ function collectDishFields(
     }
   }
 
+  if (has("imageUrl")) {
+    const value = body.imageUrl;
+    if (value === null) {
+      fields.image_url = null;
+    } else if (isImageUrl(value)) {
+      fields.image_url = value.trim() === "" ? null : value.trim();
+    } else {
+      issues.push({ field: "imageUrl", rule: "urlOrPathOrNull" });
+    }
+  }
+
+  if (has("imageStatus")) {
+    const value = body.imageStatus;
+    if (isEnumValue(value, IMAGE_STATUSES)) {
+      fields.image_status = value;
+    } else {
+      issues.push({
+        field: "imageStatus",
+        rule: "enum",
+        allowed: IMAGE_STATUSES,
+      });
+    }
+  }
+
+  if (has("imageVerified")) {
+    const value = body.imageVerified;
+    if (typeof value === "boolean") {
+      fields.image_verified = value;
+    } else {
+      issues.push({ field: "imageVerified", rule: "boolean" });
+    }
+  }
+
   for (const [camel, snake] of BOOLEAN_FLAGS) {
     if (!has(camel)) continue;
     const value = body[camel];
@@ -216,7 +254,42 @@ function collectDishFields(
     }
   }
 
+  if (fields.image_status === "verified") {
+    const alt =
+      typeof body.imageAltText === "string" ? body.imageAltText.trim() : "";
+    const url = typeof body.imageUrl === "string" ? body.imageUrl.trim() : "";
+    if (!alt) {
+      issues.push({
+        field: "imageAltText",
+        rule: "requiredWhenImageVerified",
+      });
+    }
+    if (!url) {
+      issues.push({ field: "imageUrl", rule: "requiredWhenImageVerified" });
+    }
+  }
+
+  if (fields.image_verified === true && fields.image_status !== "verified") {
+    issues.push({
+      field: "imageVerified",
+      rule: "requiresVerifiedStatus",
+    });
+  }
+
   return fields;
+}
+
+function isImageUrl(value: unknown): value is string {
+  if (!isBoundedString(value)) return false;
+  const trimmed = value.trim();
+  if (trimmed === "") return true;
+  if (trimmed.startsWith("/")) return true;
+  try {
+    const url = new URL(trimmed);
+    return url.protocol === "https:" || url.protocol === "http:";
+  } catch {
+    return false;
+  }
 }
 
 /**

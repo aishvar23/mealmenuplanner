@@ -14,6 +14,7 @@ type DifficultyLevel = Database["public"]["Enums"]["difficulty_level"];
 type MealSlot = Database["public"]["Enums"]["meal_slot"];
 type DishStatus = Database["public"]["Enums"]["dish_status"];
 type PairingType = Database["public"]["Enums"]["pairing_type"];
+type ImageStatus = Database["public"]["Enums"]["image_status"];
 
 export interface Option<T extends string = string> {
   value: T;
@@ -62,6 +63,13 @@ const PAIRING_TYPE_LABELS: Record<PairingType, string> = {
   beverage: "Beverage",
 };
 
+const IMAGE_STATUS_LABELS: Record<ImageStatus, string> = {
+  verified: "Verified",
+  missing: "Missing",
+  broken: "Broken",
+  placeholder: "Placeholder",
+};
+
 function toOptions<T extends string>(
   values: readonly T[],
   labels: Record<T, string>,
@@ -93,6 +101,10 @@ export const PAIRING_TYPE_OPTIONS = toOptions(
   Constants.public.Enums.pairing_type,
   PAIRING_TYPE_LABELS,
 );
+export const IMAGE_STATUS_OPTIONS = toOptions(
+  Constants.public.Enums.image_status,
+  IMAGE_STATUS_LABELS,
+);
 
 export function dietTypeLabel(value: DietType): string {
   return DIET_TYPE_LABELS[value];
@@ -105,6 +117,9 @@ export function mealSlotLabel(value: string): string {
 }
 export function pairingTypeLabel(value: PairingType): string {
   return PAIRING_TYPE_LABELS[value];
+}
+export function imageStatusLabel(value: ImageStatus): string {
+  return IMAGE_STATUS_LABELS[value];
 }
 
 /**

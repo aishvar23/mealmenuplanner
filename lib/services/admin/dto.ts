@@ -23,6 +23,7 @@ type DietType = Database["public"]["Enums"]["diet_type"];
 type SpiceLevel = Database["public"]["Enums"]["spice_level"];
 type DifficultyLevel = Database["public"]["Enums"]["difficulty_level"];
 type DishStatus = Database["public"]["Enums"]["dish_status"];
+type ImageStatus = Database["public"]["Enums"]["image_status"];
 type MealRole = Database["public"]["Enums"]["meal_role"];
 type PairingType = Database["public"]["Enums"]["pairing_type"];
 
@@ -53,6 +54,10 @@ export interface DishDto {
   lowSodium: boolean;
   highProtein: boolean;
   lowCarb: boolean;
+  imageUrl: string | null;
+  imageAltText: string | null;
+  imageStatus: ImageStatus;
+  imageVerified: boolean;
   status: DishStatus;
   createdAt: string;
   updatedAt: string;
@@ -82,6 +87,10 @@ export function toDishDto(row: DishRow): DishDto {
     lowSodium: row.low_sodium,
     highProtein: row.high_protein,
     lowCarb: row.low_carb,
+    imageUrl: row.image_url,
+    imageAltText: row.image_alt_text,
+    imageStatus: row.image_status,
+    imageVerified: row.image_verified,
     status: row.status,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -102,6 +111,10 @@ export interface IngredientDto {
   defaultUnit: string;
   commonNames: string[];
   allergenType: string | null;
+  imageUrl: string | null;
+  imageAltText: string | null;
+  imageStatus: ImageStatus;
+  imageVerified: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -115,6 +128,10 @@ export function toIngredientDto(row: IngredientRow): IngredientDto {
     defaultUnit: row.default_unit,
     commonNames: row.common_names,
     allergenType: row.allergen_type,
+    imageUrl: row.image_url,
+    imageAltText: row.image_alt_text,
+    imageStatus: row.image_status,
+    imageVerified: row.image_verified,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

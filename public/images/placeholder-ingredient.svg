@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 240" role="img" aria-labelledby="title desc">
+  <title id="title">Ingredient image unavailable</title>
+  <desc id="desc">A neutral placeholder ingredient icon.</desc>
+  <rect width="320" height="240" fill="#eef4ed"/>
+  <path d="M160 178c-40-34-62-66-62-96 0-20 14-34 34-34 13 0 23 6 28 15 5-9 15-15 28-15 20 0 34 14 34 34 0 30-22 62-62 96Z" fill="none" stroke="#8ba58b" stroke-linejoin="round" stroke-width="10"/>
+  <path d="M160 178c-7-38-5-76 8-114" fill="none" stroke="#c3d0bd" stroke-linecap="round" stroke-width="8"/>
+  <path d="M105 195h110" fill="none" stroke="#8ba58b" stroke-linecap="round" stroke-width="10"/>
+</svg>
+
