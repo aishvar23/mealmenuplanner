@@ -47,7 +47,11 @@ export async function suggestForSlot(
   return { recommendations, nameById, imageById };
 }
 
-/** Map the runner-up recommendations to the alternatives DTO (design/08 § 2). */
+/**
+ * Map the runner-up recommendations to the alternatives DTO (design/08 § 2).
+ * `pairedDishes` defaults to `[]`; the caller runs `attachPackages` so each quick
+ * swap also reads as a complete package (BUG-009).
+ */
 export function toAlternatives(
   recommendations: Recommendation[],
   nameById: Map<string, string>,
@@ -61,6 +65,7 @@ export function toAlternatives(
     dishImageStatus: imageById.get(rec.dishId)?.imageStatus ?? null,
     score: rec.score,
     reason: rec.reason,
+    pairedDishes: [],
   }));
 }
 

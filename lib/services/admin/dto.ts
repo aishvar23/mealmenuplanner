@@ -24,6 +24,7 @@ type SpiceLevel = Database["public"]["Enums"]["spice_level"];
 type DifficultyLevel = Database["public"]["Enums"]["difficulty_level"];
 type DishStatus = Database["public"]["Enums"]["dish_status"];
 type ImageStatus = Database["public"]["Enums"]["image_status"];
+type MealRole = Database["public"]["Enums"]["meal_role"];
 type PairingType = Database["public"]["Enums"]["pairing_type"];
 
 // ───────────────────────────────── dishes ─────────────────────────────────
@@ -36,6 +37,8 @@ export interface DishDto {
   cuisine: string | null;
   region: string | null;
   mealSlots: string[];
+  /** Role in a meal (BUG-008/009/010); drives the engine's standalone filter. */
+  mealRole: MealRole;
   dietType: DietType;
   prepTimeMinutes: number;
   cookTimeMinutes: number;
@@ -69,6 +72,7 @@ export function toDishDto(row: DishRow): DishDto {
     cuisine: row.cuisine,
     region: row.region,
     mealSlots: row.meal_slots,
+    mealRole: row.meal_role,
     dietType: row.diet_type,
     prepTimeMinutes: row.prep_time_minutes,
     cookTimeMinutes: row.cook_time_minutes,

@@ -36,6 +36,7 @@ describe("toMealPlanItemDto", () => {
       locked: false,
       reason: "Vegetarian, fits your window.",
       changedByUserId: null,
+      pairedDishes: [],
     });
   });
 

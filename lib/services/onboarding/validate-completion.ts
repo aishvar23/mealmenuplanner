@@ -69,11 +69,13 @@ export interface PreferencesPayload {
   budgetPreference: BudgetPreference;
 }
 
-/** The owner's `user_food_preferences` payload (step 4) — `null` when empty. */
+/** The owner's `user_food_preferences` payload (steps 3 + 4) — `null` when empty. */
 export interface FoodPreferencesPayload {
   allergies: string[];
   dislikedIngredients: string[];
   healthPreferenceTags: string[];
+  /** Preferred-dish names (BUG-006); become the owner's `liked_dishes`. */
+  likedDishes: string[];
   spicePreference?: SpiceLevel;
 }
 
@@ -117,6 +119,7 @@ export function buildCompletionPayload(draft: DraftData): CompletionPayload {
 
   const basics = draft.householdBasics ?? {};
   const food = draft.foodPreferences ?? {};
+  const preferred = draft.preferredDishes ?? {};
   const schedule = draft.mealSchedule ?? {};
   const health = draft.allergiesHealth ?? {};
   const budget = draft.budget ?? {};
@@ -270,16 +273,22 @@ export function buildCompletionPayload(draft: DraftData): CompletionPayload {
   const allergies = cleanStringArray(health.allergies);
   const dislikedIngredients = cleanStringArray(health.dislikedIngredients);
   const healthPreferenceTags = cleanStringArray(health.healthPreferenceTags);
+  // Preferred dishes (step 3): only "manual" picks carry liked dishes; choosing
+  // "let the system decide" leaves them empty (BUG-006, PREFDISH-002).
+  const likedDishes =
+    preferred.mode === "system" ? [] : cleanStringArray(preferred.dishNames);
   const hasFoodPrefs =
     allergies.length > 0 ||
     dislikedIngredients.length > 0 ||
     healthPreferenceTags.length > 0 ||
+    likedDishes.length > 0 ||
     spicePreference !== undefined;
   const foodPreferences: FoodPreferencesPayload | null = hasFoodPrefs
     ? {
         allergies,
         dislikedIngredients,
         healthPreferenceTags,
+        likedDishes,
         ...(spicePreference !== undefined ? { spicePreference } : {}),
       }
     : null;

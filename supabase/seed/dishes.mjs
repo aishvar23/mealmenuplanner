@@ -46,6 +46,50 @@ const d = (
   desc: opts.desc ?? null,
 });
 
+/**
+ * Dish meal-role overrides (BUG-008/009/010). A dish's `meal_role` decides
+ * whether it may stand alone as a primary recommendation: only `complete_meal`
+ * and `main_component` may; rice/bread components, sides, condiments, and
+ * beverages appear only as pairings of a main. Anything not listed here defaults
+ * to `main_component` (the safe, standalone-eligible role). Keep this aligned with
+ * the engine's standalone hard filter (lib/recommendation/hard-filters.ts).
+ */
+export const MEAL_ROLE_OVERRIDES = {
+  // Plain rice — only as a rice pairing.
+  "Steamed Rice": "rice_component",
+  "Jeera Rice": "rice_component",
+  // Plain breads — only as a bread pairing.
+  Roti: "bread_component",
+  "Tandoori Roti": "bread_component",
+  "Butter Naan": "bread_component",
+  Bhature: "bread_component",
+  // Chutneys / dips — accompaniments, never a meal.
+  "Coconut Chutney": "condiment",
+  "Mint Chutney": "condiment",
+  // Sides — need a main to be a meal.
+  "Boondi Raita": "side",
+  "Jeera Aloo": "side",
+  // Beverage.
+  "Masala Chai": "beverage",
+  // Self-contained one-pot meals.
+  "Veg Pulao": "complete_meal",
+  "Jain Vegetable Pulao": "complete_meal",
+  "Vegetable Biryani": "complete_meal",
+  "Chicken Biryani": "complete_meal",
+  "Bisi Bele Bath": "complete_meal",
+  "Lemon Rice": "complete_meal",
+  "Curd Rice": "complete_meal",
+  "Ven Pongal": "complete_meal",
+  "Sabudana Khichdi": "complete_meal",
+  "Egg Fried Rice": "complete_meal",
+  "Veg Fried Rice": "complete_meal",
+  "Prawn Fried Rice": "complete_meal",
+  "Veg Hakka Noodles": "complete_meal",
+  "Pasta Arrabbiata": "complete_meal",
+  "Pasta Alfredo": "complete_meal",
+  "Rajma Quinoa Bowl": "complete_meal",
+};
+
 export const DISHES = [
   // ── North Indian curries & dals ─────────────────────────────────────────────
   d(

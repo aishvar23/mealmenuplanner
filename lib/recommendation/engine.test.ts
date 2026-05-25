@@ -90,6 +90,37 @@ describe("recommendSlot — hard filters (design/05 §4)", () => {
     expect(result).toEqual([]);
   });
 
+  it("excludes non-standalone roles (side/condiment/component) (BUG-008/009/010)", () => {
+    const raita = makeDish({
+      id: "raita",
+      name: "Boondi Raita",
+      mealRole: "side",
+    });
+    const chutney = makeDish({
+      id: "chutney",
+      name: "Coconut Chutney",
+      mealRole: "condiment",
+    });
+    const rice = makeDish({
+      id: "rice",
+      name: "Jeera Rice",
+      mealRole: "rice_component",
+    });
+    const dal = makeDish({ id: "dal", mealRole: "main_component" });
+    const pulao = makeDish({
+      id: "pulao",
+      name: "Veg Pulao",
+      mealRole: "complete_meal",
+    });
+
+    const result = recommendSlot(
+      input({ dishes: [raita, chutney, rice, dal, pulao] }),
+    );
+
+    // Only the standalone-eligible roles survive as primary recommendations.
+    expect(result.map((r) => r.dishId).sort()).toEqual(["dal", "pulao"]);
+  });
+
   it("excludes a do-not-suggest-again dish", () => {
     const banned = makeDish({ id: "banned" });
     const result = recommendSlot(

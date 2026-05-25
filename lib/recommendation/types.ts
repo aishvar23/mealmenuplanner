@@ -17,8 +17,20 @@ import type { Database } from "@/lib/db/database.types";
 export type DietType = Database["public"]["Enums"]["diet_type"];
 export type DifficultyLevel = Database["public"]["Enums"]["difficulty_level"];
 export type MealSlot = Database["public"]["Enums"]["meal_slot"];
+export type MealRole = Database["public"]["Enums"]["meal_role"];
 export type PairingType = Database["public"]["Enums"]["pairing_type"];
 export type ImageStatus = Database["public"]["Enums"]["image_status"];
+
+/**
+ * Meal roles that may be a **standalone** primary recommendation. A dish in any
+ * other role (rice/bread component, side, condiment, beverage) is a piece of a
+ * meal, never the meal itself, so it's hard-filtered from the primary slot and
+ * only ever surfaces as a pairing (BUG-008/009/010, global criteria 9 & 10).
+ */
+export const STANDALONE_MEAL_ROLES: readonly MealRole[] = [
+  "complete_meal",
+  "main_component",
+];
 
 // ───────────────────────────── loaded inputs (§3) ─────────────────────────────
 
@@ -85,6 +97,8 @@ export interface CandidateDish {
   dietType: DietType;
   cuisine: string | null;
   mealSlots: string[];
+  /** Role in a meal; only standalone roles can be a primary pick (§4 hard filter). */
+  mealRole: MealRole;
   /** Stored-generated `prep + cook` (design/01); null only if unset. */
   totalTimeMinutes: number | null;
   difficulty: DifficultyLevel;

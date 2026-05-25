@@ -35,7 +35,7 @@ export function memberStatusLabel(value: MemberStatus): string {
 }
 
 const MEMBERSHIP_TYPE_LABELS: Record<MembershipType, string> = {
-  permanent: "Member",
+  permanent: "Permanent member",
   temporary_guest: "Guest",
 };
 

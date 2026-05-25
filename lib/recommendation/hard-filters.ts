@@ -15,11 +15,18 @@ import { containsAllergen } from "./allergens";
 import type { RecommendationConfig } from "./config";
 import { isDietCompatible } from "./diet";
 import { prepFeasibility } from "./prep";
-import type { CandidateDish, DietType, MealHistory, MealSlot } from "./types";
+import {
+  STANDALONE_MEAL_ROLES,
+  type CandidateDish,
+  type DietType,
+  type MealHistory,
+  type MealSlot,
+} from "./types";
 
 /** Why a candidate was hard-filtered out (design/05 § 4). */
 export type HardFilterReason =
   | "slot"
+  | "notStandalone"
   | "doNotSuggestAgain"
   | "diet"
   | "allergen"
@@ -47,6 +54,9 @@ export function hardFilterExclusion(
   ctx: HardFilterContext,
 ): HardFilterReason | null {
   if (!dish.mealSlots.includes(ctx.mealSlot)) return "slot";
+  // A side / condiment / lone component is never a standalone meal — it can only
+  // appear as a pairing of a main (design/05 § 4, BUG-008/009/010).
+  if (!STANDALONE_MEAL_ROLES.includes(dish.mealRole)) return "notStandalone";
   if (ctx.history.doNotSuggestAgainDishIds.has(dish.id)) {
     return "doNotSuggestAgain";
   }

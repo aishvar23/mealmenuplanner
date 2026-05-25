@@ -16,6 +16,7 @@ import { FoodImage } from "@/components/ui/food-image";
 import { mealSlotLabel } from "@/lib/admin/options";
 import {
   mealItemStatusLabel,
+  packagePairingSuffix,
   REJECT_FEEDBACK_OPTIONS,
 } from "@/lib/meal-plan/labels";
 import type {
@@ -198,6 +199,9 @@ function SlotCard({
 
   const hasDish = Boolean(item?.dishId);
   const isEatingOut = item?.status === "eating_out";
+  // The "+ Steamed Rice" package line, when the chosen main has accompaniments.
+  const pairingSuffix =
+    hasDish && item ? packagePairingSuffix(item.pairedDishes) : null;
 
   return (
     <section
@@ -230,6 +234,11 @@ function SlotCard({
                   ? "Eating out"
                   : `Plan ${mealSlotLabel(slot).toLowerCase()}`}
             </h2>
+            {pairingSuffix ? (
+              <p className="mt-1 text-base font-semibold text-white/90">
+                {pairingSuffix}
+              </p>
+            ) : null}
             <p className="mt-2 max-w-xl text-sm leading-6 text-white/80">
               {hasDish
                 ? (item?.reason ??
@@ -258,13 +267,20 @@ function SlotCard({
                   className="size-14 shrink-0"
                   sizes="3.5rem"
                 />
-                <h3 className="font-heading text-xl font-bold tracking-tight">
-                  {hasDish
-                    ? (item?.dishName ?? "Selected dish")
-                    : isEatingOut
-                      ? "Eating out"
-                      : "Ready for a suggestion"}
-                </h3>
+                <div>
+                  <h3 className="font-heading text-xl font-bold tracking-tight">
+                    {hasDish
+                      ? (item?.dishName ?? "Selected dish")
+                      : isEatingOut
+                        ? "Eating out"
+                        : "Ready for a suggestion"}
+                  </h3>
+                  {pairingSuffix ? (
+                    <p className="mt-1 text-sm font-semibold text-primary">
+                      {pairingSuffix}
+                    </p>
+                  ) : null}
+                </div>
               </div>
             ) : null}
           </div>
@@ -350,6 +366,11 @@ function SlotCard({
                       />
                       <span className="truncate text-sm font-medium">
                         {alt.dishName ?? "Dish"}
+                        {packagePairingSuffix(alt.pairedDishes) ? (
+                          <span className="ml-1 font-normal text-muted-foreground">
+                            {packagePairingSuffix(alt.pairedDishes)}
+                          </span>
+                        ) : null}
                       </span>
                     </span>
                     {canChange ? (

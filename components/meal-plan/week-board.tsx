@@ -14,7 +14,10 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { FoodImage } from "@/components/ui/food-image";
 import { mealSlotLabel } from "@/lib/admin/options";
-import { mealItemStatusLabel } from "@/lib/meal-plan/labels";
+import {
+  mealItemStatusLabel,
+  packagePairingSuffix,
+} from "@/lib/meal-plan/labels";
 import type { MealPlanItemDto } from "@/lib/services/meal-plan/dto";
 import { cn } from "@/lib/utils";
 
@@ -176,6 +179,8 @@ function MealCell({
   onToggleLock: () => void | undefined;
 }) {
   const hasDish = Boolean(item?.dishId);
+  const pairingSuffix =
+    hasDish && item ? packagePairingSuffix(item.pairedDishes) : null;
 
   return (
     <div
@@ -217,6 +222,11 @@ function MealCell({
               : item?.status === "eating_out"
                 ? "Eating out"
                 : "Open"}
+            {pairingSuffix ? (
+              <span className="mt-0.5 block text-xs font-medium text-muted-foreground">
+                {pairingSuffix}
+              </span>
+            ) : null}
           </span>
         </span>
       </p>

@@ -13,6 +13,7 @@ import {
   type MealPlanItemDto,
   type MealPlanItemRow,
 } from "./dto";
+import { attachPackages } from "./packaging";
 import type { MealSlot } from "./validate";
 
 /**
@@ -52,7 +53,10 @@ export async function getDayPlan(
     throw new InternalError("Failed to load the day's plan.", { cause: error });
   }
 
-  return { date, items: sortBySlot(mapRows(data)) };
+  const items = sortBySlot(mapRows(data));
+  // Round each planned main into its display package (design/08 criterion 10).
+  await attachPackages(supabase, items);
+  return { date, items };
 }
 
 /** A date range of planned items, ordered by date then slot (P5-3). */
@@ -80,6 +84,7 @@ export async function getWeekPlan(
       a.date.localeCompare(b.date) ||
       SLOT_ORDER[a.mealSlot] - SLOT_ORDER[b.mealSlot],
   );
+  await attachPackages(supabase, items);
   return { startDate, endDate, items };
 }
 

@@ -14,6 +14,20 @@ type MealSlot = Database["public"]["Enums"]["meal_slot"];
 type MealItemStatus = Database["public"]["Enums"]["meal_item_status"];
 type MealPlanStatus = Database["public"]["Enums"]["meal_plan_status"];
 type ImageStatus = Database["public"]["Enums"]["image_status"];
+type PairingType = Database["public"]["Enums"]["pairing_type"];
+
+/**
+ * A component that completes a primary dish into a wholesome package
+ * (BUG-008/009/010, design/08 criterion 10): a starch base and/or a condiment
+ * the engine pairs with a `main_component`, e.g. Rajma Masala **+ Steamed Rice**.
+ * Resolved for display only — the planned `meal_plan_items` row still stores the
+ * single primary dish.
+ */
+export interface PairedDishDto {
+  dishId: string;
+  dishName: string;
+  pairingType: PairingType;
+}
 
 /** The `meal_plan_items` columns the API projects, plus the optional joined dish. */
 export interface MealPlanItemRow {
@@ -51,12 +65,20 @@ export interface MealPlanItemDto {
   locked: boolean;
   reason: string | null;
   changedByUserId: string | null;
+  /**
+   * Accompaniments that make this a complete package (BUG-008/009/010). Empty by
+   * default; populated by the server-only `attachPackages` step after mapping.
+   */
+  pairedDishes: PairedDishDto[];
 }
 
 /**
  * Map a `meal_plan_items` row to its DTO. `dishName` comes from a joined
  * `dishes(name)` when present; pass it explicitly to override (e.g. a name the
  * caller already resolved from the candidate set during generation).
+ *
+ * `pairedDishes` defaults to `[]` — package resolution needs a DB lookup, so the
+ * server-only `attachPackages` helper fills it in after this pure mapping.
  */
 export function toMealPlanItemDto(
   row: MealPlanItemRow,
@@ -90,6 +112,7 @@ export function toMealPlanItemDto(
     locked: row.locked,
     reason: row.reason,
     changedByUserId: row.changed_by_user_id,
+    pairedDishes: [],
   };
 }
 
@@ -102,6 +125,8 @@ export interface AlternativeDto {
   dishImageStatus: ImageStatus | null;
   score: number;
   reason: string;
+  /** Package accompaniments for this alternative; filled by `attachPackages`. */
+  pairedDishes: PairedDishDto[];
 }
 
 /** Response for `POST .../meal-plans/today/generate` (design/08 § 2). */

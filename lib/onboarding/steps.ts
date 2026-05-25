@@ -13,6 +13,7 @@
 export const STEP_IDS = [
   "household_basics",
   "food_preferences",
+  "preferred_dishes",
   "meal_schedule",
   "allergies_health",
   "budget",
@@ -51,6 +52,14 @@ export const ONBOARDING_STEPS: readonly StepMeta[] = [
     label: "Food",
     title: "Your food preferences",
     description: "Diet, cuisines, and how spicy you like things.",
+    optional: false,
+  },
+  {
+    id: "preferred_dishes",
+    label: "Dishes",
+    title: "Dishes you love",
+    description:
+      "Pick a few favourites, or let the planner choose from your preferences.",
     optional: false,
   },
   {
@@ -133,4 +142,33 @@ export function nextStep(step: StepId): StepId {
 /** The previous step, or the same step when already on the first one (clamped). */
 export function prevStep(step: StepId): StepId {
   return STEP_IDS[stepIndex(step) - 1] ?? step;
+}
+
+/*
+ * List-relative navigation. The create flow walks all {@link STEP_IDS}; edit
+ * mode walks a subset (`EDIT_STEP_IDS`). These take the active step list so the
+ * wizard has one navigation code path regardless of mode; passing `STEP_IDS`
+ * reproduces the whole-flow helpers above.
+ */
+
+/** True when `step` is first in `steps` (Back disabled). */
+export function isFirstStepOf(steps: readonly StepId[], step: StepId): boolean {
+  return steps.indexOf(step) <= 0;
+}
+
+/** True when `step` is last in `steps` (Next becomes Finish/Save). */
+export function isLastStepOf(steps: readonly StepId[], step: StepId): boolean {
+  return steps.indexOf(step) === steps.length - 1;
+}
+
+/** The next step in `steps`, clamped to the last. */
+export function nextStepOf(steps: readonly StepId[], step: StepId): StepId {
+  const index = steps.indexOf(step);
+  return steps[index + 1] ?? step;
+}
+
+/** The previous step in `steps`, clamped to the first. */
+export function prevStepOf(steps: readonly StepId[], step: StepId): StepId {
+  const index = steps.indexOf(step);
+  return index <= 0 ? step : (steps[index - 1] ?? step);
 }
