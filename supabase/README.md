@@ -127,7 +127,7 @@ and prod isolated (design/02 § Environments).
   variant if used) for prod, and keep `http://localhost:3000/auth/callback` for
   dev.
 
-Also set `NEXT_PUBLIC_SITE_URL=https://mymealtoday.com` in the Vercel (prod) env.
+Also set `NEXT_PUBLIC_APP_URL=https://mymealtoday.com` in the Vercel (prod) env.
 
 Remaining prod items: email confirmation **enabled** with an SMTP/transactional
 sender; the OAuth consent screen **Published** (or your test users added) — only

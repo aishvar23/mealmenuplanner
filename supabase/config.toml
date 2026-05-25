@@ -150,7 +150,7 @@ max_indexes = 5
 [auth]
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
-# in emails. Matches NEXT_PUBLIC_SITE_URL in .env.example so OAuth redirects and magic links
+# in emails. Matches NEXT_PUBLIC_APP_URL in .env.example so OAuth redirects and magic links
 # land on the running Next.js dev server.
 site_url = "http://localhost:3000"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.

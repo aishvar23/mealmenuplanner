@@ -12,12 +12,24 @@ multi-member collaboration, and notifications.
 
 ## Current state
 
-This repo currently contains **specs only** — there is no application code yet.
-All product, data, API, and architecture decisions live in `docs/`. When you
-start implementing, treat `docs/` as the source of truth and keep it in sync as
-designs evolve.
+A working **Next.js 16 app** is committed and runs against a **cloud dev**
+Supabase project. Progress lives in `IMPLEMENTATION_TRACKER.md`: phases **P0–P8
+are essentially complete** (about 74 of 82 tasks); what remains is the **prod**
+Supabase project (task `P0-3`) and **P9 beta hardening**. The code is real —
+don't re-scaffold — and keep the docs in sync as designs evolve.
 
-## Documentation map (`docs/`)
+Three sources of truth, all authoritative:
+
+- **`docs/`** — the _product_ specs (vision, requirements, flows, data model,
+  API shapes). Stable product truth; see the map below.
+- **`design/`** — the _engineering_ design the code implements. The schema in
+  `design/01_database_design.md` is the source of truth for table and column
+  names. Start at `design/00_design_index.md`.
+- **`IMPLEMENTATION_TRACKER.md`** — the task list driving the build. Tasks have
+  stable IDs (e.g. `P5-2`); saying "work on P5-2" scopes a unit of work. Tick a
+  box and update the progress summary when a task is done and verified.
+
+## Product spec map (`docs/`)
 
 | File                                 | Contents                                            |
 | ------------------------------------ | --------------------------------------------------- |
@@ -36,15 +48,54 @@ designs evolve.
 | `12_mvp_roadmap.md`                  | Phased build plan (Phase 0–9)                       |
 | `13_success_metrics.md`              | Activation/engagement/retention metrics, north star |
 
-## Intended tech stack (from `docs/11_technical_architecture.md`)
+## Engineering design map (`design/`)
 
-- **Frontend:** Next.js + React + Tailwind CSS + shadcn/ui
-- **Backend:** Supabase (PostgreSQL, Supabase Auth, Row-Level Security), with
-  Next.js server actions / API routes or Supabase Edge Functions
-- **Hosting:** Vercel (web) + Supabase (DB/auth); separate dev and prod projects
-- **Scheduled jobs:** guest expiry, invite expiry, prep reminders
+| File                                      | Contents                                       |
+| ----------------------------------------- | ---------------------------------------------- |
+| `00_design_index.md`                      | Index and reading order                        |
+| `01_database_design.md`                   | Schema; source of truth for table/column names |
+| `02_system_architecture.md`               | App and runtime architecture, Supabase clients |
+| `03_auth_and_security_design.md`          | Auth, sessions, RLS, permission guards         |
+| `04_api_design.md`                        | Route handlers and response envelopes          |
+| `05_recommendation_engine_design.md`      | Engine implementation design                   |
+| `06_onboarding_design.md`                 | Draft autosave and resume                      |
+| `07_household_collaboration_design.md`    | Roles, invites, guests, ownership transfer     |
+| `08_meal_planning_grocery_prep_design.md` | Plans, grocery lists, prep reminders           |
+| `09_notifications_design.md`              | Notification events and notifier adapters      |
 
-Confirm the stack with the user before scaffolding — none of it is committed yet.
+## Tech stack (committed)
+
+- **Framework:** Next.js 16 (App Router, Turbopack), React 19, TypeScript.
+  **Next 16 has breaking changes vs. earlier versions** (see `AGENTS.md`): the
+  edge middleware now lives in `proxy.ts`, and you should read the relevant guide
+  under `node_modules/next/dist/docs/` before writing Next-specific code.
+- **UI:** Tailwind CSS v4 with **Base UI** (`@base-ui/react`) plus shadcn
+  generators (`components.json`). This is Base UI, not the Radix-based classic
+  shadcn. Icons from `lucide-react`.
+- **Backend:** Supabase (Postgres, Auth, RLS) accessed via `@supabase/ssr`.
+  Three clients in `lib/db/`: browser, server (per-request), and service-role
+  (server and edge only, bypasses RLS). Domain logic in `lib/`, the service
+  layer in `lib/services/`, and REST handlers in `app/api/`.
+- **Scheduled jobs** run as Postgres **pg_cron**, not Vercel Cron: stale-draft
+  abandonment, guest and invite expiry, prep reminders.
+- **Testing:** Vitest, with `.test.ts` files colocated next to the code in
+  `lib/`.
+
+## Running and developing locally
+
+- `npm run dev` serves the app at `http://localhost:3000`. It needs `.env.local`
+  with Supabase credentials (copy `.env.example`); the committed local
+  `.env.local` points at the **cloud dev** project, so authenticated flows work
+  end to end.
+- **This machine has no Docker**, so the **local Supabase stack cannot run** —
+  the `supabase start`-based scripts (`db:start`, `db:stop`, `db:reset`,
+  `db:status`) do not work here. Develop against cloud dev instead.
+- **Schema changes:** author a migration file under `supabase/migrations/`, then
+  apply it to cloud dev via the Supabase **MCP** (`apply_migration`) and keep the
+  migration version list in sync. See `supabase/README.md`.
+- Quality gates (match CI; Node 22): `npm run lint`, `npm run typecheck`,
+  `npm run test`, `npm run format:check`. Markdown is format-checked too, so
+  re-run `format:check` after editing docs.
 
 ## Key domain rules to respect
 
@@ -73,6 +124,9 @@ Confirm the stack with the user before scaffolding — none of it is committed y
 ## Conventions
 
 - Data model uses `snake_case` table/column names; API JSON uses `camelCase`
-  (see `docs/03_data_model.md` vs `docs/05_api_spec.md`).
+  (see `docs/03_data_model.md` vs `docs/05_api_spec.md`). When names disagree,
+  `design/01_database_design.md` is the authoritative schema.
 - Status/role/type fields are enums with fixed allowed values — see the data
   model doc before introducing new ones.
+- Generated DB types live in `lib/db/database.types.ts` — regenerate them from
+  cloud dev via the Supabase MCP after a schema change, don't hand-edit.
