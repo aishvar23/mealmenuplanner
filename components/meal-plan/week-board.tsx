@@ -1,5 +1,13 @@
 "use client";
 
+import {
+  CalendarRange,
+  Lock,
+  LockOpen,
+  RefreshCw,
+  Sparkles,
+  Utensils,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
@@ -7,15 +15,14 @@ import { Button } from "@/components/ui/button";
 import { mealSlotLabel } from "@/lib/admin/options";
 import { mealItemStatusLabel } from "@/lib/meal-plan/labels";
 import type { MealPlanItemDto } from "@/lib/services/meal-plan/dto";
+import { cn } from "@/lib/utils";
 
 import * as api from "./meal-plan-client";
 
 /**
- * Weekly Plan board (P5-3/P5-4/P5-5/P5-6, design/08 § 3). A "Generate week"
- * action fills every planned `(date, slot)` cell; each cell then supports
- * swapping the dish (suggest-another), marking eating out, and locking. Because
- * the week is server-rendered (the page reads `getWeekPlan`), mutations re-pull
- * via `router.refresh()` rather than threading per-cell state.
+ * Weekly Plan board (P5-3/P5-4/P5-5/P5-6, design/08 section 3). A
+ * "Generate week" action fills every planned (date, slot) cell; each cell then
+ * supports swapping the dish, marking eating out, and locking.
  */
 export function WeekBoard({
   householdId,
@@ -40,6 +47,8 @@ export function WeekBoard({
     items.map((item) => [`${item.date}|${item.mealSlot}`, item]),
   );
   const dates = datesInRange(startDate, endDate);
+  const plannedCount = items.filter((item) => item.dishId).length;
+  const totalSlots = dates.length * slots.length;
 
   function act(fn: () => Promise<unknown>) {
     setError(null);
@@ -54,95 +63,90 @@ export function WeekBoard({
   }
 
   return (
-    <div>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">
-          {formatDate(startDate)} – {formatDate(endDate)}
-        </p>
-        {canChange && (
-          <Button
-            disabled={pending}
-            onClick={() =>
-              act(() => api.generateWeek(householdId, startDate, endDate))
-            }
-          >
-            {pending ? "Working…" : "Generate week"}
-          </Button>
-        )}
+    <div className="flex flex-col gap-4">
+      <div className="rounded-lg border bg-card p-4 shadow-xs">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <span className="flex size-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <CalendarRange className="size-5" />
+            </span>
+            <div>
+              <p className="font-heading text-lg font-bold tracking-tight">
+                {formatDate(startDate)} to {formatDate(endDate)}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {plannedCount} of {totalSlots} meal slots planned
+              </p>
+            </div>
+          </div>
+          {canChange ? (
+            <Button
+              disabled={pending}
+              onClick={() =>
+                act(() => api.generateWeek(householdId, startDate, endDate))
+              }
+            >
+              <Sparkles data-icon="inline-start" />
+              {pending ? "Working..." : "Generate week"}
+            </Button>
+          ) : null}
+        </div>
+
+        {error ? (
+          <p className="mt-3 rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {error}
+          </p>
+        ) : null}
       </div>
 
-      {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7">
+        {dates.map((date, dateIndex) => (
+          <section
+            key={date}
+            className={cn(
+              "rounded-lg border bg-card p-3 shadow-xs",
+              dateIndex === 0 && "border-primary/40 bg-primary/5",
+            )}
+          >
+            <div className="mb-3">
+              <p className="text-xs font-bold tracking-[0.16em] text-muted-foreground uppercase">
+                {formatWeekday(date)}
+              </p>
+              <h3 className="font-heading text-lg font-bold">
+                {formatMonthDay(date)}
+              </h3>
+            </div>
 
-      <div className="mt-4 space-y-4">
-        {dates.map((date) => (
-          <section key={date} className="rounded-lg border p-4">
-            <h3 className="font-heading text-sm font-semibold tracking-tight">
-              {formatDate(date)}
-            </h3>
-            <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="flex flex-col gap-2">
               {slots.map((slot) => {
                 const item = byCell.get(`${date}|${slot}`) ?? null;
                 return (
-                  <div key={slot} className="rounded-md border bg-muted/20 p-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-muted-foreground">
-                        {mealSlotLabel(slot)}
-                      </span>
-                      {item && (
-                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                          {item.locked && <span title="Locked">🔒</span>}
-                          {mealItemStatusLabel(item.status)}
-                        </span>
-                      )}
-                    </div>
-                    <p className="mt-1 truncate text-sm">
-                      {item?.dishId
-                        ? (item.dishName ?? "Selected dish")
-                        : item?.status === "eating_out"
-                          ? "Eating out"
-                          : "—"}
-                    </p>
-                    {canChange && item && (
-                      <div className="mt-2 flex flex-wrap gap-1">
-                        {item.status !== "eating_out" && (
-                          <Button
-                            size="xs"
-                            variant="outline"
-                            disabled={pending}
-                            onClick={() =>
-                              act(() => api.suggestAnother(item.mealPlanItemId))
-                            }
-                          >
-                            Swap
-                          </Button>
-                        )}
-                        <Button
-                          size="xs"
-                          variant="ghost"
-                          disabled={pending}
-                          onClick={() =>
-                            act(() => api.markEatingOut(item.mealPlanItemId))
-                          }
-                        >
-                          Eating out
-                        </Button>
-                        <Button
-                          size="xs"
-                          variant="ghost"
-                          disabled={pending}
-                          onClick={() =>
-                            act(() =>
-                              item.locked
-                                ? api.unlockItem(item.mealPlanItemId)
-                                : api.lockItem(item.mealPlanItemId),
-                            )
-                          }
-                        >
-                          {item.locked ? "Unlock" : "Lock"}
-                        </Button>
-                      </div>
-                    )}
-                  </div>
+                  <MealCell
+                    key={slot}
+                    item={item}
+                    slot={slot}
+                    pending={pending}
+                    canChange={canChange}
+                    onSuggestAnother={() =>
+                      item
+                        ? act(() => api.suggestAnother(item.mealPlanItemId))
+                        : undefined
+                    }
+                    onEatingOut={() =>
+                      item
+                        ? act(() => api.markEatingOut(item.mealPlanItemId))
+                        : undefined
+                    }
+                    onToggleLock={() =>
+                      item
+                        ? act(() =>
+                            item.locked
+                              ? api.unlockItem(item.mealPlanItemId)
+                              : api.lockItem(item.mealPlanItemId),
+                          )
+                        : undefined
+                    }
+                  />
                 );
               })}
             </div>
@@ -153,7 +157,97 @@ export function WeekBoard({
   );
 }
 
-/** Every `YYYY-MM-DD` from `start` to `end` inclusive (UTC). */
+function MealCell({
+  item,
+  slot,
+  pending,
+  canChange,
+  onSuggestAnother,
+  onEatingOut,
+  onToggleLock,
+}: {
+  item: MealPlanItemDto | null;
+  slot: string;
+  pending: boolean;
+  canChange: boolean;
+  onSuggestAnother: () => void | undefined;
+  onEatingOut: () => void | undefined;
+  onToggleLock: () => void | undefined;
+}) {
+  const hasDish = Boolean(item?.dishId);
+
+  return (
+    <div
+      className={cn(
+        "min-h-28 rounded-lg border bg-background p-3",
+        hasDish && "border-primary/20 bg-primary/10",
+      )}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-bold text-muted-foreground">
+          {mealSlotLabel(slot)}
+        </span>
+        {item ? (
+          <span className="inline-flex items-center gap-1 rounded-md bg-accent px-1.5 py-0.5 text-[0.65rem] font-bold text-accent-foreground">
+            {item.locked ? <Lock className="size-3" /> : null}
+            {mealItemStatusLabel(item.status)}
+          </span>
+        ) : null}
+      </div>
+
+      <p
+        className={cn(
+          "mt-2 min-h-10 text-sm leading-5 font-semibold",
+          !hasDish && "text-muted-foreground",
+        )}
+      >
+        {hasDish
+          ? (item?.dishName ?? "Selected dish")
+          : item?.status === "eating_out"
+            ? "Eating out"
+            : "Open"}
+      </p>
+
+      {canChange && item ? (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {item.status !== "eating_out" ? (
+            <Button
+              size="xs"
+              variant="outline"
+              disabled={pending}
+              onClick={onSuggestAnother}
+            >
+              <RefreshCw data-icon="inline-start" />
+              Swap
+            </Button>
+          ) : null}
+          <Button
+            size="icon-xs"
+            variant="ghost"
+            disabled={pending}
+            onClick={onEatingOut}
+            aria-label="Mark eating out"
+            title="Eating out"
+          >
+            <Utensils />
+          </Button>
+          <Button
+            size="icon-xs"
+            variant="ghost"
+            disabled={pending}
+            onClick={onToggleLock}
+            aria-label={item.locked ? "Unlock meal" : "Lock meal"}
+            title={item.locked ? "Unlock meal" : "Lock meal"}
+          >
+            {item.locked ? <Lock /> : <LockOpen />}
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** Every YYYY-MM-DD from start to end inclusive (UTC). */
 function datesInRange(start: string, end: string): string[] {
   const out: string[] = [];
   const endMs = Date.parse(`${end}T00:00:00Z`);
@@ -165,10 +259,23 @@ function datesInRange(start: string, end: string): string[] {
   return out;
 }
 
-/** "Mon, May 25" in UTC, stable across server/client render. */
 function formatDate(date: string): string {
   return new Date(`${date}T00:00:00Z`).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+function formatWeekday(date: string): string {
+  return new Date(`${date}T00:00:00Z`).toLocaleDateString("en-US", {
     weekday: "short",
+    timeZone: "UTC",
+  });
+}
+
+function formatMonthDay(date: string): string {
+  return new Date(`${date}T00:00:00Z`).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     timeZone: "UTC",

@@ -25,7 +25,7 @@ export function AllergiesHealthStep({
   onChange: (patch: Partial<AllergiesHealth>) => void;
 }) {
   return (
-    <div className="space-y-5">
+    <div className="flex flex-col gap-5">
       <Field
         label="Allergies"
         hint="Type an allergen and press Enter. We'll keep these out of suggestions."

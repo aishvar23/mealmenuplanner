@@ -22,7 +22,7 @@ export function WizardProgress({ current }: { current: StepId }) {
   const percent = Math.round(((currentIndex + 1) / total) * 100);
 
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between text-sm">
         <span className="font-medium">
           Step {currentIndex + 1} of {total}
@@ -31,7 +31,7 @@ export function WizardProgress({ current }: { current: StepId }) {
       </div>
 
       <div
-        className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
+        className="h-2 w-full overflow-hidden rounded-full bg-muted"
         role="progressbar"
         aria-valuenow={percent}
         aria-valuemin={0}
@@ -44,7 +44,7 @@ export function WizardProgress({ current }: { current: StepId }) {
         />
       </div>
 
-      <ol className="hidden flex-wrap gap-x-4 gap-y-1 text-xs sm:flex">
+      <ol className="hidden flex-wrap gap-2 text-xs sm:flex">
         {ONBOARDING_STEPS.map((step, index) => {
           const done = index < currentIndex;
           const active = index === currentIndex;
@@ -53,10 +53,13 @@ export function WizardProgress({ current }: { current: StepId }) {
               key={step.id}
               aria-current={active ? "step" : undefined}
               className={cn(
-                "inline-flex items-center gap-1",
-                active && "font-medium text-foreground",
-                done && "text-muted-foreground",
-                !active && !done && "text-muted-foreground/60",
+                "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5",
+                active &&
+                  "border-primary/30 bg-primary/10 font-bold text-primary",
+                done && "border-border bg-background text-muted-foreground",
+                !active &&
+                  !done &&
+                  "border-transparent text-muted-foreground/60",
               )}
             >
               {done ? (

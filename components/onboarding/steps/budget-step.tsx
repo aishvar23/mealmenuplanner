@@ -15,7 +15,7 @@ export function BudgetStep({
   onChange: (patch: Partial<BudgetSection>) => void;
 }) {
   return (
-    <div className="space-y-5">
+    <div className="flex flex-col gap-5">
       <Field label="Budget preference">
         <OptionGroup
           ariaLabel="Budget preference"

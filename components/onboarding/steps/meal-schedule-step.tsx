@@ -22,7 +22,7 @@ export function MealScheduleStep({
   onChange: (patch: Partial<MealSchedule>) => void;
 }) {
   return (
-    <div className="space-y-5">
+    <div className="flex flex-col gap-5">
       <Field label="Meals to plan" required hint="Pick at least one.">
         <OptionChips
           ariaLabel="Meals to plan"

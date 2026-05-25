@@ -143,15 +143,17 @@ export function OnboardingWizard({
   }
 
   return (
-    <div className="space-y-6">
-      <WizardProgress current={step} />
+    <div className="flex flex-col gap-6">
+      <div className="rounded-lg border bg-card p-4 shadow-xs">
+        <WizardProgress current={step} />
+      </div>
 
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="font-heading text-xl font-semibold tracking-tight">
+          <h2 className="font-heading text-2xl font-bold tracking-tight">
             {meta.title}
           </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
             {meta.description}
           </p>
         </div>
@@ -164,14 +166,14 @@ export function OnboardingWizard({
         </div>
       </div>
 
-      <div className="rounded-xl border bg-card p-5 text-card-foreground shadow-sm">
+      <div className="rounded-lg border bg-card p-5 text-card-foreground shadow-xs sm:p-6">
         {renderStep()}
       </div>
 
       {isLastStep(step) && !isComplete ? (
         <div
           role="status"
-          className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm"
+          className="rounded-lg border border-saffron/40 bg-saffron/15 px-3 py-2 text-sm"
         >
           <p className="font-medium">
             A few required details are still missing:
@@ -201,7 +203,7 @@ export function OnboardingWizard({
         </p>
       ) : null}
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <Button
           type="button"
           variant="outline"

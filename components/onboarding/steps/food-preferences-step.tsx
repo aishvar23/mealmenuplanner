@@ -25,7 +25,7 @@ export function FoodPreferencesStep({
   onChange: (patch: Partial<FoodPreferences>) => void;
 }) {
   return (
-    <div className="space-y-5">
+    <div className="flex flex-col gap-5">
       <Field label="Diet type" required>
         <OptionGroup
           ariaLabel="Diet type"

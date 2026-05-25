@@ -1,6 +1,6 @@
 "use client";
 
-import { X } from "lucide-react";
+import { Minus, Plus, X } from "lucide-react";
 import { useId, useState } from "react";
 
 import { Input } from "@/components/ui/input";
@@ -30,8 +30,8 @@ export function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div className="space-y-1.5">
-      <Label htmlFor={htmlFor}>
+    <div className="flex flex-col gap-2">
+      <Label htmlFor={htmlFor} className="font-bold">
         {label}
         {required ? (
           <span className="text-destructive" aria-hidden>
@@ -46,10 +46,11 @@ export function Field({
 }
 
 const chipBase =
-  "rounded-full border px-3 py-1.5 text-sm font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50";
-const chipSelected = "border-primary bg-primary text-primary-foreground";
+  "rounded-lg border px-3 py-2 text-sm font-bold transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/25 disabled:pointer-events-none disabled:opacity-50";
+const chipSelected =
+  "border-primary bg-primary text-primary-foreground shadow-xs";
 const chipUnselected =
-  "border-border bg-background text-foreground hover:bg-muted";
+  "border-border bg-card text-foreground hover:border-primary/30 hover:bg-primary/5 hover:text-primary";
 
 /**
  * Single-select set of pill toggles. Exactly one value is active; clicking the
@@ -170,7 +171,7 @@ export function TagInput({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="flex flex-col gap-2">
       <Input
         type="text"
         value={draft}
@@ -195,7 +196,7 @@ export function TagInput({
                   type="button"
                   onClick={() => removeTag(tag)}
                   aria-label={`Remove ${tag}`}
-                  className="rounded-full text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+                  className="rounded-full text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/25"
                 >
                   <X className="size-3.5" />
                 </button>
@@ -262,19 +263,51 @@ export function NumberInput({
   placeholder?: string;
 }) {
   const fallbackId = useId();
+  const controlId = id ?? fallbackId;
+  const canDecrease = value !== undefined && (min === undefined || value > min);
+  const canIncrease = value !== undefined && (max === undefined || value < max);
+  const stepValue = (direction: -1 | 1) => {
+    const base = value ?? min ?? 0;
+    const next = base + direction;
+    if (min !== undefined && next < min) return min;
+    if (max !== undefined && next > max) return max;
+    return next;
+  };
+
   return (
-    <Input
-      id={id ?? fallbackId}
-      type="number"
-      inputMode="numeric"
-      min={min}
-      max={max}
-      placeholder={placeholder}
-      value={value ?? ""}
-      onChange={(event) => {
-        const raw = event.target.value;
-        onChange(raw === "" ? undefined : Number(raw));
-      }}
-    />
+    <div className="flex h-11 items-center rounded-lg border border-input bg-card p-1 shadow-xs focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/25">
+      <button
+        type="button"
+        className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-primary/5 hover:text-primary disabled:pointer-events-none disabled:opacity-35"
+        disabled={!canDecrease}
+        onClick={() => onChange(stepValue(-1))}
+        aria-label="Decrease"
+      >
+        <Minus className="size-4" />
+      </button>
+      <input
+        id={controlId}
+        type="number"
+        inputMode="numeric"
+        min={min}
+        max={max}
+        placeholder={placeholder}
+        value={value ?? ""}
+        onChange={(event) => {
+          const raw = event.target.value;
+          onChange(raw === "" ? undefined : Number(raw));
+        }}
+        className="h-full min-w-0 flex-1 bg-transparent px-2 text-center text-sm font-bold outline-none placeholder:text-muted-foreground"
+      />
+      <button
+        type="button"
+        className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-primary/5 hover:text-primary disabled:pointer-events-none disabled:opacity-35"
+        disabled={value !== undefined && !canIncrease}
+        onClick={() => onChange(stepValue(1))}
+        aria-label="Increase"
+      >
+        <Plus className="size-4" />
+      </button>
+    </div>
   );
 }

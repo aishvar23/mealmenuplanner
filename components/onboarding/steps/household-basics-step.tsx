@@ -17,7 +17,7 @@ export function HouseholdBasicsStep({
   onChange: (patch: Partial<HouseholdBasics>) => void;
 }) {
   return (
-    <div className="space-y-5">
+    <div className="flex flex-col gap-5">
       <Field label="Household name" htmlFor="household-name" required>
         <Input
           id="household-name"
