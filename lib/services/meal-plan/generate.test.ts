@@ -53,12 +53,19 @@ vi.mock("@/lib/recommendation", () => ({
           },
         ]
       : [],
+  // Combinations off here so generateWeek skips the popular-combo load; the
+  // mocked recommendSlot ignores config anyway (P10 engine behaviour is unit-
+  // tested in lib/recommendation/scoring.test.ts).
+  RECOMMENDATION_CONFIG: {
+    combinations: { enabled: false, popularityThreshold: 5 },
+  },
 }));
 vi.mock("@/lib/services/recommendation", () => ({
   loadHouseholdContext: vi.fn(),
   loadActiveMembers: vi.fn(),
   loadCandidateDishes: vi.fn(),
   loadMealHistory: vi.fn(),
+  loadPopularCombinationDishIds: vi.fn(),
 }));
 
 import { requireAuthUser } from "@/lib/auth";
@@ -287,6 +294,7 @@ describe("generateWeek", () => {
       weekendCookingTimeMinutes: null,
       varietyGapDays: 7,
       kidsCount: 0,
+      dishFrequencies: new Map(),
     });
     vi.mocked(loadActiveMembers).mockResolvedValue([]);
     vi.mocked(loadMealHistory).mockResolvedValue({

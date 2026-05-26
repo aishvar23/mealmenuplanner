@@ -7,4 +7,7 @@ export * from "./validate-completion";
 export * from "./get-draft";
 export * from "./save-draft";
 export * from "./complete-draft";
+export * from "./diet-compatibility";
 export * from "./list-dish-catalog";
+export * from "./list-combination-catalog";
+export * from "./list-accompaniment-catalog";

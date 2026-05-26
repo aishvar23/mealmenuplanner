@@ -17,6 +17,7 @@ vi.mock("@/lib/services/recommendation/load-inputs", () => ({
   loadActiveMembers: vi.fn(),
   loadCandidateDishes: vi.fn(),
   loadMealHistory: vi.fn(),
+  loadPopularCombinationDishIds: vi.fn(),
 }));
 
 import {
@@ -24,6 +25,7 @@ import {
   loadCandidateDishes,
   loadHouseholdContext,
   loadMealHistory,
+  loadPopularCombinationDishIds,
 } from "@/lib/services/recommendation/load-inputs";
 import {
   loadSlotInputs,
@@ -40,6 +42,7 @@ beforeEach(() => {
   vi.mocked(loadActiveMembers).mockResolvedValue([]);
   vi.mocked(loadCandidateDishes).mockResolvedValue([]);
   vi.mocked(loadMealHistory).mockResolvedValue(emptyHistory());
+  vi.mocked(loadPopularCombinationDishIds).mockResolvedValue(new Set());
 });
 
 describe("recommendForSlot — request validation", () => {

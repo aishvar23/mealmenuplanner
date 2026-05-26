@@ -88,6 +88,7 @@ export function recommendSlot(
       prepOutcome: prep.outcome,
       recentPrimaryIngredientIds:
         input.history.recentPrimaryIngredientIds ?? EMPTY_SET,
+      popularCombinationDishIds: input.popularCombinationDishIds ?? EMPTY_SET,
       config,
     });
 

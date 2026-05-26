@@ -37,6 +37,7 @@ const DISH_ROW: DishRow = {
   image_alt_text: null,
   image_status: "placeholder",
   image_verified: false,
+  popularity_count: 0,
   status: "draft",
   created_at: "2026-05-01T00:00:00Z",
   updated_at: "2026-05-02T00:00:00Z",

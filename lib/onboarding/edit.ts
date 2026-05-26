@@ -157,20 +157,30 @@ export function draftDataToPreferencesPatch(data: DraftData): PreferencesPatch {
 }
 
 /**
- * The preferred-dish picks to send to `PATCH .../food-preferences` (BUG-006).
- * Mirrors the completion mapping (`validate-completion.ts`): choosing "let the
- * system decide" clears the favourites (`[]`); manual picks pass through,
- * trimmed and de-duplicated. The food-preferences PATCH is a separate call from
- * {@link draftDataToPreferencesPatch} because liked dishes live in the member's
- * `user_food_preferences`, not the household's `household_preferences`.
+ * The preferred-dish picks to send to `PATCH .../food-preferences` (BUG-006 +
+ * P10). Mirrors the completion mapping (`validate-completion.ts`):
+ *   • `system` / `combinations` → no favourites (`[]`); combos aren't edited here
+ *     (no edit endpoint — a follow-up).
+ *   • `build` → the built mains become the favourites.
+ *   • `manual` / unset → the hand-picked dish names.
+ * Names are trimmed and de-duplicated. The food-preferences PATCH is a separate
+ * call from {@link draftDataToPreferencesPatch} because liked dishes live in the
+ * member's `user_food_preferences`, not the household's `household_preferences`.
  */
 export function draftDataToLikedDishes(data: DraftData): string[] {
   const preferred = data.preferredDishes ?? {};
-  if (preferred.mode === "system") return [];
+  if (preferred.mode === "system" || preferred.mode === "combinations") {
+    return [];
+  }
+
+  const names =
+    preferred.mode === "build"
+      ? (preferred.builtDishes ?? []).map((dish) => dish.dishName)
+      : (preferred.dishNames ?? []);
 
   const seen = new Set<string>();
   const out: string[] = [];
-  for (const name of preferred.dishNames ?? []) {
+  for (const name of names) {
     if (typeof name !== "string") continue;
     const trimmed = name.trim();
     if (trimmed.length > 0 && !seen.has(trimmed)) {

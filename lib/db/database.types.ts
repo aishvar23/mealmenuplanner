@@ -7,11 +7,11 @@
 // available, `npm run db:types` regenerates this file from the local stack.
 //
 // Reflects migrations P0-5..P0-13 + P1-5 + P1-8 + P2-6 + P2-7 + P4-1 + P6-2/3 +
-// P6-5/8 + P6-9 + P7-1/3 + P7-6 + P9 image metadata (19 MVP tables, 18 enums, RLS helper fns +
-// create_household / list_household_members / list_household_food_preferences /
-// complete_onboarding / get_invite_preview / accept_invite / decline_invite /
-// transfer_ownership / replace_grocery_list RPCs + the abandon_stale_drafts /
-// expire_guests / expire_invites / prep_reminders job fns).
+// P6-5/8 + P6-9 + P7-1/3 + P7-6 + P9 image metadata + P10 meal combinations
+// (meal_combinations, meal_combination_items, household_dish_preferences,
+// household_dish_accompaniments tables; combination_status + meal_frequency enums;
+// increment_combination_popularity / increment_dish_popularity /
+// propose_meal_combination RPCs + complete_onboarding combination-prefs param).
 // After regenerating, run `npm run format` so the output matches Prettier.
 
 export type Json =
@@ -185,6 +185,7 @@ export type Database = {
           meal_role: Database["public"]["Enums"]["meal_role"];
           meal_slots: string[];
           name: string;
+          popularity_count: number;
           prep_time_minutes: number;
           region: string | null;
           spice_level: Database["public"]["Enums"]["spice_level"];
@@ -215,6 +216,7 @@ export type Database = {
           meal_role?: Database["public"]["Enums"]["meal_role"];
           meal_slots?: string[];
           name: string;
+          popularity_count?: number;
           prep_time_minutes?: number;
           region?: string | null;
           spice_level?: Database["public"]["Enums"]["spice_level"];
@@ -245,6 +247,7 @@ export type Database = {
           meal_role?: Database["public"]["Enums"]["meal_role"];
           meal_slots?: string[];
           name?: string;
+          popularity_count?: number;
           prep_time_minutes?: number;
           region?: string | null;
           spice_level?: Database["public"]["Enums"]["spice_level"];
@@ -394,6 +397,97 @@ export type Database = {
           },
           {
             foreignKeyName: "household_activity_events_household_id_fkey";
+            columns: ["household_id"];
+            isOneToOne: false;
+            referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      household_dish_accompaniments: {
+        Row: {
+          accompaniment_dish_id: string;
+          created_at: string;
+          dish_id: string;
+          household_id: string;
+          id: string;
+          updated_at: string;
+        };
+        Insert: {
+          accompaniment_dish_id: string;
+          created_at?: string;
+          dish_id: string;
+          household_id: string;
+          id?: string;
+          updated_at?: string;
+        };
+        Update: {
+          accompaniment_dish_id?: string;
+          created_at?: string;
+          dish_id?: string;
+          household_id?: string;
+          id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "household_dish_accompaniments_accompaniment_dish_id_fkey";
+            columns: ["accompaniment_dish_id"];
+            isOneToOne: false;
+            referencedRelation: "dishes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "household_dish_accompaniments_dish_id_fkey";
+            columns: ["dish_id"];
+            isOneToOne: false;
+            referencedRelation: "dishes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "household_dish_accompaniments_household_id_fkey";
+            columns: ["household_id"];
+            isOneToOne: false;
+            referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      household_dish_preferences: {
+        Row: {
+          created_at: string;
+          dish_id: string;
+          frequency: Database["public"]["Enums"]["meal_frequency"];
+          household_id: string;
+          id: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          dish_id: string;
+          frequency?: Database["public"]["Enums"]["meal_frequency"];
+          household_id: string;
+          id?: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          dish_id?: string;
+          frequency?: Database["public"]["Enums"]["meal_frequency"];
+          household_id?: string;
+          id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "household_dish_preferences_dish_id_fkey";
+            columns: ["dish_id"];
+            isOneToOne: false;
+            referencedRelation: "dishes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "household_dish_preferences_household_id_fkey";
             columns: ["household_id"];
             isOneToOne: false;
             referencedRelation: "households";
@@ -776,6 +870,114 @@ export type Database = {
         };
         Relationships: [];
       };
+      meal_combination_items: {
+        Row: {
+          combination_id: string;
+          created_at: string;
+          dish_id: string;
+          id: string;
+          role_in_combo: string | null;
+          sort_order: number;
+          updated_at: string;
+        };
+        Insert: {
+          combination_id: string;
+          created_at?: string;
+          dish_id: string;
+          id?: string;
+          role_in_combo?: string | null;
+          sort_order?: number;
+          updated_at?: string;
+        };
+        Update: {
+          combination_id?: string;
+          created_at?: string;
+          dish_id?: string;
+          id?: string;
+          role_in_combo?: string | null;
+          sort_order?: number;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "meal_combination_items_combination_id_fkey";
+            columns: ["combination_id"];
+            isOneToOne: false;
+            referencedRelation: "meal_combinations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "meal_combination_items_dish_id_fkey";
+            columns: ["dish_id"];
+            isOneToOne: false;
+            referencedRelation: "dishes";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      meal_combinations: {
+        Row: {
+          created_at: string;
+          cuisine: string | null;
+          description: string | null;
+          diet_type: Database["public"]["Enums"]["diet_type"];
+          id: string;
+          name: string;
+          popularity_count: number;
+          proposed_by_household_id: string | null;
+          proposed_by_user_id: string | null;
+          region: string | null;
+          source: string;
+          status: Database["public"]["Enums"]["combination_status"];
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          cuisine?: string | null;
+          description?: string | null;
+          diet_type: Database["public"]["Enums"]["diet_type"];
+          id?: string;
+          name: string;
+          popularity_count?: number;
+          proposed_by_household_id?: string | null;
+          proposed_by_user_id?: string | null;
+          region?: string | null;
+          source?: string;
+          status?: Database["public"]["Enums"]["combination_status"];
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          cuisine?: string | null;
+          description?: string | null;
+          diet_type?: Database["public"]["Enums"]["diet_type"];
+          id?: string;
+          name?: string;
+          popularity_count?: number;
+          proposed_by_household_id?: string | null;
+          proposed_by_user_id?: string | null;
+          region?: string | null;
+          source?: string;
+          status?: Database["public"]["Enums"]["combination_status"];
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "meal_combinations_proposed_by_household_id_fkey";
+            columns: ["proposed_by_household_id"];
+            isOneToOne: false;
+            referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "meal_combinations_proposed_by_user_id_fkey";
+            columns: ["proposed_by_user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       meal_feedback: {
         Row: {
           created_at: string;
@@ -1110,6 +1312,7 @@ export type Database = {
       accept_invite: { Args: { p_token_hash: string }; Returns: Json };
       complete_onboarding: {
         Args: {
+          p_combination_prefs?: Json;
           p_draft_id: string;
           p_food_preferences?: Json;
           p_household: Json;
@@ -1149,6 +1352,14 @@ export type Database = {
         }[];
       };
       has_permission: { Args: { h: string; perm: string }; Returns: boolean };
+      increment_combination_popularity: {
+        Args: { p_combination_id: string };
+        Returns: undefined;
+      };
+      increment_dish_popularity: {
+        Args: { p_dish_id: string };
+        Returns: undefined;
+      };
       is_active_member: { Args: { h: string }; Returns: boolean };
       list_household_food_preferences: {
         Args: { p_household_id: string };
@@ -1185,6 +1396,16 @@ export type Database = {
         }[];
       };
       prep_reminders: { Args: never; Returns: number };
+      propose_meal_combination: {
+        Args: {
+          p_cuisine?: string;
+          p_diet_type: Database["public"]["Enums"]["diet_type"];
+          p_dish_ids: string[];
+          p_household_id: string;
+          p_name: string;
+        };
+        Returns: string;
+      };
       replace_grocery_list: {
         Args: { p_items: Json; p_meal_plan_id: string };
         Returns: string;
@@ -1197,6 +1418,7 @@ export type Database = {
     Enums: {
       auth_provider: "google" | "email" | "magic_link";
       budget_preference: "low" | "medium" | "high";
+      combination_status: "proposed" | "active" | "archived" | "rejected";
       diet_type:
         | "vegetarian"
         | "vegan"
@@ -1223,6 +1445,7 @@ export type Database = {
         | "declined"
         | "expired"
         | "cancelled";
+      meal_frequency: "daily" | "once_a_week" | "once_in_a_while";
       meal_item_status:
         | "suggested"
         | "accepted"
@@ -1389,6 +1612,7 @@ export const Constants = {
     Enums: {
       auth_provider: ["google", "email", "magic_link"],
       budget_preference: ["low", "medium", "high"],
+      combination_status: ["proposed", "active", "archived", "rejected"],
       diet_type: [
         "vegetarian",
         "vegan",
@@ -1418,6 +1642,7 @@ export const Constants = {
         "expired",
         "cancelled",
       ],
+      meal_frequency: ["daily", "once_a_week", "once_in_a_while"],
       meal_item_status: [
         "suggested",
         "accepted",

@@ -8,6 +8,7 @@ import type {
   CandidateDish,
   CandidateIngredient,
   HouseholdContext,
+  MealFrequency,
   MealHistory,
   MemberContext,
 } from "@/lib/recommendation";
@@ -36,7 +37,7 @@ const HOUSEHOLD_PREFERENCES_SELECT =
   "diet_type, preferred_cuisines, weekday_cooking_time_minutes, weekend_cooking_time_minutes, variety_gap_days, kids_count";
 
 const DISH_SELECT =
-  "id, name, diet_type, cuisine, meal_slots, meal_role, total_time_minutes, difficulty, kid_friendly, lunchbox_friendly, image_url, image_alt_text, image_status";
+  "id, name, diet_type, cuisine, meal_slots, meal_role, total_time_minutes, popularity_count, difficulty, kid_friendly, lunchbox_friendly, image_url, image_alt_text, image_status";
 
 /** Household-level inputs (design/05 § 3.1). `null` when the row doesn't exist. */
 export async function loadHouseholdContext(
@@ -56,6 +57,8 @@ export async function loadHouseholdContext(
   }
   if (!data) return null;
 
+  const dishFrequencies = await loadDishFrequencies(supabase, householdId);
+
   return {
     dietType: data.diet_type,
     preferredCuisines: data.preferred_cuisines,
@@ -63,7 +66,67 @@ export async function loadHouseholdContext(
     weekendCookingTimeMinutes: data.weekend_cooking_time_minutes,
     varietyGapDays: data.variety_gap_days,
     kidsCount: data.kids_count,
+    dishFrequencies,
   };
+}
+
+/**
+ * The household's per-dish frequency tiers (P10, `build` mode), dishId → tier.
+ * Member-read RLS (`hdp_select`) scopes this to the caller's households.
+ */
+async function loadDishFrequencies(
+  supabase: ServerClient,
+  householdId: string,
+): Promise<Map<string, MealFrequency>> {
+  const { data, error } = await supabase
+    .from("household_dish_preferences")
+    .select("dish_id, frequency")
+    .eq("household_id", householdId);
+
+  if (error) {
+    throw new InternalError("Failed to load dish frequencies.", {
+      cause: error,
+    });
+  }
+
+  const map = new Map<string, MealFrequency>();
+  for (const row of data ?? []) {
+    map.set(row.dish_id, row.frequency);
+  }
+  return map;
+}
+
+/**
+ * Dish ids that belong to a *popular* active meal combination (P10) — combos whose
+ * `popularity_count` clears the engine's threshold. Used by the engine's
+ * `popularDish` bonus so a household's plate-level favourites lift their member
+ * dishes. Returns an empty set when the combinations feature is off.
+ */
+export async function loadPopularCombinationDishIds(
+  supabase: ServerClient,
+  popularityThreshold: number,
+): Promise<Set<string>> {
+  const { data, error } = await supabase
+    .from("meal_combinations")
+    .select("meal_combination_items(dish_id)")
+    .eq("status", "active")
+    .gte("popularity_count", popularityThreshold);
+
+  if (error) {
+    throw new InternalError("Failed to load popular combinations.", {
+      cause: error,
+    });
+  }
+
+  const ids = new Set<string>();
+  for (const combo of (data ?? []) as {
+    meal_combination_items: { dish_id: string }[];
+  }[]) {
+    for (const item of combo.meal_combination_items) {
+      ids.add(item.dish_id);
+    }
+  }
+  return ids;
 }
 
 /**
@@ -132,6 +195,7 @@ export async function loadCandidateDishes(
     mealSlots: dish.meal_slots,
     mealRole: dish.meal_role,
     totalTimeMinutes: dish.total_time_minutes,
+    popularityCount: dish.popularity_count,
     difficulty: dish.difficulty,
     kidFriendly: dish.kid_friendly,
     lunchboxFriendly: dish.lunchbox_friendly,

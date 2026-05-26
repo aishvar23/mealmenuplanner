@@ -4,13 +4,18 @@ import { requireAuthUser } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/db/server";
 import { actorDisplayName, safeEmitHouseholdEvent } from "@/lib/events";
 import { InternalError, ValidationError } from "@/lib/errors";
-import { recommendSlot, type Recommendation } from "@/lib/recommendation";
+import {
+  RECOMMENDATION_CONFIG,
+  recommendSlot,
+  type Recommendation,
+} from "@/lib/recommendation";
 import { safeRegenerateGroceryListForPlan } from "@/lib/services/grocery";
 import {
   loadActiveMembers,
   loadCandidateDishes,
   loadHouseholdContext,
   loadMealHistory,
+  loadPopularCombinationDishIds,
 } from "@/lib/services/recommendation";
 
 import {
@@ -170,6 +175,14 @@ export async function generateWeek(
     ),
   );
 
+  // P10: dishes in popular combinations lift their member dishes (popularDish).
+  const popularCombinationDishIds = RECOMMENDATION_CONFIG.combinations.enabled
+    ? await loadPopularCombinationDishIds(
+        supabase,
+        RECOMMENDATION_CONFIG.combinations.popularityThreshold,
+      )
+    : new Set<string>();
+
   const plan = await resolveOrCreateRangePlan(
     supabase,
     householdId,
@@ -212,6 +225,7 @@ export async function generateWeek(
         date,
         mealSlot: slot,
         now,
+        popularCombinationDishIds,
       });
       const top = recommendations[0];
       if (!top) continue; // leave the slot empty — no eligible dish

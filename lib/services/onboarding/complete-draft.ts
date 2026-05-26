@@ -112,6 +112,7 @@ export async function completeOnboarding(
     p_household: payload.household as unknown as Json,
     p_preferences: payload.preferences as unknown as Json,
     p_food_preferences: (payload.foodPreferences ?? null) as unknown as Json,
+    p_combination_prefs: (payload.combinationPrefs ?? null) as unknown as Json,
   });
 
   if (error) {

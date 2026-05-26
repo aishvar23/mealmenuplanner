@@ -39,11 +39,13 @@ export interface ReasonContext {
 const POSITIVE_FACTOR_ORDER = [
   "dietMatch",
   "mealSlotMatch",
+  "frequencyDaily",
   "notRepeatedRecently",
   "cuisineMatch",
   "cookingTimeWithinLimit",
   "kidFriendlyWhenKids",
   "lunchboxFriendlyForLunch",
+  "popularDish",
   "preferredIngredient",
 ] as const;
 
@@ -59,6 +61,8 @@ const PHRASES: Record<PositiveFactorLabel, (ctx: ReasonContext) => string> = {
     `fits your ${ctx.cookingTimeLimit}-minute cooking window`,
   kidFriendlyWhenKids: () => "is kid-friendly",
   lunchboxFriendlyForLunch: () => "packs well in a lunchbox",
+  frequencyDaily: () => "is one of your everyday staples",
+  popularDish: () => "is a popular choice",
   preferredIngredient: () => "is a dish your household likes",
 };
 

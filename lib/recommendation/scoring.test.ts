@@ -38,6 +38,7 @@ function ctx(overrides: Partial<ScoringContext> = {}): ScoringContext {
     cookingTimeLimit: 45,
     prepOutcome: "none",
     recentPrimaryIngredientIds: EMPTY,
+    popularCombinationDishIds: EMPTY,
     config: RECOMMENDATION_CONFIG,
     ...overrides,
   };

@@ -28,6 +28,16 @@ export interface RecommendationConfig {
     missingRequiredPrep: number;
     exceedsCookingTime: number;
     highDifficultyOnWeekday: number;
+    /**
+     * P10 extension (gated by {@link combinations}; not part of the doc-04 set).
+     * A dish that is popular (own popularity ≥ {@link popularity} threshold, or a
+     * member of a popular combination) gets `popularDish`. A `daily`-tier dish
+     * gets `frequencyDaily`; an `once_in_a_while`-tier dish gets the negative
+     * `frequencyOnceInAWhile`; `once_a_week` is the neutral baseline (no factor).
+     */
+    popularDish: number;
+    frequencyDaily: number;
+    frequencyOnceInAWhile: number;
   };
   /** How many ranked suggestions the per-slot recommender returns. */
   topN: number;
@@ -58,6 +68,17 @@ export interface RecommendationConfig {
     penalty: number;
     windowDays: number;
   };
+  /**
+   * P10 meal-combinations / frequency extension. When `combinations.enabled` is
+   * false the scoring contract reduces to doc 04 exactly (no popular/frequency
+   * factors, and a `daily` tier no longer waives the variety penalty) — kept so
+   * the baseline stays reproducible in tests. `popularity.threshold` is the
+   * minimum dish `popularity_count` that earns the `popularDish` bonus.
+   */
+  combinations: {
+    enabled: boolean;
+    popularityThreshold: number;
+  };
 }
 
 export const RECOMMENDATION_CONFIG: RecommendationConfig = {
@@ -75,6 +96,10 @@ export const RECOMMENDATION_CONFIG: RecommendationConfig = {
     missingRequiredPrep: -60,
     exceedsCookingTime: -40,
     highDifficultyOnWeekday: -30,
+    // P10 extension (below mealSlotMatch 50, above cuisineMatch 30 for daily).
+    popularDish: 15,
+    frequencyDaily: 35,
+    frequencyOnceInAWhile: -20,
   },
   topN: 5,
   mealtimes: {
@@ -105,4 +130,5 @@ export const RECOMMENDATION_CONFIG: RecommendationConfig = {
     jainExcludedTerms: ["onion", "garlic", "shallot", "leek", "spring onion"],
   },
   ingredientRepetition: { enabled: false, penalty: -25, windowDays: 2 },
+  combinations: { enabled: true, popularityThreshold: 5 },
 } as const;
