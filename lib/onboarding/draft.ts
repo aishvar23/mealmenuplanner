@@ -39,13 +39,20 @@ export interface FoodPreferences {
 
 /**
  * One self-built meal in `build` mode (P10): a main dish the household picked,
- * how often it wants it, and the accompaniments it "goes with" (all dish names).
+ * how often it wants it, when it's suitable to serve, and the accompaniments it
+ * "goes with" (all dish names).
  */
 export interface SelfBuiltDish {
   /** The main dish's name. */
   dishName: string;
   /** How often the household wants this dish in rotation. */
   frequency: MealFrequency;
+  /**
+   * Meal slots this dish is suitable for (P10-8). Empty = no restriction (the
+   * dish keeps its global `dishes.meal_slots` behavior); a non-empty list
+   * hard-filters the engine so the dish is only ever suggested in these slots.
+   */
+  suitableFor: MealSlot[];
   /** Accompaniment dish names (breads/sides/condiments it pairs with). */
   goesWith: string[];
 }

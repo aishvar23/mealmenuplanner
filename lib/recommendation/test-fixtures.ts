@@ -24,6 +24,7 @@ export function makeHousehold(
     varietyGapDays: 7,
     kidsCount: 0,
     dishFrequencies: new Map(),
+    dishSuitableSlots: new Map(),
     ...overrides,
   };
 }

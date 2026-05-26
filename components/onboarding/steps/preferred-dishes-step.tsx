@@ -14,6 +14,7 @@ import type { CombinationCatalogItem } from "@/lib/services/onboarding/list-comb
 import type { DishCatalogItem } from "@/lib/services/onboarding/list-dish-catalog";
 
 type MealFrequency = Database["public"]["Enums"]["meal_frequency"];
+type MealSlot = Database["public"]["Enums"]["meal_slot"];
 
 /**
  * Step 3 — preferred dishes (BUG-006 + P10). The household chooses how to seed its
@@ -217,13 +218,32 @@ function BuildMode({
         ? built.filter((b) => b.dishName !== name)
         : [
             ...built,
-            { dishName: name, frequency: "once_in_a_while", goesWith: [] },
+            {
+              dishName: name,
+              frequency: "once_in_a_while",
+              suitableFor: [],
+              goesWith: [],
+            },
           ],
     );
   }
 
   function setFrequency(name: string, frequency: MealFrequency) {
     setBuilt(built.map((b) => (b.dishName === name ? { ...b, frequency } : b)));
+  }
+
+  function toggleSlot(name: string, slot: MealSlot) {
+    setBuilt(
+      built.map((b) => {
+        if (b.dishName !== name) return b;
+        // Coalesce: drafts saved before P10-8 have no `suitableFor`.
+        const current = b.suitableFor ?? [];
+        const suitableFor = current.includes(slot)
+          ? current.filter((s) => s !== slot)
+          : [...current, slot];
+        return { ...b, suitableFor };
+      }),
+    );
   }
 
   function toggleAccompaniment(name: string, accName: string) {
@@ -281,11 +301,13 @@ function BuildMode({
                       <BuildDishConfig
                         dishName={dish.name}
                         frequency={config.frequency}
+                        suitableFor={config.suitableFor ?? []}
                         goesWith={config.goesWith}
                         accompaniments={accompaniments}
                         onFrequencyChange={(frequency) =>
                           setFrequency(dish.name, frequency)
                         }
+                        onToggleSlot={(slot) => toggleSlot(dish.name, slot)}
                         onToggleAccompaniment={(accName) =>
                           toggleAccompaniment(dish.name, accName)
                         }

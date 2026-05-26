@@ -61,6 +61,7 @@ export function recommendSlot(
       effectiveDiet,
       allergyTerms,
       mealSlot: input.mealSlot,
+      dishSuitableSlots: input.household.dishSuitableSlots,
       date: input.date,
       now: input.now,
       history: input.history,

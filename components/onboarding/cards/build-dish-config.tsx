@@ -9,12 +9,23 @@ import type { DishCatalogItem } from "@/lib/services/onboarding/list-dish-catalo
 import { cn } from "@/lib/utils";
 
 type MealFrequency = Database["public"]["Enums"]["meal_frequency"];
+type MealSlot = Database["public"]["Enums"]["meal_slot"];
 
 /** Frequency tiers in display order — mirrors the `meal_frequency` enum (P10). */
 const FREQUENCY_OPTIONS: { value: MealFrequency; label: string }[] = [
   { value: "daily", label: "Daily" },
   { value: "once_a_week", label: "Once a week" },
   { value: "once_in_a_while", label: "Once in a while" },
+];
+
+/**
+ * The meal slots a household can mark a built dish "suitable for" (P10-8). Limited
+ * to the three main meals; selecting none means "any of its usual times".
+ */
+const SUITABLE_SLOT_OPTIONS: { value: MealSlot; label: string }[] = [
+  { value: "breakfast", label: "Breakfast" },
+  { value: "lunch", label: "Lunch" },
+  { value: "dinner", label: "Dinner" },
 ];
 
 /** How many popularity-ranked quick-pick accompaniment chips to surface. */
@@ -31,17 +42,22 @@ const SEARCH_LIMIT = 8;
 export function BuildDishConfig({
   dishName,
   frequency,
+  suitableFor,
   goesWith,
   accompaniments,
   onFrequencyChange,
+  onToggleSlot,
   onToggleAccompaniment,
 }: {
   dishName: string;
   frequency: MealFrequency;
+  /** Meal slots the dish is suitable for (P10-8); empty = any of its usual times. */
+  suitableFor: MealSlot[];
   goesWith: string[];
   /** Full diet-compatible accompaniment catalog (popularity-ordered). */
   accompaniments: DishCatalogItem[];
   onFrequencyChange: (frequency: MealFrequency) => void;
+  onToggleSlot: (slot: MealSlot) => void;
   onToggleAccompaniment: (name: string) => void;
 }) {
   const [search, setSearch] = useState("");
@@ -96,6 +112,38 @@ export function BuildDishConfig({
             );
           })}
         </div>
+      </div>
+
+      <div>
+        <p className="mb-1.5 text-xs font-medium text-muted-foreground">
+          Suitable for
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          {SUITABLE_SLOT_OPTIONS.map((option) => {
+            const active = suitableFor.includes(option.value);
+            return (
+              <button
+                key={option.value}
+                type="button"
+                aria-pressed={active}
+                onClick={() => onToggleSlot(option.value)}
+                className={cn(
+                  "rounded-full border px-2.5 py-1 text-xs transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/25",
+                  active
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-background hover:border-primary/40",
+                )}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-1 text-[0.7rem] text-muted-foreground">
+          {suitableFor.length === 0
+            ? "Any of its usual times — tap to limit when it's suggested."
+            : "Only suggested at the times you picked."}
+        </p>
       </div>
 
       <div>

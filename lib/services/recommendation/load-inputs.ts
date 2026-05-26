@@ -15,6 +15,9 @@ import type {
 
 import { subtractDays, type MealSlot } from "./validate";
 
+/** A `meal_slot` enum value, as stored in `*.meal_slots` text[] columns. */
+type StoredMealSlot = Database["public"]["Enums"]["meal_slot"];
+
 /**
  * Recommendation input loaders (design/05 § 3, P4-1). Each loader reads one input
  * group under the **per-request RLS client** and maps the snake_case rows into the
@@ -57,7 +60,10 @@ export async function loadHouseholdContext(
   }
   if (!data) return null;
 
-  const dishFrequencies = await loadDishFrequencies(supabase, householdId);
+  const { dishFrequencies, dishSuitableSlots } = await loadDishPreferences(
+    supabase,
+    householdId,
+  );
 
   return {
     dietType: data.diet_type,
@@ -67,33 +73,46 @@ export async function loadHouseholdContext(
     varietyGapDays: data.variety_gap_days,
     kidsCount: data.kids_count,
     dishFrequencies,
+    dishSuitableSlots,
   };
 }
 
 /**
- * The household's per-dish frequency tiers (P10, `build` mode), dishId → tier.
+ * The household's per-dish preferences (P10 `build` mode), read in one pass:
+ *   - `dishFrequencies` — dishId → frequency tier (P10).
+ *   - `dishSuitableSlots` — dishId → the slots the household restricted the dish
+ *     to (P10-8); only dishes with a non-empty list are included, so an absent
+ *     dish means "no restriction".
  * Member-read RLS (`hdp_select`) scopes this to the caller's households.
  */
-async function loadDishFrequencies(
+async function loadDishPreferences(
   supabase: ServerClient,
   householdId: string,
-): Promise<Map<string, MealFrequency>> {
+): Promise<{
+  dishFrequencies: Map<string, MealFrequency>;
+  dishSuitableSlots: Map<string, StoredMealSlot[]>;
+}> {
   const { data, error } = await supabase
     .from("household_dish_preferences")
-    .select("dish_id, frequency")
+    .select("dish_id, frequency, suitable_meal_slots")
     .eq("household_id", householdId);
 
   if (error) {
-    throw new InternalError("Failed to load dish frequencies.", {
+    throw new InternalError("Failed to load dish preferences.", {
       cause: error,
     });
   }
 
-  const map = new Map<string, MealFrequency>();
+  const dishFrequencies = new Map<string, MealFrequency>();
+  const dishSuitableSlots = new Map<string, StoredMealSlot[]>();
   for (const row of data ?? []) {
-    map.set(row.dish_id, row.frequency);
+    dishFrequencies.set(row.dish_id, row.frequency);
+    const slots = (row.suitable_meal_slots ?? []) as StoredMealSlot[];
+    if (slots.length > 0) {
+      dishSuitableSlots.set(row.dish_id, slots);
+    }
   }
-  return map;
+  return { dishFrequencies, dishSuitableSlots };
 }
 
 /**

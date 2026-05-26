@@ -26,6 +26,7 @@ import {
 /** Why a candidate was hard-filtered out (design/05 § 4). */
 export type HardFilterReason =
   | "slot"
+  | "householdSlot"
   | "notStandalone"
   | "doNotSuggestAgain"
   | "diet"
@@ -38,6 +39,12 @@ export interface HardFilterContext {
   /** Normalized union of active members' allergies. */
   allergyTerms: readonly string[];
   mealSlot: MealSlot;
+  /**
+   * Per-dish household slot restrictions (P10-8), dishId → allowed slots. A dish
+   * present here is excluded from any slot not in its list; an absent dish is
+   * unrestricted. From `HouseholdContext.dishSuitableSlots`.
+   */
+  dishSuitableSlots: ReadonlyMap<string, MealSlot[]>;
   date: string;
   now: Date;
   history: MealHistory;
@@ -54,6 +61,17 @@ export function hardFilterExclusion(
   ctx: HardFilterContext,
 ): HardFilterReason | null {
   if (!dish.mealSlots.includes(ctx.mealSlot)) return "slot";
+  // Household per-dish "suitable for" restriction (P10-8, build mode): a dish the
+  // household limited to specific slots is excluded from any other slot. An empty
+  // / absent list means no restriction beyond the global meal_slots check above.
+  const householdSlots = ctx.dishSuitableSlots.get(dish.id);
+  if (
+    householdSlots &&
+    householdSlots.length > 0 &&
+    !householdSlots.includes(ctx.mealSlot)
+  ) {
+    return "householdSlot";
+  }
   // A side / condiment / lone component is never a standalone meal — it can only
   // appear as a pairing of a main (design/05 § 4, BUG-008/009/010).
   if (!STANDALONE_MEAL_ROLES.includes(dish.mealRole)) return "notStandalone";
