@@ -74,19 +74,19 @@ The seed data must include dishes with accurate metadata and images.
 
 #### Required meal packages
 
-| Package                 | Components                    |
-| ----------------------- | ----------------------------- |
-| Masala Dosa Meal        | Masala Dosa + Coconut Chutney |
-| Rajma Rice Meal         | Rajma + Jeera Rice            |
-| Chole Rice Meal         | Chole + Jeera Rice            |
-| Dal Roti Meal           | Dal Tadka + Roti              |
-| Paratha Jeera Aloo Meal | Paratha + Jeera Aloo          |
-| Paneer Bhurji Roti Meal | Paneer Bhurji + Roti          |
-| Khichdi Raita Meal      | Khichdi + Raita               |
-| Arhar Dal Mix Veg Meal  | Arhar Dal + Mix Veg + Roti + Jeera Rice |
-| Chole Poori Rice Meal   | Chole + Poori + Jeera Rice    |
-| Rajma Roti Rice Meal    | Rajma + Roti + Jeera Rice     |
-| Sambhar Idli Meal       | Sambhar + Idli + Coconut Chutney |
+| Package                 | Components                                           |
+| ----------------------- | ---------------------------------------------------- |
+| Masala Dosa Meal        | Masala Dosa + Coconut Chutney                        |
+| Rajma Rice Meal         | Rajma + Jeera Rice                                   |
+| Chole Rice Meal         | Chole + Jeera Rice                                   |
+| Dal Roti Meal           | Dal Tadka + Roti                                     |
+| Paratha Jeera Aloo Meal | Paratha + Jeera Aloo                                 |
+| Paneer Bhurji Roti Meal | Paneer Bhurji + Roti                                 |
+| Khichdi Raita Meal      | Khichdi + Raita                                      |
+| Arhar Dal Mix Veg Meal  | Arhar Dal + Mix Veg + Roti + Jeera Rice              |
+| Chole Poori Rice Meal   | Chole + Poori + Jeera Rice                           |
+| Rajma Roti Rice Meal    | Rajma + Roti + Jeera Rice                            |
+| Sambhar Idli Meal       | Sambhar + Idli + Coconut Chutney                     |
 | Sambhar Dosa Aloo Meal  | Sambhar + Masala Dosa + Aloo Sabzi + Coconut Chutney |
 
 ### Required meal-combination catalog data
@@ -138,7 +138,7 @@ The implementation is acceptable only if:
 7. Onboarding lets users choose between selecting existing meal combinations, building their own meal combinations, or letting the system decide.
 8. Dish and meal-combination selection uses cards with images, component summaries, and controls; it must not rely on dropdown-only or plain-list-only selection for the main experience.
 9. Meal-combination popularity is updated idempotently when a user selects or later approves a combination, and popularity influences both onboarding ordering and recommendations.
-10. User-defined frequency preferences, such as daily meal, once a week, and once in a while, persist and influence recommendations.
+10. User-defined per-dish preferences when building your own combination — the frequency tier (daily meal, once a week, once in a while) and the "suitable for" meal slots (breakfast, lunch, dinner) — persist and influence recommendations; a dish restricted to specific slots is never recommended outside them.
 11. Dish and ingredient images are accurate and displayed in the correct contexts.
 12. Side dishes, chutneys, dips, pickles, papad, and accompaniments are never recommended alone as main meals.
 13. A recommended meal is a wholesome South Asian package, such as `Arhar Dal + Mix Veg + Roti + Rice`, `Chole + Poori + Rice`, `Rajma + Rice + Roti`, `Sambhar + Idli + Chutney`, or `Sambhar + Dosa + Aloo + Chutney`, not an incomplete component.
@@ -557,11 +557,13 @@ chutney/dip/accompaniments.
 2. Verify the main dish catalog is shown as cards.
 3. Select `Arhar Dal` and tag it **include in daily meal**.
 4. Select `Mix Veg` and tag it **include in once in a week**.
-5. In **Goes with**, select `Chapati`/`Roti` and `Jeera Rice` from popular
+5. On `Arhar Dal`, under **Suitable for**, select `Lunch` and `Dinner` only
+   (leave `Breakfast` off).
+6. In **Goes with**, select `Chapati`/`Roti` and `Jeera Rice` from popular
    options.
-6. Use typeahead to add an accompaniment that is not in the visible popular
+7. Use typeahead to add an accompaniment that is not in the visible popular
    options, such as `Luchhi` or `Mint Chutney`.
-7. Save and continue.
+8. Save and continue.
 
 ### Expected result
 
@@ -572,18 +574,23 @@ chutney/dip/accompaniments.
   - **include in daily meal**
   - **include in once in a week**
   - **include in once in a while**
+- Each chosen main/base card has a **Suitable for** multi-select with
+  `Breakfast`, `Lunch`, and `Dinner`; selecting none reads as "any of its usual
+  times" and applies no restriction.
 - **Goes with** supports multi-select popular options, including chapati/roti,
   poori, paratha, luchhi, rice, idli, dosa, dip, and chutney.
 - **Goes with** also supports searching/selecting from the exhaustive dish
   catalog.
-- Saved build-your-own preferences persist and influence recommendations.
+- Saved build-your-own preferences — including the frequency tier, the
+  **Suitable for** slots, and **Goes with** choices — persist through autosave,
+  refresh, sign-out/sign-in, and completion, and influence recommendations.
 
 ## MEALPREF-004: User-built combinations are promoted only after meal approval
 
 ### Steps
 
 1. Complete onboarding with a build-your-own preference such as `Arhar Dal +
-   Mix Veg + Roti + Jeera Rice`.
+Mix Veg + Roti + Jeera Rice`.
 2. Generate today's meal or the weekly plan.
 3. Approve a recommendation that matches the user-built combination.
 4. Inspect the approved meal-combination catalog.
@@ -652,14 +659,15 @@ chutney/dip/accompaniments.
 1. Complete onboarding with **Select your meal combinations**.
 2. Open preferences after onboarding.
 3. Change to **Build your own meal combination**.
-4. Add one frequency tag and one **Goes with** accompaniment.
+4. Add one frequency tag, one **Suitable for** slot, and one **Goes with**
+   accompaniment.
 5. Save.
 6. Reopen preferences.
 
 ### Expected result
 
 - The selected mode, selected combinations, custom build choices, frequency tags,
-  and **Goes with** choices round-trip correctly.
+  **Suitable for** slots, and **Goes with** choices round-trip correctly.
 - Recommendations use the updated preferences after save.
 
 ## MEALPREF-008: Admin can add and manage approved meal combinations
@@ -697,6 +705,31 @@ chutney/dip/accompaniments.
 - Above-the-fold dish or placeholder images do not emit the Next.js LCP warning
   recorded in `BUG-UI-002`.
 - Cards remain readable and tappable on mobile without horizontal overflow.
+
+## MEALPREF-010: "Suitable for" meal slots restrict when a built dish is recommended
+
+### Steps
+
+1. Complete onboarding with **Build your own meal combination** for a household
+   that plans both lunch and dinner.
+2. Add a main dish whose catalog meal slots include both lunch and dinner (for
+   example `Arhar Dal`), set its frequency, and under **Suitable for** select
+   `Dinner` only.
+3. Add a second main dish and leave its **Suitable for** empty.
+4. Generate today's meal and a weekly plan, then exercise quick-swap
+   ("suggest another") in both lunch and dinner slots.
+
+### Expected result
+
+- The dinner-only dish is suggested only in dinner slots — it never appears as a
+  lunch or breakfast suggestion, including in quick-swap and weekly generation.
+- The second dish, with no **Suitable for** restriction, can still be suggested
+  in any slot its global catalog meal slots allow.
+- The restriction is enforced server-side as a recommendation hard filter, not
+  only hidden in the UI, and it never weakens the diet, allergy, or
+  do-not-suggest-again exclusions.
+- Selecting no **Suitable for** slots applies no restriction beyond the dish's
+  global meal slots (the dish keeps its normal behavior).
 
 ---
 

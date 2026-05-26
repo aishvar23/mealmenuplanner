@@ -123,6 +123,135 @@ describe("buildCompletionPayload", () => {
     expect(buildCompletionPayload(draft).foodPreferences).toBeNull();
   });
 
+  it("collects selected combination ids (deduped) in combinations mode (P10)", () => {
+    const id1 = "11111111-1111-1111-1111-111111111111";
+    const id2 = "22222222-2222-2222-2222-222222222222";
+    const draft = completeDraft();
+    draft.preferredDishes = {
+      mode: "combinations",
+      selectedCombinationIds: [id1, id2, id1],
+    };
+    const payload = buildCompletionPayload(draft);
+    expect(payload.combinationPrefs).toEqual({
+      selectedCombinationIds: [id1, id2],
+      builtDishes: [],
+    });
+    // Combinations mode contributes nothing to liked dishes.
+    expect(payload.foodPreferences).toBeNull();
+  });
+
+  it("rejects a non-uuid combination id in combinations mode (P10)", () => {
+    const draft = completeDraft();
+    draft.preferredDishes = {
+      mode: "combinations",
+      selectedCombinationIds: ["not-a-uuid"],
+    };
+    expect(issueFields(() => buildCompletionPayload(draft))).toContain(
+      "selectedCombinationIds",
+    );
+  });
+
+  it("returns no combinationPrefs when combinations mode selects nothing (P10)", () => {
+    const draft = completeDraft();
+    draft.preferredDishes = {
+      mode: "combinations",
+      selectedCombinationIds: [],
+    };
+    expect(buildCompletionPayload(draft).combinationPrefs).toBeNull();
+  });
+
+  it("builds self-built dishes + liked dishes in build mode (P10)", () => {
+    const draft = completeDraft();
+    draft.preferredDishes = {
+      mode: "build",
+      builtDishes: [
+        {
+          dishName: "Rajma Masala",
+          frequency: "daily",
+          suitableFor: ["lunch", "dinner"],
+          // The main itself is dropped from its own accompaniments.
+          goesWith: ["Jeera Rice", "Roti", "Rajma Masala"],
+        },
+        // No `suitableFor` → defaults to [] (no restriction).
+        { dishName: "Idli", frequency: "once_a_week", goesWith: ["Sambar"] },
+      ],
+    } as unknown as DraftData["preferredDishes"];
+    const payload = buildCompletionPayload(draft);
+    expect(payload.combinationPrefs).toEqual({
+      selectedCombinationIds: [],
+      builtDishes: [
+        {
+          dishName: "Rajma Masala",
+          frequency: "daily",
+          suitableFor: ["lunch", "dinner"],
+          goesWith: ["Jeera Rice", "Roti"],
+        },
+        {
+          dishName: "Idli",
+          frequency: "once_a_week",
+          suitableFor: [],
+          goesWith: ["Sambar"],
+        },
+      ],
+    });
+    // Built mains also fold into liked_dishes so the engine's +10 bonus fires.
+    expect(payload.foodPreferences?.likedDishes).toEqual([
+      "Rajma Masala",
+      "Idli",
+    ]);
+  });
+
+  it("rejects an invalid frequency tier in build mode (P10)", () => {
+    const draft = completeDraft();
+    // `weekly` is not a valid meal_frequency — cast past the type to exercise the
+    // runtime validation (autosave is lenient; the leaf is checked at completion).
+    draft.preferredDishes = {
+      mode: "build",
+      builtDishes: [{ dishName: "Dal", frequency: "weekly", goesWith: [] }],
+    } as unknown as DraftData["preferredDishes"];
+    expect(issueFields(() => buildCompletionPayload(draft))).toContain(
+      "builtDishes.frequency",
+    );
+  });
+
+  it("de-dupes valid suitableFor slots and rejects an invalid one (P10-8)", () => {
+    const draft = completeDraft();
+    draft.preferredDishes = {
+      mode: "build",
+      builtDishes: [
+        {
+          dishName: "Poha",
+          frequency: "daily",
+          // Duplicate `breakfast` collapses; `brunch` is not a valid meal_slot.
+          suitableFor: ["breakfast", "breakfast", "brunch"],
+          goesWith: [],
+        },
+      ],
+    } as unknown as DraftData["preferredDishes"];
+    expect(issueFields(() => buildCompletionPayload(draft))).toContain(
+      "builtDishes.suitableFor",
+    );
+  });
+
+  it("normalizes deduped suitableFor when every slot is valid (P10-8)", () => {
+    const draft = completeDraft();
+    draft.preferredDishes = {
+      mode: "build",
+      builtDishes: [
+        {
+          dishName: "Poha",
+          frequency: "daily",
+          suitableFor: ["breakfast", "breakfast"],
+          goesWith: [],
+        },
+      ],
+    } as unknown as DraftData["preferredDishes"];
+    const payload = buildCompletionPayload(draft);
+    expect(payload.combinationPrefs?.builtDishes[0]?.suitableFor).toEqual([
+      "breakfast",
+    ]);
+  });
+
   it("collects every missing required field into one ValidationError", () => {
     const fields = issueFields(() => buildCompletionPayload({}));
     expect(fields).toEqual(

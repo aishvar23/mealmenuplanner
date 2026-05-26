@@ -20,6 +20,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { INGREDIENTS, INGREDIENT_IMAGES } from "./ingredients.mjs";
 import { DISHES, MEAL_ROLE_OVERRIDES, DISH_IMAGES } from "./dishes.mjs";
+import { COMBINATIONS } from "./combinations.mjs";
 
 // ── Enum vocabularies (P0-5 migration is the source of truth) ─────────────────
 const DIET_TYPES = [
@@ -89,6 +90,29 @@ const JAIN_EXCLUDED_TERMS = [
   "leek",
   "spring onion",
 ];
+
+// Combination status enum (P10 migration) is proposed|active|archived|rejected;
+// admin-seeded combos are emitted `active` and `source = 'admin'`.
+
+// Diet a combo of diet_type X may contain (mirrors the onboarding picker's
+// DIET_COMPATIBILITY in lib/services/onboarding/diet-compatibility.ts): a combo
+// labelled X may only bundle dishes whose own diet is offer-safe to X, so a
+// "vegetarian" combo never hides a non-veg dish.
+const COMBO_DIET_COMPATIBILITY = {
+  vegan: ["vegan"],
+  vegetarian: ["vegetarian", "vegan", "jain"],
+  jain: ["jain"],
+  eggetarian: ["eggetarian", "vegetarian", "vegan", "jain"],
+  pescatarian: ["pescatarian", "vegetarian", "vegan", "eggetarian", "jain"],
+  non_vegetarian: [
+    "non_vegetarian",
+    "pescatarian",
+    "eggetarian",
+    "vegetarian",
+    "vegan",
+    "jain",
+  ],
+};
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 const errors = [];
@@ -266,6 +290,47 @@ for (const [name, role] of Object.entries(MEAL_ROLE_OVERRIDES)) {
     fail(`MEAL_ROLE_OVERRIDES: "${name}" is not a seeded dish`);
   if (!MEAL_ROLES.includes(role))
     fail(`MEAL_ROLE_OVERRIDES["${name}"]: invalid meal_role "${role}"`);
+}
+
+// ── Validate meal combinations (P10) ────────────────────────────────────────────
+// Every combo: unique name, valid diet, ≥1 distinct member dish that all exist,
+// and diet-coherent with its dishes (a vegetarian combo can't hide a non-veg dish).
+// Admin combos may be a single main dish (its accompaniments live as pairings);
+// the ≥2 floor only constrains user proposals (propose_meal_combination RPC).
+const dietByDishName = new Map(DISHES.map((dish) => [dish.name, dish.diet]));
+const comboNames = new Set();
+for (const combo of COMBINATIONS) {
+  const where = `Combination "${combo.name}"`;
+  if (!combo.name?.trim()) fail(`${where}: missing name`);
+  if (comboNames.has(combo.name))
+    fail(`Duplicate combination name: ${combo.name}`);
+  comboNames.add(combo.name);
+  if (!combo.cuisine?.trim()) fail(`${where}: missing cuisine`);
+  if (!DIET_TYPES.includes(combo.diet))
+    fail(`${where}: invalid diet "${combo.diet}"`);
+
+  if (!Array.isArray(combo.dishes) || combo.dishes.length < 1) {
+    fail(`${where}: needs at least one dish`);
+    continue;
+  }
+
+  const allowed = COMBO_DIET_COMPATIBILITY[combo.diet] ?? [];
+  const seen = new Set();
+  for (const [dishName, role] of combo.dishes) {
+    if (!dishNames.has(dishName)) {
+      fail(`${where}: dish "${dishName}" is not a seeded dish`);
+      continue;
+    }
+    if (seen.has(dishName)) fail(`${where}: dish "${dishName}" listed twice`);
+    seen.add(dishName);
+    if (!role?.trim())
+      fail(`${where}: dish "${dishName}" missing role_in_combo`);
+    const dishDiet = dietByDishName.get(dishName);
+    if (DIET_TYPES.includes(combo.diet) && !allowed.includes(dishDiet))
+      fail(
+        `${where}: ${combo.diet} combo contains an incompatible ${dishDiet} dish "${dishName}"`,
+      );
+  }
 }
 
 // Validate image maps (BUG-014): every key is a real row, alt is present, and the
@@ -464,6 +529,49 @@ p("join dishes q on q.name = v.paired_name");
 p("on conflict do nothing;");
 p("");
 
+// Meal combinations (P10) — admin-curated, seeded `active`. Deterministic uuid so
+// re-runs are idempotent (`on conflict do nothing`). popularity_count seeds a
+// descending initial order (iconic combos first); it is NEVER re-synced — real
+// usage drives it from there, so a re-run never clobbers accumulated popularity.
+const comboCount = COMBINATIONS.length;
+p(`-- Meal combinations (${comboCount}), seeded active.`);
+p(
+  "insert into meal_combinations (id, name, description, cuisine, region, diet_type, status, popularity_count, source) values",
+);
+p(
+  COMBINATIONS.map((combo, i) => {
+    const popularity = (comboCount - i) * 10;
+    return (
+      `  ('${uuid("combo:" + combo.name)}', '${sql(combo.name)}', ${pgText(combo.description)}, ` +
+      `${pgText(combo.cuisine)}, ${pgText(combo.region)}, '${combo.diet}', 'active', ${popularity}, 'admin')`
+    );
+  }).join(",\n") + "\non conflict do nothing;",
+);
+p("");
+
+// Combination items — combination_id is the deterministic combo uuid (no name
+// lookup, since meal_combinations.name is not unique once users propose combos);
+// dish_id name-joins dishes. Idempotent via unique(combination_id, dish_id).
+const mciRows = [];
+for (const combo of COMBINATIONS) {
+  combo.dishes.forEach(([dishName, role], idx) => {
+    mciRows.push(
+      `  ('${uuid("combo:" + combo.name)}', '${sql(dishName)}', ${pgText(role)}, ${idx})`,
+    );
+  });
+}
+p(`-- Combination items (${mciRows.length}).`);
+p(
+  "insert into meal_combination_items (combination_id, dish_id, role_in_combo, sort_order)",
+);
+p("select v.combination_id::uuid, d.id, v.role, v.ord");
+p("from (values");
+p(mciRows.join(",\n"));
+p(") as v(combination_id, dish_name, role, ord)");
+p("join dishes d on d.name = v.dish_name");
+p("on conflict do nothing;");
+p("");
+
 const outPath = join(dirname(fileURLToPath(import.meta.url)), "..", "seed.sql");
 writeFileSync(outPath, lines.join("\n"), "utf8");
 
@@ -473,4 +581,6 @@ console.log(`  dishes:           ${DISHES.length}`);
 console.log(`  dish_ingredients: ${diRows.length}`);
 console.log(`  prep_tasks:       ${ptRows.length}`);
 console.log(`  pairings:         ${prRows.length}`);
+console.log(`  combinations:     ${comboCount}`);
+console.log(`  combo_items:      ${mciRows.length}`);
 console.log(`  → ${outPath}`);

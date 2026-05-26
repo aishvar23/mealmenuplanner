@@ -13,3 +13,4 @@ export * from "./ingredients";
 export * from "./dish-ingredients";
 export * from "./prep-tasks";
 export * from "./pairings";
+export * from "./combinations";

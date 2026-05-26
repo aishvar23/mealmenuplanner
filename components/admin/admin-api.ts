@@ -6,6 +6,7 @@
  */
 
 import type { ErrorCode } from "@/lib/errors";
+import type { CombinationDto } from "@/lib/services/admin/combinations";
 import type {
   DishDetailDto,
   DishDto,
@@ -184,4 +185,16 @@ export function deleteIngredient(
   ingredientId: string,
 ): Promise<{ id: string; deleted: true }> {
   return request(`/api/admin/ingredients/${ingredientId}`, json("DELETE"));
+}
+
+// ───────────────────────────── combinations ─────────────────────────────
+
+export function setCombinationStatus(
+  combinationId: string,
+  status: "active" | "rejected",
+): Promise<CombinationDto> {
+  return request<CombinationDto>(
+    `/api/admin/combinations/${combinationId}/status`,
+    json("POST", { status }),
+  );
 }

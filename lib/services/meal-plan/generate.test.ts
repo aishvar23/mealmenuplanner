@@ -53,12 +53,19 @@ vi.mock("@/lib/recommendation", () => ({
           },
         ]
       : [],
+  // Combinations off here so generateWeek skips the popular-combo load; the
+  // mocked recommendSlot ignores config anyway (P10 engine behaviour is unit-
+  // tested in lib/recommendation/scoring.test.ts).
+  RECOMMENDATION_CONFIG: {
+    combinations: { enabled: false, popularityThreshold: 5 },
+  },
 }));
 vi.mock("@/lib/services/recommendation", () => ({
   loadHouseholdContext: vi.fn(),
   loadActiveMembers: vi.fn(),
   loadCandidateDishes: vi.fn(),
   loadMealHistory: vi.fn(),
+  loadPopularCombinationDishIds: vi.fn(),
 }));
 
 import { requireAuthUser } from "@/lib/auth";
@@ -70,9 +77,11 @@ import {
   loadMealHistory,
 } from "@/lib/services/recommendation";
 
+import { safeRegenerateGroceryListForPlan } from "@/lib/services/grocery";
+
 import { resolveOrCreateDayPlan, resolveOrCreateRangePlan } from "./plans";
 import { suggestForSlot } from "./suggest";
-import { generateToday, generateWeek } from "./generate";
+import { ensureDaySuggestions, generateToday, generateWeek } from "./generate";
 
 const HH = "hh-1";
 
@@ -287,6 +296,8 @@ describe("generateWeek", () => {
       weekendCookingTimeMinutes: null,
       varietyGapDays: 7,
       kidsCount: 0,
+      dishFrequencies: new Map(),
+      dishSuitableSlots: new Map(),
     });
     vi.mocked(loadActiveMembers).mockResolvedValue([]);
     vi.mocked(loadMealHistory).mockResolvedValue({
@@ -346,5 +357,119 @@ describe("generateWeek", () => {
 
     const dishes = stub.upserted.map((r) => (r as { dish_id: string }).dish_id);
     expect(dishes).toEqual(["d1", "d2"]);
+  });
+});
+
+/** Stateful client for the day pre-fill path: day-cells select + bulk upsert. */
+function dayClient(dayCells: unknown[]) {
+  const upserted: unknown[] = [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const client: any = {
+    from: () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const b: any = {
+        select: () => b,
+        eq: () => b,
+        upsert: (rows: unknown[]) => {
+          upserted.push(...rows);
+          return Promise.resolve({ error: null });
+        },
+        then: (resolve: (v: unknown) => unknown) =>
+          resolve({ data: dayCells, error: null }),
+      };
+      return b;
+    },
+  };
+  return { client, upserted };
+}
+
+function rec(dishId: string) {
+  return {
+    recommendations: [
+      {
+        dishId,
+        score: 1,
+        reason: "r",
+        missingConstraints: [],
+        prepTasks: [],
+        pairedDishes: [],
+      },
+    ],
+    nameById: new Map(),
+    imageById: new Map(),
+  };
+}
+
+describe("ensureDaySuggestions", () => {
+  it("fills every empty slot with the engine's top pick and refreshes grocery once", async () => {
+    const stub = dayClient([]);
+    vi.mocked(createServerSupabaseClient).mockResolvedValue(stub.client);
+    vi.mocked(suggestForSlot)
+      .mockResolvedValueOnce(rec("b1"))
+      .mockResolvedValueOnce(rec("d1"));
+
+    await ensureDaySuggestions(HH, "2026-05-25", ["breakfast", "dinner"]);
+
+    expect(stub.upserted).toHaveLength(2);
+    expect(stub.upserted).toEqual([
+      expect.objectContaining({
+        meal_slot: "breakfast",
+        dish_id: "b1",
+        status: "suggested",
+      }),
+      expect.objectContaining({
+        meal_slot: "dinner",
+        dish_id: "d1",
+        status: "suggested",
+      }),
+    ]);
+    expect(safeRegenerateGroceryListForPlan).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves locked, eating-out, and already-filled slots untouched", async () => {
+    const stub = dayClient([
+      {
+        meal_slot: "breakfast",
+        dish_id: "x",
+        status: "suggested",
+        locked: false,
+      },
+      {
+        meal_slot: "lunch",
+        dish_id: null,
+        status: "eating_out",
+        locked: false,
+      },
+      { meal_slot: "dinner", dish_id: "y", status: "accepted", locked: true },
+    ]);
+    vi.mocked(createServerSupabaseClient).mockResolvedValue(stub.client);
+
+    await ensureDaySuggestions(HH, "2026-05-25", [
+      "breakfast",
+      "lunch",
+      "dinner",
+    ]);
+
+    expect(suggestForSlot).not.toHaveBeenCalled();
+    expect(stub.upserted).toHaveLength(0);
+    expect(safeRegenerateGroceryListForPlan).not.toHaveBeenCalled();
+  });
+
+  it("excludes a dish already chosen earlier in the run", async () => {
+    const stub = dayClient([]);
+    vi.mocked(createServerSupabaseClient).mockResolvedValue(stub.client);
+    vi.mocked(suggestForSlot)
+      .mockResolvedValueOnce(rec("b1"))
+      .mockResolvedValueOnce(rec("d1"));
+
+    await ensureDaySuggestions(HH, "2026-05-25", ["breakfast", "dinner"]);
+
+    expect(suggestForSlot).toHaveBeenNthCalledWith(
+      2,
+      HH,
+      "2026-05-25",
+      "dinner",
+      expect.objectContaining({ excludeDishIds: ["b1"] }),
+    );
   });
 });

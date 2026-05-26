@@ -4,6 +4,7 @@ import { getActiveMembership } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/db/server";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import {
+  RECOMMENDATION_CONFIG,
   recommendSlot,
   type Recommendation,
   type RecommendationConfig,
@@ -16,6 +17,7 @@ import {
   loadCandidateDishes,
   loadHouseholdContext,
   loadMealHistory,
+  loadPopularCombinationDishIds,
 } from "./load-inputs";
 import { validateSlotRequest, type MealSlot } from "./validate";
 
@@ -43,7 +45,13 @@ export interface RecommendForSlotOptions {
 /** The assembled, ready-to-score inputs for one slot (sans clock/run state). */
 export type SlotInputs = Pick<
   SlotRecommendationInput,
-  "household" | "members" | "dishes" | "history" | "date" | "mealSlot"
+  | "household"
+  | "members"
+  | "dishes"
+  | "history"
+  | "date"
+  | "mealSlot"
+  | "popularCombinationDishIds"
 >;
 
 /**
@@ -71,13 +79,29 @@ export async function loadSlotInputs(
     );
   }
 
-  const [members, dishes, history] = await Promise.all([
-    loadActiveMembers(supabase, householdId),
-    loadCandidateDishes(supabase, mealSlot),
-    loadMealHistory(supabase, householdId, date, household.varietyGapDays),
-  ]);
+  const combinations = RECOMMENDATION_CONFIG.combinations;
+  const [members, dishes, history, popularCombinationDishIds] =
+    await Promise.all([
+      loadActiveMembers(supabase, householdId),
+      loadCandidateDishes(supabase, mealSlot),
+      loadMealHistory(supabase, householdId, date, household.varietyGapDays),
+      combinations.enabled
+        ? loadPopularCombinationDishIds(
+            supabase,
+            combinations.popularityThreshold,
+          )
+        : Promise.resolve(new Set<string>()),
+    ]);
 
-  return { household, members, dishes, history, date, mealSlot };
+  return {
+    household,
+    members,
+    dishes,
+    history,
+    date,
+    mealSlot,
+    popularCombinationDishIds,
+  };
 }
 
 /**

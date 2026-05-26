@@ -90,6 +90,40 @@ describe("recommendSlot — hard filters (design/05 §4)", () => {
     expect(result).toEqual([]);
   });
 
+  it("excludes a dish from a slot the household didn't mark suitable (P10-8)", () => {
+    // Dish is globally lunch+dinner, but the household restricted it to lunch.
+    const lunchOnlyForHousehold = makeDish({ id: "dal" });
+    const household = makeHousehold({
+      dishSuitableSlots: new Map([["dal", ["lunch"]]]),
+    });
+    const result = recommendSlot(
+      input({ dishes: [lunchOnlyForHousehold], household, mealSlot: "dinner" }),
+    );
+    expect(result).toEqual([]);
+  });
+
+  it("keeps a dish in a slot the household marked suitable (P10-8)", () => {
+    const dal = makeDish({ id: "dal" });
+    const household = makeHousehold({
+      dishSuitableSlots: new Map([["dal", ["lunch", "dinner"]]]),
+    });
+    const result = recommendSlot(
+      input({ dishes: [dal], household, mealSlot: "dinner" }),
+    );
+    expect(result.map((r) => r.dishId)).toEqual(["dal"]);
+  });
+
+  it("applies no slot restriction when the household list is empty (P10-8)", () => {
+    const dal = makeDish({ id: "dal" });
+    const household = makeHousehold({
+      dishSuitableSlots: new Map([["dal", []]]),
+    });
+    const result = recommendSlot(
+      input({ dishes: [dal], household, mealSlot: "dinner" }),
+    );
+    expect(result.map((r) => r.dishId)).toEqual(["dal"]);
+  });
+
   it("excludes non-standalone roles (side/condiment/component) (BUG-008/009/010)", () => {
     const raita = makeDish({
       id: "raita",

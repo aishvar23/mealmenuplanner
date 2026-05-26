@@ -61,6 +61,7 @@ export function recommendSlot(
       effectiveDiet,
       allergyTerms,
       mealSlot: input.mealSlot,
+      dishSuitableSlots: input.household.dishSuitableSlots,
       date: input.date,
       now: input.now,
       history: input.history,
@@ -88,6 +89,7 @@ export function recommendSlot(
       prepOutcome: prep.outcome,
       recentPrimaryIngredientIds:
         input.history.recentPrimaryIngredientIds ?? EMPTY_SET,
+      popularCombinationDishIds: input.popularCombinationDishIds ?? EMPTY_SET,
       config,
     });
 

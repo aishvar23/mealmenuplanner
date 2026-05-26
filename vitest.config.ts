@@ -17,6 +17,8 @@ export default defineConfig({
     // Component tests can opt into a DOM environment per-file when needed.
     environment: "node",
     include: ["**/*.{test,spec}.{ts,tsx}"],
-    exclude: ["**/node_modules/**", "**/.next/**"],
+    // `e2e/` holds Playwright specs (also `*.spec.ts`); they import from
+    // `@playwright/test` and must NOT be collected by Vitest.
+    exclude: ["**/node_modules/**", "**/.next/**", "e2e/**"],
   },
 });

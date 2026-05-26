@@ -50,6 +50,7 @@ export const INGREDIENTS = [
   i("Green Peas", "vegetables", "g", ["matar"]),
   i("Capsicum", "vegetables", "g", ["bell pepper", "shimla mirch"]),
   i("Bottle Gourd", "vegetables", "g", ["lauki", "dudhi"]),
+  i("Ridge Gourd", "vegetables", "g", ["nenua", "tori", "turai"]),
   i("Okra", "vegetables", "g", ["bhindi", "ladyfinger"]),
   i("Eggplant", "vegetables", "g", ["brinjal", "baingan"]),
   i("Bitter Gourd", "vegetables", "g", ["karela"]),
@@ -120,6 +121,11 @@ export const INGREDIENTS = [
   i("Black Chickpeas", "lentils", "g", ["kala chana"]),
   i("Kidney Beans", "lentils", "g", ["rajma"]),
   i("Black-eyed Peas", "lentils", "g", ["lobia", "chawli"]),
+  i("Dried White Peas", "lentils", "g", [
+    "safed matar",
+    "vatana",
+    "white peas",
+  ]),
   i("Moong Sprouts", "lentils", "g", ["sprouts"]),
 
   // ── Spices ───────────────────────────────────────────────────────────────��─

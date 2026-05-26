@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 const LINKS = [
   { href: "/admin/dishes", label: "Dishes" },
   { href: "/admin/ingredients", label: "Ingredients" },
+  { href: "/admin/combinations", label: "Combinations" },
 ] as const;
 
 /** Operator-console navigation, with active highlighting. */

@@ -23,6 +23,8 @@ export function makeHousehold(
     weekendCookingTimeMinutes: 90,
     varietyGapDays: 7,
     kidsCount: 0,
+    dishFrequencies: new Map(),
+    dishSuitableSlots: new Map(),
     ...overrides,
   };
 }
@@ -70,6 +72,7 @@ export function makeDish(
     mealSlots: ["lunch", "dinner"],
     mealRole: "main_component",
     totalTimeMinutes: 30,
+    popularityCount: 0,
     difficulty: "easy",
     kidFriendly: false,
     lunchboxFriendly: false,
