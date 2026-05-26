@@ -20,6 +20,10 @@
 /playwright/.cache
 /e2e/.auth
 
+# landing demo capture scratch (raw recording + extracted frames); the encoded
+# assets in public/demo/ are committed, this working dir is not
+/scripts/.demo-recording
+
 # next.js
 /.next/
 /out/

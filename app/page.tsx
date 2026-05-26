@@ -1,6 +1,5 @@
 import {
   CalendarCheck,
-  CheckCircle2,
   ChefHat,
   ClipboardList,
   ShoppingCart,
@@ -12,7 +11,6 @@ import { redirect } from "next/navigation";
 import { buttonVariants } from "@/components/ui/button";
 import { getAuthUser } from "@/lib/auth";
 import { resolveCurrentHousehold } from "@/lib/services/household";
-import { cn } from "@/lib/utils";
 
 // Reads the session to decide whether to route a signed-in visitor onward.
 export const dynamic = "force-dynamic";
@@ -81,53 +79,27 @@ export default async function LandingPage() {
             </div>
           </div>
 
-          <div className="hidden rounded-lg border border-white/20 bg-white/90 p-3 shadow-2xl shadow-black/25 backdrop-blur md:block">
-            <div className="rounded-lg bg-background p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">
-                    Today
-                  </p>
-                  <h2 className="mt-1 font-heading text-xl font-bold">
-                    Masala Dosa
-                  </h2>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    with Coconut Chutney
-                  </p>
-                </div>
-                <span className="rounded-lg bg-saffron px-2.5 py-1 text-xs font-bold text-saffron-foreground">
-                  Suggested
-                </span>
-              </div>
-              <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                Vegetarian, breakfast-ready, South Indian, and inside the
-                weekday cooking window.
-              </p>
-              <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs font-semibold">
-                {["Breakfast", "Lunch", "Dinner"].map((slot, index) => (
-                  <div
-                    key={slot}
-                    className={cn(
-                      "rounded-lg border px-2 py-3",
-                      index === 0
-                        ? "border-primary/30 bg-primary/10 text-primary"
-                        : "border-border bg-card text-muted-foreground",
-                    )}
-                  >
-                    {slot}
-                  </div>
-                ))}
-              </div>
-              <div className="mt-4 flex gap-2">
-                <span className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-primary px-3 py-2 text-sm font-bold text-primary-foreground">
-                  <CheckCircle2 className="size-4" />
-                  Approve
-                </span>
-                <span className="rounded-lg border border-border bg-card px-3 py-2 text-sm font-bold">
-                  Try another
-                </span>
-              </div>
+          {/* A looping product demo: household setup through to today's
+              recommended meal, recorded from the real app (scripts/record-demo.mjs). */}
+          <div className="hidden self-center justify-self-center md:block">
+            <div className="relative w-[260px] rounded-[2rem] border border-white/15 bg-neutral-900/95 p-2 shadow-2xl ring-1 shadow-black/40 ring-white/10">
+              <video
+                className="block aspect-[43/92] w-full rounded-[1.5rem] bg-background object-cover"
+                autoPlay
+                loop
+                muted
+                playsInline
+                preload="metadata"
+                poster="/demo/onboarding-demo-poster.jpg"
+                aria-label="Product demo: set up your household, then see today's recommended meal."
+              >
+                <source src="/demo/onboarding-demo.webm" type="video/webm" />
+                <source src="/demo/onboarding-demo.mp4" type="video/mp4" />
+              </video>
             </div>
+            <p className="mt-4 text-center text-sm font-medium text-white/85">
+              Set up once, then decide dinner in seconds
+            </p>
           </div>
         </div>
       </section>

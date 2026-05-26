@@ -45,7 +45,7 @@ export function HouseholdBasicsStep({
           id="household-name"
           type="text"
           autoComplete="off"
-          placeholder="e.g. The Suhane Household"
+          placeholder="e.g. The Sharma Household"
           value={value.name ?? ""}
           onChange={(event) => onChange({ name: event.target.value })}
           disabled={editing}
