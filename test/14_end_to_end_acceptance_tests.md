@@ -42,12 +42,21 @@ The seed data must include dishes with accurate metadata and images.
 | Rajma           | vegetarian     | main_component  | yes            |
 | Chole           | vegetarian     | main_component  | yes            |
 | Dal Tadka       | vegetarian     | main_component  | yes            |
+| Arhar Dal       | vegetarian     | main_component  | yes            |
+| Moong Dal       | vegetarian     | main_component  | yes            |
+| Mix Veg         | vegetarian     | main_component  | yes            |
+| Sambhar         | vegetarian     | main_component  | yes            |
 | Paratha         | vegetarian     | bread_component | yes            |
+| Chapati         | vegetarian     | bread_component | yes            |
+| Poori           | vegetarian     | bread_component | yes            |
+| Luchhi          | vegetarian     | bread_component | yes            |
 | Roti            | vegetarian     | bread_component | yes            |
 | Jeera Rice      | vegetarian     | rice_component  | yes            |
+| Idli            | vegetarian     | bread_component | yes            |
 | Vegetable Pulao | vegetarian     | complete_meal   | yes            |
 | Khichdi         | vegetarian     | complete_meal   | yes            |
 | Paneer Bhurji   | vegetarian     | main_component  | yes            |
+| Aloo Sabzi      | vegetarian     | main_component  | yes            |
 | Egg Curry       | egg            | main_component  | yes            |
 | Chicken Curry   | non_vegetarian | main_component  | yes            |
 
@@ -74,6 +83,29 @@ The seed data must include dishes with accurate metadata and images.
 | Paratha Jeera Aloo Meal | Paratha + Jeera Aloo          |
 | Paneer Bhurji Roti Meal | Paneer Bhurji + Roti          |
 | Khichdi Raita Meal      | Khichdi + Raita               |
+| Arhar Dal Mix Veg Meal  | Arhar Dal + Mix Veg + Roti + Jeera Rice |
+| Chole Poori Rice Meal   | Chole + Poori + Jeera Rice    |
+| Rajma Roti Rice Meal    | Rajma + Roti + Jeera Rice     |
+| Sambhar Idli Meal       | Sambhar + Idli + Coconut Chutney |
+| Sambhar Dosa Aloo Meal  | Sambhar + Masala Dosa + Aloo Sabzi + Coconut Chutney |
+
+### Required meal-combination catalog data
+
+The seed data must include an approved meal-combination catalog that can be
+managed by an admin and used during onboarding and recommendation. Each catalog
+row must include:
+
+- stable combination id
+- display name
+- component dish ids grouped by role, such as dal/protein, dry veg/sabzi, bread,
+  rice, chutney/dip, and other accompaniments
+- `popularity_count`
+- active/approved status
+- admin-created source metadata, plus distinct metadata for combinations promoted
+  from user-approved meals
+
+The test seed must include at least the required meal packages above, with
+different popularity counts so sorting can be verified.
 
 ### Required image metadata
 
@@ -103,12 +135,16 @@ The implementation is acceptable only if:
 4. Users can only access households where they are active members.
 5. Onboarding progress survives refresh, close/reopen, and sign-out/sign-in.
 6. Preferences can be edited after onboarding.
-7. Preferred dishes can be selected manually or delegated to the system.
-8. Dish and ingredient images are accurate and displayed in the correct contexts.
-9. Side dishes, chutneys, dips, pickles, papad, and accompaniments are never recommended alone as main meals.
-10. A recommended meal is a wholesome package, such as `Masala Dosa + Chutney` or `Paratha + Jeera Aloo`, not an incomplete component.
-11. Collaboration, invites, permissions, guest expiry, member removal, and notifications work correctly.
-12. All permission checks are enforced server-side, not only by hidden UI buttons.
+7. Onboarding lets users choose between selecting existing meal combinations, building their own meal combinations, or letting the system decide.
+8. Dish and meal-combination selection uses cards with images, component summaries, and controls; it must not rely on dropdown-only or plain-list-only selection for the main experience.
+9. Meal-combination popularity is updated idempotently when a user selects or later approves a combination, and popularity influences both onboarding ordering and recommendations.
+10. User-defined frequency preferences, such as daily meal, once a week, and once in a while, persist and influence recommendations.
+11. Dish and ingredient images are accurate and displayed in the correct contexts.
+12. Side dishes, chutneys, dips, pickles, papad, and accompaniments are never recommended alone as main meals.
+13. A recommended meal is a wholesome South Asian package, such as `Arhar Dal + Mix Veg + Roti + Rice`, `Chole + Poori + Rice`, `Rajma + Rice + Roti`, `Sambhar + Idli + Chutney`, or `Sambhar + Dosa + Aloo + Chutney`, not an incomplete component.
+14. Collaboration, invites, permissions, guest expiry, member removal, and notifications work correctly.
+15. All permission checks are enforced server-side, not only by hidden UI buttons.
+16. Browser acceptance must pass the UI bug checks recorded in `test/ui_testing_bugs_2026-05-25.md`: no excessive empty card space on primary meal cards, no above-the-fold image LCP warning for placeholders, and no clipped onboarding side-panel copy in the first desktop viewport.
 
 ---
 
@@ -463,93 +499,204 @@ The implementation is acceptable only if:
 
 ---
 
-# 4. Preferred dish onboarding tests
+# 4. Meal-combination onboarding tests
 
-## PREFDISH-001: User can choose preferred dishes or let system choose
+These tests supersede the older preferred-dish picker acceptance. The feature is
+for South Asian household meal planning, where a normal meal is usually a
+combination of protein/dal or legumes, dry veg/sabzi, bread, rice, and optional
+chutney/dip/accompaniments.
+
+## MEALPREF-001: User sees all three meal preference modes
 
 ### Steps
 
-1. Reach dish preference step during onboarding.
+1. Reach the meal preference step during onboarding.
 
 ### Expected result
 
-- User sees both options:
-  - **Choose my preferred dishes**
-  - **Let the system choose based on my preferences**
+- User sees three clear options:
+  - **Select your meal combinations**
+  - **Build your own meal combination**
+  - **Let the system decide**
+- The options are presented as cards or segmented card controls, not as a plain
+  text list or dropdown.
+- Selecting a mode updates the draft and survives refresh.
 
-## PREFDISH-002: User can manually select preferred dishes
+## MEALPREF-002: Existing meal combinations are exhaustive, card-based, and popularity sorted
 
 ### Steps
 
-1. Select **Choose my preferred dishes**.
-2. Search `Rajma`.
-3. Select Rajma.
-4. Search `Masala Dosa`.
-5. Select Masala Dosa.
-6. Continue.
+1. Select **Select your meal combinations**.
+2. Browse without searching.
+3. Search for `dal`, `chole`, `rajma`, and `sambhar`.
+4. Select:
+   - `Arhar Dal + Mix Veg + Roti + Jeera Rice`
+   - `Chole + Poori + Jeera Rice`
+   - `Sambhar + Idli + Coconut Chutney`
+5. Continue onboarding.
 
 ### Expected result
 
-- Rajma and Masala Dosa are saved as preferred dishes.
-- Dish cards show names and accurate images.
-- Later recommendations boost these dishes when valid.
+- All active approved seeded meal combinations are available.
+- Cards show combination name, component dishes grouped by role, accurate images
+  or safe placeholders, dietary tags, and a selectable state.
+- Default ordering is by `popularity_count` descending, with deterministic
+  tie-breaking.
+- Search/filter does not hide valid matches due to casing, punctuation, or
+  component order.
+- Selected combinations persist through autosave, refresh, sign-out/sign-in, and
+  onboarding completion.
+- Popularity increases exactly once per saved user selection and does not
+  double-increment on refresh, autosave retry, or repeated Save clicks.
 
-## PREFDISH-003: User can let system choose dishes
+## MEALPREF-003: User can build their own meal combination from dish cards
 
 ### Steps
 
-1. Select vegetarian and Indian cuisine preferences.
-2. On dish preference step, select **Let the system choose**.
-3. Continue.
+1. Select **Build your own meal combination**.
+2. Verify the main dish catalog is shown as cards.
+3. Select `Arhar Dal` and tag it **include in daily meal**.
+4. Select `Mix Veg` and tag it **include in once in a week**.
+5. In **Goes with**, select `Chapati`/`Roti` and `Jeera Rice` from popular
+   options.
+6. Use typeahead to add an accompaniment that is not in the visible popular
+   options, such as `Luchhi` or `Mint Chutney`.
+7. Save and continue.
 
 ### Expected result
 
-- User is not forced to manually choose dishes.
-- System can generate recommendations from metadata.
-- Recommendations respect selected preferences.
+- The build screen uses dish cards for main/base dishes, not a dropdown-only UI.
+- Main/base cards are sorted by popularity and exclude snacks, breads, dips,
+  chutneys, pickles, papad, and pure accompaniments from the primary card grid.
+- Each chosen main/base card supports exactly these frequency choices:
+  - **include in daily meal**
+  - **include in once in a week**
+  - **include in once in a while**
+- **Goes with** supports multi-select popular options, including chapati/roti,
+  poori, paratha, luchhi, rice, idli, dosa, dip, and chutney.
+- **Goes with** also supports searching/selecting from the exhaustive dish
+  catalog.
+- Saved build-your-own preferences persist and influence recommendations.
 
-## PREFDISH-004: User can remove selected preferred dish
+## MEALPREF-004: User-built combinations are promoted only after meal approval
 
 ### Steps
 
-1. Select Rajma.
-2. Select Masala Dosa.
-3. Remove Rajma.
-4. Continue.
+1. Complete onboarding with a build-your-own preference such as `Arhar Dal +
+   Mix Veg + Roti + Jeera Rice`.
+2. Generate today's meal or the weekly plan.
+3. Approve a recommendation that matches the user-built combination.
+4. Inspect the approved meal-combination catalog.
 
 ### Expected result
 
-- Only Masala Dosa remains selected.
-- Saved preferences match UI.
+- Onboarding save stores the user's preference template but does not immediately
+  create a new globally approved combination.
+- Only after the user approves the actual suggested meal does the combination
+  get promoted into the approved meal-combination table or increment an existing
+  matching row.
+- Admin-created combinations and user-approved promoted combinations are
+  distinguishable by source metadata.
+- The admin UI remains the manual admin creation/editing surface for approved
+  combinations.
 
-## PREFDISH-005: Preferred dishes persist after refresh
+## MEALPREF-005: Let the system decide uses popularity, frequency, and preferences
 
 ### Steps
 
-1. Select Rajma and Masala Dosa.
-2. Refresh page.
-3. Return to dish preference step.
+1. Select vegetarian diet, North Indian and South Indian cuisines, medium spice,
+   and dinner as the planned meal slot.
+2. Select **Let the system decide**.
+3. Complete onboarding.
+4. Generate a week plan.
 
 ### Expected result
 
-- Both selected dishes remain selected.
-- Images still display.
-- No duplicate selections appear.
+- The user is not forced to select any dishes or combinations manually.
+- Recommendations consider:
+  - approved meal-combination popularity
+  - selected diet/cuisines/spice/cooking-time preferences
+  - allergies and disliked ingredients
+  - preferred frequency data when available from prior user choices
+  - variety gap and leftovers settings
+- A `dal + dry veg + roti/rice` pattern may repeat three or four times in a
+  week only if the exact dal/protein and dry veg are varied enough to satisfy
+  the variety rules.
+- The same exact combination is not repeated inside the variety gap unless the
+  household explicitly allows that behavior.
 
-## PREFDISH-006: Preferred dishes can be edited after onboarding
+## MEALPREF-006: Recommended meals are complete South Asian combinations
 
 ### Steps
 
-1. Open preferences.
-2. Open preferred dishes.
-3. Add Chole.
-4. Remove Rajma.
+1. Generate today's meal and a weekly plan for a vegetarian South Asian
+   household.
+2. Inspect every recommended meal card and quick swap.
+
+### Expected result
+
+- Standalone accompaniments are never suggested as a full meal.
+- Dry veg/sabzi is not suggested alone as a complete meal unless paired.
+- Valid recommendations include complete combinations such as:
+  - `Arhar Dal + Mix Veg + Roti + Rice`
+  - `Chole + Poori + Rice`
+  - `Rajma + Rice + Roti`
+  - `Sambhar + Idli + Chutney`
+  - `Sambhar + Dosa + Aloo + Chutney`
+- Recommendation reason text explains the combination, not only one component.
+
+## MEALPREF-007: Meal preferences can be edited after onboarding
+
+### Steps
+
+1. Complete onboarding with **Select your meal combinations**.
+2. Open preferences after onboarding.
+3. Change to **Build your own meal combination**.
+4. Add one frequency tag and one **Goes with** accompaniment.
 5. Save.
+6. Reopen preferences.
 
 ### Expected result
 
-- Preferred dish list updates.
-- Recommendation engine uses updated list.
+- The selected mode, selected combinations, custom build choices, frequency tags,
+  and **Goes with** choices round-trip correctly.
+- Recommendations use the updated preferences after save.
+
+## MEALPREF-008: Admin can add and manage approved meal combinations
+
+### Steps
+
+1. Sign in as `admin@example.com`.
+2. Add a new approved meal combination with at least one main/protein component
+   and one accompaniment.
+3. Set a known `popularity_count`.
+4. Sign in as a household user and open onboarding.
+
+### Expected result
+
+- The admin-created combination appears in **Select your meal combinations**.
+- The combination is sorted according to popularity.
+- Inactive or unapproved combinations are hidden from household users.
+- Household users cannot access admin-only combination creation or edit actions.
+
+## MEALPREF-009: Meal preference UI passes visual QA from the 2026-05-25 bug log
+
+### Steps
+
+1. Open onboarding meal preference step at desktop `1280x720`.
+2. Open the same step at mobile `390x844`.
+3. Open `/today` after completing onboarding with selected combinations.
+4. Inspect console warnings and screenshots.
+
+### Expected result
+
+- Onboarding copy in the desktop side panel is visible in the first viewport and
+  is not clipped at the bottom.
+- Meal preference cards and `/today` meal cards do not have large empty vertical
+  gaps before controls.
+- Above-the-fold dish or placeholder images do not emit the Next.js LCP warning
+  recorded in `BUG-UI-002`.
+- Cards remain readable and tappable on mobile without horizontal overflow.
 
 ---
 
@@ -559,15 +706,18 @@ The implementation is acceptable only if:
 
 ### Steps
 
-1. Open preferred dish onboarding step.
-2. Search for Masala Dosa.
+1. Open the onboarding meal preference step.
+2. Select **Select your meal combinations**.
+3. Search for Masala Dosa.
+4. Select **Build your own meal combination**.
+5. Search for Rajma.
 
 ### Expected result
 
-- Masala Dosa card displays image.
-- Image is not broken.
-- Alt text describes Masala Dosa.
-- Image is not unrelated placeholder.
+- Meal-combination cards and build-your-own dish cards display images.
+- Images are not broken.
+- Alt text describes the dish or combination.
+- Verified images are not replaced by unrelated placeholders.
 
 ## IMAGE-002: Ingredient images display where ingredients are shown
 
@@ -640,6 +790,23 @@ The implementation is acceptable only if:
 ### Expected result
 
 - New image and alt text are visible.
+
+## IMAGE-007: Above-the-fold placeholder images do not trigger LCP warnings
+
+### Steps
+
+1. Seed a currently recommended dish with `image_status = missing` so it uses the
+   placeholder dish image.
+2. Open `/today`.
+3. Open `/plan`.
+4. Inspect browser console warnings.
+
+### Expected result
+
+- Placeholder image renders safely.
+- No Next.js warning appears for an above-the-fold placeholder image missing
+  eager/priority loading.
+- Layout remains stable while the placeholder loads.
 
 ---
 
@@ -864,11 +1031,11 @@ The implementation is acceptable only if:
 - Peanut-containing dishes are excluded.
 - Allergy is not merely a lower ranking.
 
-## RECO-008: Preferred dishes do not override hard filters
+## RECO-008: Preferred combinations do not override hard filters
 
 ### Preconditions
 
-- Chicken Curry is a preferred dish.
+- Chicken Curry is part of a selected or popular preferred combination.
 
 ### Steps
 
@@ -908,6 +1075,47 @@ The implementation is acceptable only if:
 
 - Prep task says to soak Rajma.
 - Due time is before required cooking time.
+
+## RECO-011: Popular meal combinations rank higher when otherwise valid
+
+### Preconditions
+
+- `Arhar Dal + Mix Veg + Roti + Jeera Rice` has a higher popularity count than
+  `Moong Dal + Mix Veg + Roti + Jeera Rice`.
+- Both combinations match diet, cuisine, time, allergy, and variety rules.
+
+### Steps
+
+1. Select **Let the system decide** during onboarding.
+2. Generate dinner.
+
+### Expected result
+
+- The higher-popularity valid combination is ranked first or appears before the
+  lower-popularity equivalent in quick swaps.
+- The reason text can mention popularity or household fit without hiding hard
+  filter decisions.
+
+## RECO-012: Frequency preferences affect weekly distribution
+
+### Preconditions
+
+- User tagged `Arhar Dal` as **include in daily meal**.
+- User tagged `Chole` as **include in once in a week**.
+- User tagged `Sambhar` as **include in once in a while**.
+
+### Steps
+
+1. Generate a weekly dinner plan.
+
+### Expected result
+
+- Daily-tagged items can appear more often only through varied complete
+  combinations.
+- Once-a-week items appear no more than once in the generated week unless the
+  user manually overrides.
+- Once-in-a-while items are strongly de-prioritized but still available as valid
+  occasional recommendations.
 
 ---
 
@@ -1636,7 +1844,12 @@ Before release, run these checks:
 - Draft resumes.
 - Required validation works.
 - Preferences can be edited after onboarding.
-- Preferred dishes can be manually selected or skipped.
+- User can select existing meal combinations, build their own combination, or let
+  the system decide.
+- Meal-combination cards are exhaustive, searchable, image-backed, and sorted by
+  popularity.
+- Build-your-own meal preferences persist frequency tags and **Goes with**
+  accompaniments.
 
 ## Images
 
@@ -1644,15 +1857,26 @@ Before release, run these checks:
 - Ingredient images display accurately.
 - Broken images have safe fallback.
 - Images match metadata.
+- Above-the-fold placeholders do not emit LCP warnings.
 
 ## Meal planning
 
 - Today meal generates.
 - Weekly plan generates.
 - Side dishes are not standalone meals.
-- Meal packages are wholesome.
+- Meal packages are wholesome South Asian combinations.
+- Meal-combination popularity and user frequency preferences influence
+  recommendations.
 - Prep tasks are generated.
 - Grocery list is accurate.
+
+## Visual QA
+
+- `/today` meal cards do not reserve excessive empty space before controls.
+- Onboarding side-panel copy is visible in the first desktop viewport.
+- Mobile onboarding, meal-combination cards, today, plan, grocery, and household
+  views have no horizontal overflow.
+- Browser console has no relevant app errors or unexpected warnings.
 
 ## Collaboration
 
@@ -1684,11 +1908,16 @@ The implementation is not complete until:
 5. All permission checks are enforced server-side.
 6. Onboarding draft survives refresh and sign-out/sign-in.
 7. Preferences are editable after onboarding.
-8. Preferred dish selection works manually and automatically.
-9. Dish and ingredient images are accurate.
-10. Side dishes are never standalone main recommendations.
-11. Meal package logic is implemented.
-12. Collaboration notifications are generated.
-13. Temporary guest expiry is enforced.
-14. Removed users cannot access household data.
-15. The profile button is visible and clickable for every signed-in user.
+8. Meal-combination onboarding supports selecting existing combinations,
+   building custom combinations, and letting the system decide.
+9. Meal-combination popularity and user frequency preferences influence
+   recommendations.
+10. Dish and ingredient images are accurate.
+11. Above-the-fold placeholders do not emit LCP warnings.
+12. Side dishes are never standalone main recommendations.
+13. Meal package logic is implemented for complete South Asian combinations.
+14. Visual QA bugs in `test/ui_testing_bugs_2026-05-25.md` are resolved.
+15. Collaboration notifications are generated.
+16. Temporary guest expiry is enforced.
+17. Removed users cannot access household data.
+18. The profile button is visible and clickable for every signed-in user.

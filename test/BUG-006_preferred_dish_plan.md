@@ -1,10 +1,17 @@
 # BUG-006 — Preferred-Dish Onboarding: Phased Plan
 
-> Companion to `test/ui_acceptance_bug_log.md` (BUG-006) and
-> `test/14_end_to_end_acceptance_tests.md` (Global criterion 7, PREFDISH-001..006).
+> Legacy companion to `test/ui_acceptance_bug_log.md` (BUG-006) and the former
+> `test/14_end_to_end_acceptance_tests.md` PREFDISH-001..006 criteria.
 > Goal: during onboarding the user can either **choose preferred dishes manually**
 > or **let the system choose** from their preferences; manual picks persist and
 > influence recommendations.
+
+> 2026-05-25 acceptance update: the old two-option preferred-dish picker is now
+> superseded by `test/14_end_to_end_acceptance_tests.md` section 4,
+> **MEALPREF-001..009**. The replacement feature has three choices:
+> **Select your meal combinations**, **Build your own meal combination**, and
+> **Let the system decide**. Claude Code should implement the newer
+> meal-combination acceptance, not stop at this original BUG-006 scope.
 
 ## Good news: most of the persistence + influence already exists
 
