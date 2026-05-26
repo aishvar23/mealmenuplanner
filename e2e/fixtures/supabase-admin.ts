@@ -26,6 +26,129 @@ export function createAdminClient(): SupabaseClient {
   });
 }
 
+export type MemberRole = "owner" | "admin" | "member" | "viewer";
+
+/**
+ * Role → default `can_*` flags. Mirrors `defaultPermissionsForRole` in
+ * lib/auth/permissions.ts so service-role-inserted members match what the app
+ * would create at invite/accept time. Keep in sync if the app's matrix changes.
+ */
+export const ROLE_PERMISSIONS: Record<MemberRole, Record<string, boolean>> = {
+  owner: {
+    can_view_plan: true,
+    can_suggest_meals: true,
+    can_change_today_menu: true,
+    can_change_weekly_schedule: true,
+    can_manage_grocery_list: true,
+    can_invite_members: true,
+    can_remove_members: true,
+    can_edit_household_preferences: true,
+  },
+  admin: {
+    can_view_plan: true,
+    can_suggest_meals: true,
+    can_change_today_menu: true,
+    can_change_weekly_schedule: true,
+    can_manage_grocery_list: true,
+    can_invite_members: true,
+    can_remove_members: false,
+    can_edit_household_preferences: true,
+  },
+  member: {
+    can_view_plan: true,
+    can_suggest_meals: true,
+    can_change_today_menu: false,
+    can_change_weekly_schedule: false,
+    can_manage_grocery_list: false,
+    can_invite_members: false,
+    can_remove_members: false,
+    can_edit_household_preferences: false,
+  },
+  viewer: {
+    can_view_plan: true,
+    can_suggest_meals: false,
+    can_change_today_menu: false,
+    can_change_weekly_schedule: false,
+    can_manage_grocery_list: false,
+    can_invite_members: false,
+    can_remove_members: false,
+    can_edit_household_preferences: false,
+  },
+};
+
+/** Grant app-operator access by setting `app_metadata.app_role = "admin"`. */
+export async function setAdminAppRole(
+  admin: SupabaseClient,
+  userId: string,
+): Promise<void> {
+  const { error } = await admin.auth.admin.updateUserById(userId, {
+    app_metadata: { app_role: "admin" },
+  });
+  if (error) {
+    throw new Error(
+      `E2E: could not grant admin role to ${userId}: ${error.message}`,
+    );
+  }
+}
+
+/** The household a user created (their owned household), or null. */
+export async function findHouseholdIdByOwner(
+  admin: SupabaseClient,
+  ownerUserId: string,
+): Promise<string | null> {
+  const { data, error } = await admin
+    .from("households")
+    .select("id")
+    .eq("created_by_user_id", ownerUserId)
+    .maybeSingle();
+  if (error)
+    throw new Error(`E2E: findHouseholdIdByOwner failed: ${error.message}`);
+  return (data?.id as string | undefined) ?? null;
+}
+
+/**
+ * Insert an active membership directly (bypassing the invite/accept flow) so a
+ * test can stand up a multi-role household quickly. `expiresAt` set for guests.
+ */
+export async function addHouseholdMember(
+  admin: SupabaseClient,
+  args: {
+    householdId: string;
+    userId: string;
+    role: MemberRole;
+    membershipType?: "permanent" | "temporary_guest";
+    status?: "active" | "invited" | "removed" | "left" | "expired";
+    expiresAt?: string | null;
+    permissionOverrides?: Record<string, boolean>;
+  },
+): Promise<void> {
+  const {
+    householdId,
+    userId,
+    role,
+    membershipType = "permanent",
+    status = "active",
+    expiresAt = null,
+    permissionOverrides = {},
+  } = args;
+  const { error } = await admin.from("household_members").insert({
+    household_id: householdId,
+    user_id: userId,
+    role,
+    membership_type: membershipType,
+    status,
+    expires_at: expiresAt,
+    joined_at: status === "active" ? new Date().toISOString() : null,
+    ...ROLE_PERMISSIONS[role],
+    ...permissionOverrides,
+  });
+  if (error) {
+    throw new Error(
+      `E2E: addHouseholdMember failed for ${userId}: ${error.message}`,
+    );
+  }
+}
+
 /** "User already exists" is the success path when re-provisioning a spec user. */
 function isAlreadyExists(error: {
   message?: string;

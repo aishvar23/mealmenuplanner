@@ -29,6 +29,7 @@ export const E2E_PASSWORD =
 
 export const AUTH_DIR = path.resolve(process.cwd(), "e2e", ".auth");
 export const OWNER_STORAGE_STATE = path.join(AUTH_DIR, "owner.json");
+export const ADMIN_STORAGE_STATE = path.join(AUTH_DIR, "admin.json");
 
 /**
  * Minimum onboarding answers (the required-field set from design/06 § 2). Diet is

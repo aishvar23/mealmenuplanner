@@ -94,3 +94,36 @@ export async function completeMinimumOnboarding(
     "E2E: onboarding never reached the review step (10-step cap).",
   );
 }
+
+/**
+ * In onboarding EDIT mode (an existing household at /onboarding), advance through
+ * the edit steps and click "Save changes", landing back on /household.
+ */
+export async function finishEdit(page: Page): Promise<void> {
+  const heading = page.getByRole("heading", { level: 2 });
+  for (let step = 0; step < 8; step++) {
+    const save = page.getByRole("button", { name: "Save changes" });
+    if (await save.isVisible().catch(() => false)) {
+      await save.click();
+      await page.waitForURL("**/household", { timeout: 30_000 });
+      return;
+    }
+    const before =
+      (await heading
+        .first()
+        .textContent()
+        .catch(() => null)) ?? "";
+    await page.getByRole("button", { name: "Next", exact: true }).click();
+    await expect
+      .poll(
+        async () =>
+          (await heading
+            .first()
+            .textContent()
+            .catch(() => null)) ?? "",
+        { timeout: 10_000 },
+      )
+      .not.toBe(before);
+  }
+  throw new Error("E2E: edit flow never reached 'Save changes' (8-step cap).");
+}

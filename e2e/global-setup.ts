@@ -4,6 +4,8 @@ import path from "node:path";
 import { chromium, type FullConfig } from "@playwright/test";
 
 import {
+  ADMIN,
+  ADMIN_STORAGE_STATE,
   E2E_PASSWORD,
   OWNER,
   OWNER_STORAGE_STATE,
@@ -12,6 +14,7 @@ import {
 import {
   createAdminClient,
   ensureUserWithPassword,
+  setAdminAppRole,
 } from "./fixtures/supabase-admin";
 import { signInWithPassword } from "./helpers/auth";
 import { completeMinimumOnboarding } from "./helpers/onboarding";
@@ -33,9 +36,18 @@ export default async function globalSetup(config: FullConfig): Promise<void> {
   const baseURL = config.projects[0]?.use?.baseURL ?? "http://localhost:3000";
 
   const admin = createAdminClient();
+  const idByEmail = new Map<string, string>();
   for (const email of SPEC_USERS) {
-    await ensureUserWithPassword(admin, email, E2E_PASSWORD);
+    idByEmail.set(
+      email,
+      await ensureUserWithPassword(admin, email, E2E_PASSWORD),
+    );
   }
+
+  // Grant the operator role to admin@ so the /admin console is reachable. Set
+  // before sign-in so the captured session's token carries the app_role.
+  const adminId = idByEmail.get(ADMIN);
+  if (adminId) await setAdminAppRole(admin, adminId);
 
   const browser = await chromium.launch();
   const context = await browser.newContext({ baseURL });
@@ -75,6 +87,18 @@ export default async function globalSetup(config: FullConfig): Promise<void> {
     } catch {
       // Ignore — specs still exercise the route directly.
     }
+
+    // Capture admin@ session (separate context so cookies don't mix with owner).
+    const adminContext = await browser.newContext({ baseURL });
+    const adminPage = await adminContext.newPage();
+    await signInWithPassword(adminPage, ADMIN, E2E_PASSWORD);
+    // admin@ has no household → lands on /onboarding; that's fine, we only need
+    // the authenticated session for the /admin console.
+    await adminPage.waitForURL(/\/(today|onboarding)(\?|$|\/)/, {
+      timeout: 30_000,
+    });
+    await adminContext.storageState({ path: ADMIN_STORAGE_STATE });
+    await adminContext.close();
   } finally {
     await browser.close();
   }
