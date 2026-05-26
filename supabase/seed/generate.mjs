@@ -293,8 +293,10 @@ for (const [name, role] of Object.entries(MEAL_ROLE_OVERRIDES)) {
 }
 
 // ── Validate meal combinations (P10) ────────────────────────────────────────────
-// Every combo: unique name, valid diet, ≥2 distinct member dishes that all exist,
+// Every combo: unique name, valid diet, ≥1 distinct member dish that all exist,
 // and diet-coherent with its dishes (a vegetarian combo can't hide a non-veg dish).
+// Admin combos may be a single main dish (its accompaniments live as pairings);
+// the ≥2 floor only constrains user proposals (propose_meal_combination RPC).
 const dietByDishName = new Map(DISHES.map((dish) => [dish.name, dish.diet]));
 const comboNames = new Set();
 for (const combo of COMBINATIONS) {
@@ -307,8 +309,8 @@ for (const combo of COMBINATIONS) {
   if (!DIET_TYPES.includes(combo.diet))
     fail(`${where}: invalid diet "${combo.diet}"`);
 
-  if (!Array.isArray(combo.dishes) || combo.dishes.length < 2) {
-    fail(`${where}: needs at least two dishes`);
+  if (!Array.isArray(combo.dishes) || combo.dishes.length < 1) {
+    fail(`${where}: needs at least one dish`);
     continue;
   }
 
