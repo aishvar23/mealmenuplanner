@@ -23,6 +23,9 @@ const F = {
   notRepeated: { label: "notRepeatedRecently", weight: 40 } as ScoredFactor,
   cuisine: { label: "cuisineMatch", weight: 30 } as ScoredFactor,
   time: { label: "cookingTimeWithinLimit", weight: 30 } as ScoredFactor,
+  // P10 positive factors.
+  frequencyDaily: { label: "frequencyDaily", weight: 35 } as ScoredFactor,
+  popularDish: { label: "popularDish", weight: 15 } as ScoredFactor,
 };
 
 describe("buildReason", () => {
@@ -68,6 +71,24 @@ describe("buildReason", () => {
       reasonCtx({ dish: makeDish({ dietType: "non_vegetarian" }) }),
     );
     expect(reason).toBe("Suggested because it is non-vegetarian.");
+  });
+
+  it("narrates the P10 daily-staple and popular-dish factors in weight order", () => {
+    const reason = buildReason(
+      [F.popularDish, F.diet, F.frequencyDaily],
+      reasonCtx(),
+    );
+    expect(reason).toBe(
+      "Suggested because it is vegetarian, is one of your everyday staples, and is a popular choice.",
+    );
+  });
+
+  it("never narrates the negative once_in_a_while frequency factor", () => {
+    const reason = buildReason(
+      [F.diet, { label: "frequencyOnceInAWhile", weight: -20 }],
+      reasonCtx(),
+    );
+    expect(reason).toBe("Suggested because it is vegetarian.");
   });
 
   it("phrases the variety window from variety_gap_days", () => {
