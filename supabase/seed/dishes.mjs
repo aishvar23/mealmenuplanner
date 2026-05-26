@@ -2634,6 +2634,206 @@ export const DISHES = [
  * `image_verified = true`; every other dish stays the `placeholder` default.
  */
 export const DISH_IMAGES = {
+  "Palak Paneer": {
+    url: "/images/dishes/meal_photos/palak%20paneer.png",
+    alt: "A bowl of palak paneer with paneer cubes in a green spinach gravy.",
+  },
+  "Paneer Butter Masala": {
+    url: "/images/dishes/meal_photos/paneer%20butter%20masala.png",
+    alt: "Paneer cubes in a rich orange butter masala gravy.",
+  },
+  "Aloo Gobi": {
+    url: "/images/dishes/meal_photos/aloo%20gobhi.png",
+    alt: "A dry aloo gobi sabzi with potatoes, cauliflower and spices.",
+  },
+  "Bhindi Masala": {
+    url: "/images/dishes/meal_photos/bhindi%20masala.png",
+    alt: "Sliced okra cooked with onion, tomato and masala spices.",
+  },
+  "Baingan Bharta": {
+    url: "/images/dishes/meal_photos/baigan%20bharta.png",
+    alt: "Smoky mashed eggplant bharta cooked with onions, tomatoes and spices.",
+  },
+  "Kadhi Pakora": {
+    url: "/images/dishes/meal_photos/kadhi%20pakora.png",
+    alt: "Yellow kadhi with pakoras in a spiced yogurt and gram flour curry.",
+  },
+  "Matar Paneer": {
+    url: "/images/dishes/meal_photos/mater%20paneer.png",
+    alt: "Paneer and green peas simmered in a tomato-onion gravy.",
+  },
+  "Dal Makhani": {
+    url: "/images/dishes/meal_photos/dal%20makhani.png",
+    alt: "Creamy black lentil dal makhani in a bowl.",
+  },
+  "Kala Chana Masala": {
+    url: "/images/dishes/meal_photos/kala-chana%20sabji.png",
+    alt: "Black chickpeas cooked in a dry spiced masala.",
+  },
+  "Aloo Matar": {
+    url: "/images/dishes/meal_photos/aloo%20matar.png",
+    alt: "Potatoes and green peas cooked in a spiced gravy.",
+  },
+  "Steamed Rice": {
+    url: "/images/dishes/meal_photos/plain-rice.png",
+    alt: "A bowl of plain steamed white rice.",
+  },
+  "Butter Naan": {
+    url: "/images/dishes/meal_photos/naan.png",
+    alt: "Soft naan bread brushed with butter.",
+  },
+  Idli: {
+    url: "/images/dishes/meal_photos/idli.png",
+    alt: "Steamed South Indian idlis served on a plate.",
+  },
+  "Plain Dosa": {
+    url: "/images/dishes/meal_photos/dosa.png",
+    alt: "A crisp plain dosa served with chutney.",
+  },
+  "Lemon Rice": {
+    url: "/images/dishes/meal_photos/lemonrice.png",
+    alt: "Yellow South Indian lemon rice with spices and curry leaves.",
+  },
+  "Curd Rice": {
+    url: "/images/dishes/meal_photos/curd%20rice.png",
+    alt: "Creamy curd rice garnished with spices.",
+  },
+  Dhokla: {
+    url: "/images/dishes/meal_photos/dhokla.png",
+    alt: "Yellow dhokla pieces served with tempering.",
+  },
+  Khandvi: {
+    url: "/images/dishes/meal_photos/khandvi.png",
+    alt: "Rolled Gujarati khandvi topped with tempering.",
+  },
+  Poha: {
+    url: "/images/dishes/meal_photos/poha.png",
+    alt: "Flattened rice poha cooked with spices and garnish.",
+  },
+  "Misal Pav": {
+    url: "/images/dishes/meal_photos/misal.png",
+    alt: "Spicy misal curry topped with farsan and served with pav.",
+  },
+  "Pav Bhaji": {
+    url: "/images/dishes/meal_photos/pav%20bhaji.png",
+    alt: "Pav bhaji with buttered bread rolls and spiced vegetable mash.",
+  },
+  "Dal Dhokli": {
+    url: "/images/dishes/meal_photos/dal%20dhokli.png",
+    alt: "Dal dhokli with wheat dumplings simmered in lentil curry.",
+  },
+  Samosa: {
+    url: "/images/dishes/meal_photos/samosaa.png",
+    alt: "Crisp fried samosas filled with spiced potatoes.",
+  },
+  "Onion Pakora": {
+    url: "/images/dishes/meal_photos/onion%20pakora.png",
+    alt: "Crisp onion pakoras fried until golden.",
+  },
+  "Aloo Tikki": {
+    url: "/images/dishes/meal_photos/aloo%20tikki.png",
+    alt: "Golden potato aloo tikki patties served with chutney.",
+  },
+  "Bhel Puri": {
+    url: "/images/dishes/meal_photos/bhej%20puri.png",
+    alt: "Bhel puri chaat with puffed rice, chutneys and sev.",
+  },
+  "Pani Puri": {
+    url: "/images/dishes/meal_photos/pani%20poori.png",
+    alt: "Crisp pani puri shells served with spiced water.",
+  },
+  "Hara Bhara Kabab": {
+    url: "/images/dishes/meal_photos/hara%20bhara%20kebab.png",
+    alt: "Green hara bhara kabab patties made with spinach and vegetables.",
+  },
+  "Paneer Tikka": {
+    url: "/images/dishes/meal_photos/paneer%20tikka.png",
+    alt: "Grilled paneer tikka pieces with charred edges.",
+  },
+  "Masala Omelette": {
+    url: "/images/dishes/meal_photos/omlette.png",
+    alt: "Indian masala omelette cooked with onions, herbs and spices.",
+  },
+  "Egg Bhurji": {
+    url: "/images/dishes/meal_photos/egg%20burji.png",
+    alt: "Scrambled egg bhurji cooked with onions, tomatoes and spices.",
+  },
+  "Bread Omelette": {
+    url: "/images/dishes/meal_photos/bread%20omlette.png",
+    alt: "Bread omelette with toasted bread and spiced egg.",
+  },
+  "Egg Fried Rice": {
+    url: "/images/dishes/meal_photos/egg%20fried%20rice.png",
+    alt: "Fried rice tossed with egg and vegetables.",
+  },
+  "Chicken Biryani": {
+    url: "/images/dishes/meal_photos/chicken%20biryani.png",
+    alt: "Chicken biryani with spiced rice and chicken pieces.",
+  },
+  "Chicken Tikka": {
+    url: "/images/dishes/meal_photos/chicken%20tikka.png",
+    alt: "Grilled chicken tikka pieces with a spiced marinade.",
+  },
+  "Mutton Rogan Josh": {
+    url: "/images/dishes/meal_photos/mutton%20rogan%20ghosh.png",
+    alt: "Mutton rogan josh in a deep red curry gravy.",
+  },
+  "Chicken 65": {
+    url: "/images/dishes/meal_photos/chicken%2065.png",
+    alt: "Spicy fried Chicken 65 pieces served with garnish.",
+  },
+  "Chilli Chicken": {
+    url: "/images/dishes/meal_photos/chilli%20chicken.png",
+    alt: "Indo-Chinese chilli chicken tossed with peppers and sauce.",
+  },
+  "Fish Curry": {
+    url: "/images/dishes/meal_photos/fish%20curry.png",
+    alt: "Fish pieces simmered in a spiced curry gravy.",
+  },
+  "Fish Fry": {
+    url: "/images/dishes/meal_photos/fish%20fry.png",
+    alt: "Fried fish pieces coated in spices.",
+  },
+  "Prawn Masala": {
+    url: "/images/dishes/meal_photos/prawn%20masala.png",
+    alt: "Prawns cooked in a thick masala gravy.",
+  },
+  "Goan Fish Curry": {
+    url: "/images/dishes/meal_photos/goan%20fish%20curry.png",
+    alt: "Goan fish curry with a coconut-based orange gravy.",
+  },
+  "Prawn Fried Rice": {
+    url: "/images/dishes/meal_photos/prwan%20fried%20rice.png",
+    alt: "Fried rice tossed with prawns and vegetables.",
+  },
+  "Veg Fried Rice": {
+    url: "/images/dishes/meal_photos/veg%20fried%20rice.png",
+    alt: "Vegetable fried rice with mixed vegetables.",
+  },
+  "Pasta Arrabbiata": {
+    url: "/images/dishes/meal_photos/pasta%20arabiatta.png",
+    alt: "Pasta arrabbiata in a red tomato sauce.",
+  },
+  "Pasta Alfredo": {
+    url: "/images/dishes/meal_photos/pasta%20alfredo.png",
+    alt: "Pasta alfredo coated in a creamy white sauce.",
+  },
+  "Grilled Cheese Sandwich": {
+    url: "/images/dishes/meal_photos/cheese%20sandwich.png",
+    alt: "A grilled cheese sandwich cut in half.",
+  },
+  "Chickpea Salad": {
+    url: "/images/dishes/meal_photos/chikpea%20salad.png",
+    alt: "Chickpea salad with vegetables and herbs.",
+  },
+  Hummus: {
+    url: "/images/dishes/meal_photos/hummus.png",
+    alt: "Creamy hummus served in a bowl.",
+  },
+  "Masala Chai": {
+    url: "/images/dishes/meal_photos/chai.png",
+    alt: "A cup of Indian masala chai.",
+  },
   "Masala Dosa": {
     url: "/images/dishes/masala-dosa.jpg",
     alt: "A crisp golden South Indian masala dosa filled with spiced potato.",
