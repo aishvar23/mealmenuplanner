@@ -10,6 +10,10 @@ export async function signInWithPassword(
   email: string,
   password: string,
 ): Promise<void> {
+  // Drop any existing session first: when already authenticated, the proxy
+  // redirects /sign-in → /today, so the form wouldn't render. Clearing cookies
+  // lets a test switch users on the same page (owner → member, etc.).
+  await page.context().clearCookies();
   await page.goto("/sign-in");
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
