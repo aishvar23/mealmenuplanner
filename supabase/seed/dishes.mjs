@@ -2910,4 +2910,125 @@ export const DISH_IMAGES = {
     url: "/images/dishes/jeera-aloo.jpg",
     alt: "Diced potatoes sautéed with cumin seeds (jeera aloo).",
   },
+  // Remaining meal photos batch (under remaining_meal_images/).
+  "Shahi Paneer": {
+    url: "/images/dishes/remaining_meal_images/shahi%20paneer.png",
+    alt: "Paneer cubes in a rich, creamy shahi paneer gravy.",
+  },
+  "Tandoori Roti": {
+    url: "/images/dishes/remaining_meal_images/tandoori%20roti.png",
+    alt: "A tandoor-baked whole-wheat tandoori roti flatbread.",
+  },
+  Bhature: {
+    url: "/images/dishes/remaining_meal_images/bhature.png",
+    alt: "Puffy deep-fried bhature bread served hot.",
+  },
+  "Vegetable Biryani": {
+    url: "/images/dishes/remaining_meal_images/vegetable%20biryani.png",
+    alt: "Vegetable biryani with spiced basmati rice and mixed vegetables.",
+  },
+  "Medu Vada": {
+    url: "/images/dishes/remaining_meal_images/medu%20wada.png",
+    alt: "Golden fried South Indian medu vada doughnuts.",
+  },
+  Rasam: {
+    url: "/images/dishes/remaining_meal_images/rasam.png",
+    alt: "A bowl of South Indian rasam, a thin spiced tamarind soup.",
+  },
+  "Ven Pongal": {
+    url: "/images/dishes/remaining_meal_images/veg%20pongal.png",
+    alt: "Ven pongal, a soft South Indian rice-and-lentil dish tempered with pepper and cumin.",
+  },
+  "Rava Dosa": {
+    url: "/images/dishes/remaining_meal_images/rava%20dosa.png",
+    alt: "A crisp lacy rava dosa made from semolina batter.",
+  },
+  "Bisi Bele Bath": {
+    url: "/images/dishes/remaining_meal_images/besi%20bele%20bhat.png",
+    alt: "Karnataka-style bisi bele bath, a spiced rice-and-lentil dish with vegetables.",
+  },
+  Undhiyu: {
+    url: "/images/dishes/remaining_meal_images/unidyu.png",
+    alt: "Gujarati undhiyu, a mixed-vegetable casserole with spices.",
+  },
+  "Sabudana Khichdi": {
+    url: "/images/dishes/remaining_meal_images/sabudana%20khichdi.png",
+    alt: "Sabudana khichdi with tapioca pearls, peanuts and potatoes.",
+  },
+  "Vada Pav": {
+    url: "/images/dishes/remaining_meal_images/vadapav.png",
+    alt: "Mumbai vada pav — a spiced potato fritter in a soft bread bun.",
+  },
+  Pithla: {
+    url: "/images/dishes/remaining_meal_images/pithla.png",
+    alt: "Maharashtrian pithla, a soft spiced gram-flour curry.",
+  },
+  "Jain Dal Fry": {
+    url: "/images/dishes/remaining_meal_images/jain%20dal%20fry.png",
+    alt: "Jain dal fry — yellow lentils tempered without onion or garlic.",
+  },
+  "Jain Vegetable Pulao": {
+    url: "/images/dishes/remaining_meal_images/jain%20vegetable%20pulav.png",
+    alt: "Jain vegetable pulao with rice and vegetables, made without onion or garlic.",
+  },
+  "Jain Pav Bhaji": {
+    url: "/images/dishes/remaining_meal_images/jain%20pav%20bhaji.png",
+    alt: "Jain pav bhaji with a spiced vegetable mash and buttered pav.",
+  },
+  "Jain Samosa": {
+    url: "/images/dishes/remaining_meal_images/jain%20samosa.png",
+    alt: "Crisp Jain samosas filled with spiced potato, made without onion or garlic.",
+  },
+  "Boondi Raita": {
+    url: "/images/dishes/remaining_meal_images/boondi%20raita.png",
+    alt: "Boondi raita with crisp gram-flour pearls in spiced yogurt.",
+  },
+  "Butter Chicken": {
+    url: "/images/dishes/remaining_meal_images/butter%20chicken.png",
+    alt: "Chicken pieces in a creamy orange butter chicken gravy.",
+  },
+  "Tandoori Chicken": {
+    url: "/images/dishes/remaining_meal_images/tandoori%20chicken.png",
+    alt: "Charred tandoori chicken pieces with a red spiced marinade.",
+  },
+  "Keema Matar": {
+    url: "/images/dishes/remaining_meal_images/keema%20matar.png",
+    alt: "Minced-meat keema cooked with green peas in a spiced gravy.",
+  },
+  "Veg Hakka Noodles": {
+    url: "/images/dishes/remaining_meal_images/veg%20hakka%20noodles.png",
+    alt: "Indo-Chinese veg Hakka noodles tossed with vegetables.",
+  },
+  "Veg Manchurian": {
+    url: "/images/dishes/remaining_meal_images/veg%20manchurian.png",
+    alt: "Veg Manchurian balls in a glossy Indo-Chinese sauce.",
+  },
+  "Veg Sandwich": {
+    url: "/images/dishes/remaining_meal_images/veg%20sandwich.png",
+    alt: "A grilled vegetable sandwich with a fresh vegetable filling.",
+  },
+  "Veg Burger": {
+    url: "/images/dishes/remaining_meal_images/veg%20burger.png",
+    alt: "A vegetable burger with a patty and fresh vegetables in a bun.",
+  },
+  "Rajma Quinoa Bowl": {
+    url: "/images/dishes/remaining_meal_images/rajma%20quinua%20bowl.png",
+    alt: "A bowl of rajma kidney beans served over quinoa.",
+  },
+  "Tofu Stir Fry": {
+    url: "/images/dishes/remaining_meal_images/tofu%20stir%20fry.png",
+    alt: "Tofu stir-fried with mixed vegetables.",
+  },
+  "Thai Green Curry": {
+    url: "/images/dishes/remaining_meal_images/thai%20green%20curry.png",
+    alt: "Thai green curry with vegetables in a coconut-based green sauce.",
+  },
+  "Vegetable Soup": {
+    url: "/images/dishes/remaining_meal_images/vegetable%20soup.png",
+    alt: "A bowl of clear vegetable soup with diced vegetables.",
+  },
+  "Jain Paneer Bhurji": {
+    url: "/images/dishes/remaining_meal_images/jain%20paneer%20bhurji.png",
+    alt: "Scrambled paneer bhurji with diced tomato and capsicum, made without onion or garlic.",
+  },
 };
