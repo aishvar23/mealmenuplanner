@@ -95,6 +95,21 @@ export const MEAL_ROLE_OVERRIDES = {
   Papad: "side",
   Raita: "side",
   "Green Salad": "side",
+  // Onboarding combination accompaniments (never a standalone primary).
+  "Garlic Bread": "side",
+  "Plain Paratha": "bread_component",
+  Curd: "side",
+  // Self-contained one-pot rice meals.
+  "Corn Spinach Rice": "complete_meal",
+  "Thecha Rice": "complete_meal",
+  // Self-contained breakfasts (stand alone on the plate).
+  "Sevaiyan Upma": "complete_meal",
+  "Aloo Sandwich": "complete_meal",
+  "Paneer Corn Grilled Sandwich": "complete_meal",
+  "Suji Idli Fry": "complete_meal",
+  "Boiled Chana Salad": "complete_meal",
+  "Bread Poha": "complete_meal",
+  "Bread Pizza": "complete_meal",
 };
 
 export const DISHES = [
@@ -153,7 +168,10 @@ export const DISHES = [
           "Soak rajma in water for at least 8 hours (overnight).",
         ],
       ],
-      pairings: [["Steamed Rice", "rice_pairing"]],
+      pairings: [
+        ["Roti", "bread_pairing"],
+        ["Steamed Rice", "rice_pairing"],
+      ],
     },
   ),
 
@@ -180,7 +198,11 @@ export const DISHES = [
     ],
     {
       prepTasks: [["Soak chickpeas", 480, "Soak kabuli chana overnight (8h)."]],
-      pairings: [["Bhature", "bread_pairing"]],
+      pairings: [
+        ["Bhature", "bread_pairing"],
+        ["Roti", "bread_pairing"],
+        ["Steamed Rice", "rice_pairing"],
+      ],
     },
   ),
 
@@ -205,7 +227,13 @@ export const DISHES = [
       ["Cooking Oil", 1, "tbsp"],
       ["Salt", 1, "tsp"],
     ],
-    { pairings: [["Tandoori Roti", "bread_pairing"]] },
+    {
+      pairings: [
+        ["Tandoori Roti", "bread_pairing"],
+        ["Roti", "bread_pairing"],
+        ["Steamed Rice", "rice_pairing"],
+      ],
+    },
   ),
 
   d(
@@ -253,6 +281,13 @@ export const DISHES = [
       ["Cooking Oil", 1, "tbsp"],
       ["Salt", 1, "tsp"],
     ],
+    {
+      pairings: [
+        ["Roti", "bread_pairing"],
+        ["Dal Tadka", "main_side"],
+        ["Steamed Rice", "rice_pairing"],
+      ],
+    },
   ),
 
   d(
@@ -274,6 +309,13 @@ export const DISHES = [
       ["Cooking Oil", 1, "tbsp"],
       ["Salt", 1, "tsp"],
     ],
+    {
+      pairings: [
+        ["Roti", "bread_pairing"],
+        ["Dal Tadka", "main_side"],
+        ["Steamed Rice", "rice_pairing"],
+      ],
+    },
   ),
 
   d(
@@ -317,7 +359,13 @@ export const DISHES = [
       ["Cooking Oil", 1, "tbsp"],
       ["Salt", 1, "tsp"],
     ],
-    { pairings: [["Steamed Rice", "rice_pairing"]] },
+    {
+      pairings: [
+        ["Jeera Aloo", "main_side"],
+        ["Roti", "bread_pairing"],
+        ["Steamed Rice", "rice_pairing"],
+      ],
+    },
   ),
 
   d(
@@ -340,6 +388,12 @@ export const DISHES = [
       ["Cooking Oil", 1, "tbsp"],
       ["Salt", 1, "tsp"],
     ],
+    {
+      pairings: [
+        ["Roti", "bread_pairing"],
+        ["Steamed Rice", "rice_pairing"],
+      ],
+    },
   ),
 
   d(
@@ -402,6 +456,10 @@ export const DISHES = [
     {
       prepTasks: [
         ["Soak black chickpeas", 480, "Soak kala chana overnight (8h)."],
+      ],
+      pairings: [
+        ["Roti", "bread_pairing"],
+        ["Steamed Rice", "rice_pairing"],
       ],
     },
   ),
@@ -807,7 +865,14 @@ export const DISHES = [
       ["Cooking Oil", 1, "tbsp"],
       ["Salt", 1, "tsp"],
     ],
-    { pairings: [["Steamed Rice", "rice_pairing"]] },
+    {
+      pairings: [
+        ["Idli", "main_side"],
+        ["Plain Dosa", "main_side"],
+        ["Steamed Rice", "rice_pairing"],
+        ["Coconut Chutney", "condiment"],
+      ],
+    },
   ),
 
   d(
@@ -1081,6 +1146,12 @@ export const DISHES = [
       ["Cooking Oil", 1, "tbsp"],
       ["Salt", 0.5, "tsp"],
     ],
+    {
+      pairings: [
+        ["Aloo Tamatar", "main_side"],
+        ["Masala Chai", "beverage"],
+      ],
+    },
   ),
 
   d(
@@ -1128,6 +1199,7 @@ export const DISHES = [
       ["Cooking Oil", 1, "tbsp"],
       ["Salt", 0.5, "tsp"],
     ],
+    { pairings: [["Masala Chai", "beverage"]] },
   ),
 
   d(
@@ -2227,6 +2299,7 @@ export const DISHES = [
       ["Cooking Oil", 1, "tbsp"],
       ["Salt", 0.75, "tsp"],
     ],
+    { pairings: [["Garlic Bread", "bread_pairing"]] },
   ),
 
   d(
@@ -2510,7 +2583,10 @@ export const DISHES = [
     ],
     {
       desc: "Scrambled paneer cooked with onions, tomatoes and spices.",
-      pairings: [["Roti", "bread_pairing"]],
+      pairings: [
+        ["Roti", "bread_pairing"],
+        ["Plain Paratha", "bread_pairing"],
+      ],
     },
   ),
 
@@ -2536,7 +2612,10 @@ export const DISHES = [
     ],
     {
       desc: "A soft one-pot dish of rice and lentils with vegetables.",
-      pairings: [["Raita", "condiment"]],
+      pairings: [
+        ["Raita", "condiment"],
+        ["Curd", "condiment"],
+      ],
     },
   ),
 
@@ -2623,6 +2702,838 @@ export const DISHES = [
       ["Salt", 0.5, "tsp"],
     ],
     { desc: "A fresh diced salad of cucumber, tomato and onion (kachumber)." },
+  ),
+
+  // ── Lunch/dinner combination mains (onboarding "Select combinations") ─────────
+  // Single-main combos curated for the preferred-dishes step. Active prep time is
+  // kept under 60 min; advance soaking/fermentation is a prepTask, and the plate
+  // accompaniments ("goes with") are modelled as pairings, not bundled dishes.
+  d(
+    "Lauki Chana Dal",
+    "North Indian",
+    "vegan",
+    ["lunch", "dinner"],
+    15,
+    30,
+    "easy",
+    "medium",
+    ["leftover_friendly", "high_protein", "diabetic_friendly"],
+    [
+      ["Bottle Gourd", 150, "g"],
+      ["Chana Dal", 50, "g"],
+      ["Onion", 40, "g"],
+      ["Tomato", 50, "g"],
+      ["Garlic", 5, "g"],
+      ["Ginger", 4, "g"],
+      ["Turmeric", 0.5, "tsp"],
+      ["Cumin Seeds", 1, "tsp"],
+      ["Coriander Powder", 1, "tsp"],
+      ["Cooking Oil", 1, "tbsp"],
+      ["Salt", 1, "tsp"],
+    ],
+    {
+      desc: "Bottle gourd simmered with split bengal gram (chana dal) and spices.",
+      pairings: [
+        ["Roti", "bread_pairing"],
+        ["Dal Tadka", "main_side"],
+        ["Steamed Rice", "rice_pairing"],
+      ],
+    },
+  ),
+
+  d(
+    "Nenua Chana",
+    "North Indian",
+    "vegan",
+    ["lunch", "dinner"],
+    15,
+    30,
+    "easy",
+    "medium",
+    ["leftover_friendly", "high_protein"],
+    [
+      ["Ridge Gourd", 150, "g"],
+      ["Chana Dal", 50, "g"],
+      ["Onion", 40, "g"],
+      ["Tomato", 50, "g"],
+      ["Garlic", 5, "g"],
+      ["Turmeric", 0.5, "tsp"],
+      ["Cumin Seeds", 1, "tsp"],
+      ["Coriander Powder", 1, "tsp"],
+      ["Cooking Oil", 1, "tbsp"],
+      ["Salt", 1, "tsp"],
+    ],
+    {
+      desc: "Ridge gourd (tori/nenua) cooked with chana dal — a light home-style sabzi.",
+      prepTasks: [
+        [
+          "Soak chana dal",
+          480,
+          "Soak chana dal overnight (8h) before cooking.",
+        ],
+      ],
+      pairings: [
+        ["Roti", "bread_pairing"],
+        ["Dal Tadka", "main_side"],
+        ["Steamed Rice", "rice_pairing"],
+      ],
+    },
+  ),
+
+  d(
+    "Mixed Vegetable Curry",
+    "North Indian",
+    "vegan",
+    ["lunch", "dinner"],
+    15,
+    25,
+    "easy",
+    "medium",
+    ["leftover_friendly", "lunchbox_friendly"],
+    [
+      ["Potato", 50, "g"],
+      ["Cauliflower", 50, "g"],
+      ["Carrot", 40, "g"],
+      ["Green Peas", 40, "g"],
+      ["French Beans", 40, "g"],
+      ["Capsicum", 30, "g"],
+      ["Onion", 50, "g"],
+      ["Tomato", 60, "g"],
+      ["Ginger", 5, "g"],
+      ["Garlic", 5, "g"],
+      ["Turmeric", 0.5, "tsp"],
+      ["Garam Masala", 1, "tsp"],
+      ["Cooking Oil", 1, "tbsp"],
+      ["Salt", 1, "tsp"],
+    ],
+    {
+      desc: "Mixed seasonal vegetables (mix veg) in an onion-tomato masala.",
+      pairings: [
+        ["Roti", "bread_pairing"],
+        ["Dal Tadka", "main_side"],
+        ["Steamed Rice", "rice_pairing"],
+      ],
+    },
+  ),
+
+  d(
+    "Aloo Capsicum",
+    "North Indian",
+    "vegan",
+    ["lunch", "dinner"],
+    10,
+    20,
+    "easy",
+    "medium",
+    ["lunchbox_friendly", "leftover_friendly"],
+    [
+      ["Potato", 120, "g"],
+      ["Capsicum", 80, "g"],
+      ["Onion", 30, "g"],
+      ["Turmeric", 0.5, "tsp"],
+      ["Cumin Seeds", 1, "tsp"],
+      ["Coriander Powder", 1, "tsp"],
+      ["Cooking Oil", 1, "tbsp"],
+      ["Salt", 0.75, "tsp"],
+    ],
+    {
+      desc: "A quick dry sabzi of potato and capsicum with cumin and coriander.",
+      pairings: [
+        ["Roti", "bread_pairing"],
+        ["Dal Tadka", "main_side"],
+        ["Steamed Rice", "rice_pairing"],
+      ],
+    },
+  ),
+
+  d(
+    "Kadhai Paneer",
+    "North Indian",
+    "vegetarian",
+    ["lunch", "dinner"],
+    15,
+    25,
+    "medium",
+    "medium",
+    ["kid_friendly", "high_protein", "low_carb"],
+    [
+      ["Paneer", 100, "g"],
+      ["Capsicum", 50, "g"],
+      ["Onion", 50, "g"],
+      ["Tomato", 70, "g"],
+      ["Ginger", 5, "g"],
+      ["Garlic", 6, "g"],
+      ["Coriander Powder", 1, "tsp"],
+      ["Garam Masala", 1, "tsp"],
+      ["Kasuri Methi", 0.5, "tsp"],
+      ["Cooking Oil", 1, "tbsp"],
+      ["Salt", 1, "tsp"],
+    ],
+    {
+      desc: "Paneer and peppers tossed in a spiced kadhai onion-tomato masala.",
+      pairings: [
+        ["Roti", "bread_pairing"],
+        ["Steamed Rice", "rice_pairing"],
+      ],
+    },
+  ),
+
+  d(
+    "Aloo Baingan",
+    "North Indian",
+    "vegan",
+    ["lunch", "dinner"],
+    10,
+    25,
+    "easy",
+    "medium",
+    ["leftover_friendly", "lunchbox_friendly", "low_carb"],
+    [
+      ["Potato", 100, "g"],
+      ["Eggplant", 120, "g"],
+      ["Onion", 40, "g"],
+      ["Tomato", 50, "g"],
+      ["Turmeric", 0.5, "tsp"],
+      ["Cumin Seeds", 1, "tsp"],
+      ["Coriander Powder", 1, "tsp"],
+      ["Cooking Oil", 1, "tbsp"],
+      ["Salt", 1, "tsp"],
+    ],
+    {
+      desc: "Potato and brinjal cooked together in a simple spiced masala.",
+      pairings: [
+        ["Roti", "bread_pairing"],
+        ["Dal Tadka", "main_side"],
+        ["Steamed Rice", "rice_pairing"],
+      ],
+    },
+  ),
+
+  d(
+    "Paneer Lababdar",
+    "North Indian",
+    "vegetarian",
+    ["lunch", "dinner"],
+    15,
+    25,
+    "medium",
+    "mild",
+    ["kid_friendly", "high_protein"],
+    [
+      ["Paneer", 100, "g"],
+      ["Tomato", 90, "g"],
+      ["Onion", 50, "g"],
+      ["Cashews", 15, "g"],
+      ["Fresh Cream", 25, "ml"],
+      ["Butter", 10, "g"],
+      ["Ginger", 5, "g"],
+      ["Garlic", 6, "g"],
+      ["Garam Masala", 1, "tsp"],
+      ["Kasuri Methi", 0.5, "tsp"],
+      ["Salt", 1, "tsp"],
+    ],
+    {
+      desc: "Paneer in a rich, mildly sweet tomato-cashew gravy.",
+      pairings: [
+        ["Roti", "bread_pairing"],
+        ["Plain Paratha", "bread_pairing"],
+        ["Steamed Rice", "rice_pairing"],
+      ],
+    },
+  ),
+
+  d(
+    "Corn Spinach Rice",
+    "North Indian",
+    "vegan",
+    ["lunch", "dinner"],
+    15,
+    20,
+    "easy",
+    "mild",
+    ["kid_friendly", "lunchbox_friendly", "leftover_friendly"],
+    [
+      ["Basmati Rice", 80, "g"],
+      ["Sweet Corn", 50, "g"],
+      ["Spinach", 60, "g"],
+      ["Onion", 40, "g"],
+      ["Garlic", 6, "g"],
+      ["Cumin Seeds", 1, "tsp"],
+      ["Black Pepper", 0.5, "tsp"],
+      ["Cooking Oil", 1, "tbsp"],
+      ["Salt", 0.75, "tsp"],
+    ],
+    {
+      desc: "A one-pot rice tossed with sweet corn and spinach.",
+      pairings: [["Raita", "condiment"]],
+    },
+  ),
+
+  d(
+    "Thecha Rice",
+    "Maharashtrian",
+    "vegan",
+    ["lunch", "dinner"],
+    10,
+    15,
+    "easy",
+    "spicy",
+    ["lunchbox_friendly", "leftover_friendly"],
+    [
+      ["Rice", 80, "g"],
+      ["Green Chili", 10, "g"],
+      ["Garlic", 8, "g"],
+      ["Peanuts", 20, "g"],
+      ["Coriander Leaves", 8, "g"],
+      ["Cumin Seeds", 1, "tsp"],
+      ["Cooking Oil", 1, "tbsp"],
+      ["Salt", 0.75, "tsp"],
+    ],
+    {
+      desc: "Rice tossed with fiery Maharashtrian green-chilli garlic thecha.",
+      pairings: [["Raita", "condiment"]],
+    },
+  ),
+
+  d(
+    "Aloo Beans",
+    "North Indian",
+    "vegan",
+    ["lunch", "dinner"],
+    10,
+    20,
+    "easy",
+    "medium",
+    ["lunchbox_friendly", "leftover_friendly", "low_carb"],
+    [
+      ["Potato", 100, "g"],
+      ["French Beans", 120, "g"],
+      ["Onion", 30, "g"],
+      ["Turmeric", 0.5, "tsp"],
+      ["Cumin Seeds", 1, "tsp"],
+      ["Coriander Powder", 1, "tsp"],
+      ["Cooking Oil", 1, "tbsp"],
+      ["Salt", 0.75, "tsp"],
+    ],
+    {
+      desc: "A dry stir-fry of potato and french beans with cumin.",
+      pairings: [
+        ["Roti", "bread_pairing"],
+        ["Dal Tadka", "main_side"],
+        ["Steamed Rice", "rice_pairing"],
+      ],
+    },
+  ),
+
+  d(
+    "Aloo Methi",
+    "North Indian",
+    "vegan",
+    ["lunch", "dinner"],
+    10,
+    20,
+    "easy",
+    "medium",
+    ["lunchbox_friendly", "leftover_friendly", "low_carb"],
+    [
+      ["Potato", 120, "g"],
+      ["Fenugreek Leaves", 80, "g"],
+      ["Onion", 30, "g"],
+      ["Garlic", 5, "g"],
+      ["Turmeric", 0.5, "tsp"],
+      ["Cumin Seeds", 1, "tsp"],
+      ["Cooking Oil", 1, "tbsp"],
+      ["Salt", 0.75, "tsp"],
+    ],
+    {
+      desc: "Potato sautéed with fresh fenugreek leaves (methi).",
+      pairings: [
+        ["Roti", "bread_pairing"],
+        ["Dal Tadka", "main_side"],
+        ["Steamed Rice", "rice_pairing"],
+      ],
+    },
+  ),
+
+  d(
+    "Matar Ghugni",
+    "North Indian",
+    "vegan",
+    ["lunch", "dinner"],
+    15,
+    25,
+    "easy",
+    "medium",
+    ["leftover_friendly", "high_protein"],
+    [
+      ["Dried White Peas", 70, "g"],
+      ["Onion", 50, "g"],
+      ["Tomato", 60, "g"],
+      ["Ginger", 5, "g"],
+      ["Garlic", 6, "g"],
+      ["Coriander Powder", 1, "tsp"],
+      ["Garam Masala", 1, "tsp"],
+      ["Cooking Oil", 1, "tbsp"],
+      ["Salt", 1, "tsp"],
+    ],
+    {
+      desc: "Dried white peas (ghugni) simmered in a spiced onion-tomato masala.",
+      prepTasks: [
+        ["Soak dried peas", 480, "Soak dried white peas overnight (8h)."],
+      ],
+      pairings: [
+        ["Roti", "bread_pairing"],
+        ["Steamed Rice", "rice_pairing"],
+      ],
+    },
+  ),
+
+  d(
+    "Aloo Tamatar",
+    "North Indian",
+    "vegan",
+    ["breakfast", "lunch", "dinner"],
+    10,
+    20,
+    "easy",
+    "medium",
+    ["kid_friendly", "leftover_friendly", "lunchbox_friendly"],
+    [
+      ["Potato", 150, "g"],
+      ["Tomato", 90, "g"],
+      ["Onion", 30, "g"],
+      ["Ginger", 4, "g"],
+      ["Green Chili", 4, "g"],
+      ["Turmeric", 0.5, "tsp"],
+      ["Cumin Seeds", 1, "tsp"],
+      ["Coriander Powder", 1, "tsp"],
+      ["Cooking Oil", 1, "tbsp"],
+      ["Salt", 0.75, "tsp"],
+    ],
+    {
+      desc: "A light, tangy potato-tomato curry (aloo tamatar).",
+      pairings: [
+        ["Roti", "bread_pairing"],
+        ["Steamed Rice", "rice_pairing"],
+      ],
+    },
+  ),
+
+  // ── Accompaniments for the new combination mains ─────────────────────────────
+  d(
+    "Garlic Bread",
+    "Italian",
+    "vegetarian",
+    ["lunch", "dinner", "snack"],
+    5,
+    10,
+    "easy",
+    "mild",
+    ["kid_friendly"],
+    [
+      ["Bread", 2, "slice"],
+      ["Butter", 15, "g"],
+      ["Garlic", 8, "g"],
+      ["Coriander Leaves", 5, "g", false],
+      ["Salt", 0.25, "tsp"],
+    ],
+    { desc: "Toasted bread brushed with garlic butter." },
+  ),
+
+  d(
+    "Plain Paratha",
+    "North Indian",
+    "vegan",
+    ["breakfast", "lunch", "dinner"],
+    15,
+    10,
+    "easy",
+    "mild",
+    ["kid_friendly", "leftover_friendly"],
+    [
+      ["Wheat Flour", 70, "g"],
+      ["Cooking Oil", 1, "tbsp"],
+      ["Salt", 0.5, "tsp"],
+    ],
+    { desc: "A layered plain wheat paratha." },
+  ),
+
+  d(
+    "Curd",
+    "Indian",
+    "vegetarian",
+    ["breakfast", "lunch", "dinner"],
+    2,
+    0,
+    "easy",
+    "mild",
+    ["kid_friendly", "low_carb", "diabetic_friendly"],
+    [["Yogurt", 150, "g"]],
+    { desc: "A bowl of plain set curd (dahi)." },
+  ),
+
+  // ── Breakfast options (onboarding "Select combinations") ─────────────────────
+  // Breakfast-only mains: meal_slots is ["breakfast"] so the engine only offers
+  // them at breakfast ("suitable for breakfast" internally). Active prep stays
+  // under 60 min; any required soaking is an advance prepTask.
+  d(
+    "Sevaiyan Upma",
+    "Indian",
+    "vegan",
+    ["breakfast"],
+    10,
+    15,
+    "easy",
+    "mild",
+    ["kid_friendly", "lunchbox_friendly"],
+    [
+      ["Vermicelli", 70, "g"],
+      ["Onion", 40, "g"],
+      ["Carrot", 30, "g"],
+      ["Green Peas", 30, "g"],
+      ["Capsicum", 20, "g"],
+      ["Green Chili", 4, "g"],
+      ["Mustard Seeds", 0.5, "tsp"],
+      ["Curry Leaves", 3, "g"],
+      ["Cooking Oil", 1, "tbsp"],
+      ["Salt", 0.75, "tsp"],
+    ],
+    {
+      desc: "Roasted vermicelli tossed with vegetables and a light tempering.",
+    },
+  ),
+
+  d(
+    "Chana Dal Paratha",
+    "North Indian",
+    "vegan",
+    ["breakfast"],
+    20,
+    15,
+    "medium",
+    "medium",
+    ["kid_friendly", "high_protein", "lunchbox_friendly"],
+    [
+      ["Wheat Flour", 70, "g"],
+      ["Chana Dal", 50, "g"],
+      ["Onion", 30, "g"],
+      ["Green Chili", 4, "g"],
+      ["Coriander Leaves", 6, "g"],
+      ["Cumin Seeds", 1, "tsp"],
+      ["Cooking Oil", 1, "tbsp"],
+      ["Salt", 0.75, "tsp"],
+    ],
+    { desc: "Wheat paratha stuffed with a spiced chana dal filling." },
+  ),
+
+  d(
+    "Paneer Paratha",
+    "North Indian",
+    "vegetarian",
+    ["breakfast"],
+    20,
+    15,
+    "medium",
+    "medium",
+    ["kid_friendly", "high_protein", "lunchbox_friendly"],
+    [
+      ["Wheat Flour", 70, "g"],
+      ["Paneer", 80, "g"],
+      ["Onion", 20, "g"],
+      ["Green Chili", 4, "g"],
+      ["Coriander Leaves", 6, "g"],
+      ["Cumin Seeds", 0.5, "tsp"],
+      ["Cooking Oil", 1, "tbsp"],
+      ["Salt", 0.75, "tsp"],
+    ],
+    { desc: "Wheat paratha stuffed with spiced grated paneer." },
+  ),
+
+  d(
+    "Suji Uttapam",
+    "South Indian",
+    "vegetarian",
+    ["breakfast"],
+    15,
+    15,
+    "easy",
+    "mild",
+    ["kid_friendly", "lunchbox_friendly"],
+    [
+      ["Semolina", 70, "g"],
+      ["Yogurt", 40, "g"],
+      ["Onion", 30, "g"],
+      ["Tomato", 30, "g"],
+      ["Capsicum", 20, "g"],
+      ["Green Chili", 4, "g"],
+      ["Baking Soda", 0.25, "tsp"],
+      ["Cooking Oil", 1, "tbsp"],
+      ["Salt", 0.5, "tsp"],
+    ],
+    { desc: "An instant semolina uttapam topped with chopped vegetables." },
+  ),
+
+  d(
+    "Besan Cheela",
+    "North Indian",
+    "vegan",
+    ["breakfast"],
+    10,
+    10,
+    "easy",
+    "medium",
+    ["kid_friendly", "high_protein"],
+    [
+      ["Gram Flour", 60, "g"],
+      ["Onion", 30, "g"],
+      ["Tomato", 30, "g"],
+      ["Green Chili", 4, "g"],
+      ["Coriander Leaves", 6, "g"],
+      ["Turmeric", 0.25, "tsp"],
+      ["Cooking Oil", 1, "tbsp"],
+      ["Salt", 0.5, "tsp"],
+    ],
+    { desc: "A savoury gram-flour pancake with onion and tomato." },
+  ),
+
+  d(
+    "Aloo Sandwich",
+    "Indian",
+    "vegan",
+    ["breakfast"],
+    10,
+    8,
+    "easy",
+    "mild",
+    ["kid_friendly", "lunchbox_friendly"],
+    [
+      ["Bread", 2, "slice"],
+      ["Potato", 100, "g"],
+      ["Onion", 20, "g"],
+      ["Green Chili", 3, "g"],
+      ["Coriander Leaves", 5, "g"],
+      ["Chaat Masala", 0.5, "tsp"],
+      ["Cooking Oil", 1, "tsp"],
+      ["Salt", 0.5, "tsp"],
+    ],
+    { desc: "A spiced mashed-potato sandwich." },
+  ),
+
+  d(
+    "Paneer Corn Grilled Sandwich",
+    "Indian",
+    "vegetarian",
+    ["breakfast"],
+    10,
+    8,
+    "easy",
+    "mild",
+    ["kid_friendly", "high_protein"],
+    [
+      ["Bread", 2, "slice"],
+      ["Paneer", 50, "g"],
+      ["Sweet Corn", 40, "g"],
+      ["Capsicum", 20, "g"],
+      ["Cheese", 20, "g"],
+      ["Butter", 8, "g"],
+      ["Black Pepper", 0.25, "tsp"],
+      ["Salt", 0.5, "tsp"],
+    ],
+    { desc: "A grilled sandwich stuffed with paneer, corn and cheese." },
+  ),
+
+  d(
+    "Moong Dal Cheela",
+    "North Indian",
+    "vegan",
+    ["breakfast"],
+    15,
+    10,
+    "easy",
+    "medium",
+    ["high_protein", "diabetic_friendly"],
+    [
+      ["Moong Dal", 60, "g"],
+      ["Onion", 20, "g"],
+      ["Green Chili", 4, "g"],
+      ["Ginger", 3, "g"],
+      ["Coriander Leaves", 6, "g"],
+      ["Cooking Oil", 1, "tbsp"],
+      ["Salt", 0.5, "tsp"],
+    ],
+    {
+      desc: "A protein-rich moong dal pancake.",
+      prepTasks: [
+        ["Soak moong dal", 120, "Soak moong dal ~2 hours before grinding."],
+      ],
+    },
+  ),
+
+  d(
+    "Oats Cheela",
+    "Indian",
+    "vegan",
+    ["breakfast"],
+    10,
+    10,
+    "easy",
+    "mild",
+    ["high_protein", "diabetic_friendly"],
+    [
+      ["Oats", 50, "g"],
+      ["Gram Flour", 20, "g"],
+      ["Onion", 30, "g"],
+      ["Tomato", 20, "g"],
+      ["Green Chili", 4, "g"],
+      ["Coriander Leaves", 5, "g"],
+      ["Cooking Oil", 1, "tbsp"],
+      ["Salt", 0.5, "tsp"],
+    ],
+    { desc: "A savoury oats-and-besan pancake." },
+  ),
+
+  d(
+    "Suji Idli Fry",
+    "South Indian",
+    "vegetarian",
+    ["breakfast"],
+    15,
+    15,
+    "easy",
+    "mild",
+    ["kid_friendly", "leftover_friendly"],
+    [
+      ["Semolina", 70, "g"],
+      ["Yogurt", 50, "g"],
+      ["Mustard Seeds", 0.5, "tsp"],
+      ["Curry Leaves", 3, "g"],
+      ["Green Chili", 4, "g"],
+      ["Baking Soda", 0.25, "tsp"],
+      ["Cooking Oil", 1, "tbsp"],
+      ["Salt", 0.5, "tsp"],
+    ],
+    { desc: "Steamed semolina idli, cubed and pan-fried with a tempering." },
+  ),
+
+  d(
+    "Boiled Chana Salad",
+    "Indian",
+    "vegan",
+    ["breakfast"],
+    10,
+    15,
+    "easy",
+    "mild",
+    ["high_protein", "low_carb", "diabetic_friendly", "lunchbox_friendly"],
+    [
+      ["Black Chickpeas", 70, "g"],
+      ["Onion", 30, "g"],
+      ["Tomato", 30, "g"],
+      ["Cucumber", 30, "g"],
+      ["Lemon", 0.5, "piece"],
+      ["Coriander Leaves", 6, "g"],
+      ["Chaat Masala", 0.5, "tsp"],
+      ["Salt", 0.5, "tsp"],
+    ],
+    {
+      desc: "A protein-rich boiled black-chana salad with lemon and chaat masala.",
+      prepTasks: [
+        ["Soak black chickpeas", 480, "Soak kala chana overnight (8h)."],
+      ],
+    },
+  ),
+
+  d(
+    "Bread Poha",
+    "Indian",
+    "vegan",
+    ["breakfast"],
+    10,
+    10,
+    "easy",
+    "mild",
+    ["kid_friendly"],
+    [
+      ["Bread", 3, "slice"],
+      ["Onion", 40, "g"],
+      ["Potato", 40, "g"],
+      ["Peanuts", 15, "g"],
+      ["Green Chili", 4, "g"],
+      ["Mustard Seeds", 0.5, "tsp"],
+      ["Curry Leaves", 3, "g"],
+      ["Turmeric", 0.25, "tsp"],
+      ["Cooking Oil", 1, "tbsp"],
+      ["Salt", 0.5, "tsp"],
+    ],
+    { desc: "A quick poha-style tempering made with bread instead of poha." },
+  ),
+
+  d(
+    "Bread Pizza",
+    "Indian",
+    "vegetarian",
+    ["breakfast"],
+    10,
+    10,
+    "easy",
+    "mild",
+    ["kid_friendly"],
+    [
+      ["Bread", 2, "slice"],
+      ["Cheese", 40, "g"],
+      ["Capsicum", 30, "g"],
+      ["Onion", 20, "g"],
+      ["Tomato", 30, "g"],
+      ["Sweet Corn", 20, "g"],
+      ["Tomato Ketchup", 1, "tbsp"],
+      ["Salt", 0.5, "tsp"],
+    ],
+    { desc: "Toasted bread topped with cheese and vegetables, pizza-style." },
+  ),
+
+  d(
+    "Gobhi Paratha",
+    "North Indian",
+    "vegan",
+    ["breakfast"],
+    20,
+    15,
+    "medium",
+    "medium",
+    ["kid_friendly", "lunchbox_friendly"],
+    [
+      ["Wheat Flour", 70, "g"],
+      ["Cauliflower", 100, "g"],
+      ["Green Chili", 4, "g"],
+      ["Ginger", 3, "g"],
+      ["Coriander Leaves", 6, "g"],
+      ["Cumin Seeds", 0.5, "tsp"],
+      ["Cooking Oil", 1, "tbsp"],
+      ["Salt", 0.75, "tsp"],
+    ],
+    { desc: "Wheat paratha stuffed with spiced grated cauliflower." },
+  ),
+
+  d(
+    "Egg Paratha",
+    "North Indian",
+    "eggetarian",
+    ["breakfast"],
+    15,
+    12,
+    "easy",
+    "medium",
+    ["kid_friendly", "high_protein"],
+    [
+      ["Wheat Flour", 70, "g"],
+      ["Egg", 2, "piece"],
+      ["Onion", 30, "g"],
+      ["Green Chili", 4, "g"],
+      ["Coriander Leaves", 6, "g"],
+      ["Cooking Oil", 1, "tbsp"],
+      ["Salt", 0.5, "tsp"],
+    ],
+    { desc: "A paratha layered and rolled with a spiced egg coating." },
   ),
 ];
 
@@ -2909,5 +3820,148 @@ export const DISH_IMAGES = {
   "Jeera Aloo": {
     url: "/images/dishes/jeera-aloo.jpg",
     alt: "Diced potatoes sautéed with cumin seeds (jeera aloo).",
+  },
+  // New combination mains (photos added to public/images/dishes/meal_photos).
+  "Lauki Chana Dal": {
+    url: "/images/dishes/meal_photos/lauki-chana-dal.png",
+    alt: "Bottle gourd cooked with split bengal gram (chana dal).",
+  },
+  "Nenua Chana": {
+    url: "/images/dishes/meal_photos/nenua_chana.png",
+    alt: "Ridge gourd (tori) cooked with chana dal.",
+  },
+  "Corn Spinach Rice": {
+    url: "/images/dishes/meal_photos/corn-spinach%20rice.png",
+    alt: "Rice tossed with sweet corn and spinach.",
+  },
+  "Thecha Rice": {
+    url: "/images/dishes/meal_photos/paneer-thecha-rice.png",
+    alt: "Rice mixed with spicy Maharashtrian green-chilli garlic thecha.",
+  },
+  "Aloo Beans": {
+    url: "/images/dishes/meal_photos/aloo-beans.png",
+    alt: "A dry stir-fry of potato and french beans.",
+  },
+  "Aloo Baingan": {
+    url: "/images/dishes/meal_photos/aloo-baigan.png",
+    alt: "Potato and brinjal cooked in a spiced masala.",
+  },
+  "Aloo Capsicum": {
+    url: "/images/dishes/meal_photos/aloo-capsicum.png",
+    alt: "A dry sabzi of potato and capsicum.",
+  },
+  "Kadhai Paneer": {
+    url: "/images/dishes/meal_photos/kadai-paneer.png",
+    alt: "Paneer and peppers tossed in a spiced kadhai masala.",
+  },
+  "Plain Paratha": {
+    url: "/images/dishes/meal_photos/plain%20paratha.png",
+    alt: "A layered plain wheat paratha.",
+  },
+  // Remaining combination/accompaniment photos (public/images/dishes/remaining_meal_photos).
+  Sambar: {
+    url: "/images/dishes/remaining_meal_photos/sambar.png",
+    alt: "South Indian sambar — a lentil and vegetable stew.",
+  },
+  Upma: {
+    url: "/images/dishes/remaining_meal_photos/upma.png",
+    alt: "A soft semolina upma with vegetables.",
+  },
+  Uttapam: {
+    url: "/images/dishes/remaining_meal_photos/uttapam.png",
+    alt: "A savoury rice-and-lentil uttapam topped with vegetables.",
+  },
+  Thepla: {
+    url: "/images/dishes/remaining_meal_photos/thepla.png",
+    alt: "Gujarati fenugreek thepla flatbreads.",
+  },
+  "Margherita Pizza": {
+    url: "/images/dishes/remaining_meal_photos/pizaa.png",
+    alt: "A classic margherita pizza with cheese and tomato.",
+  },
+  "Mixed Vegetable Curry": {
+    url: "/images/dishes/remaining_meal_photos/mix%20veg.png",
+    alt: "Mixed vegetables in a spiced onion-tomato masala.",
+  },
+  "Paneer Lababdar": {
+    url: "/images/dishes/remaining_meal_photos/paneer%20lababdar.png",
+    alt: "Paneer in a rich, mildly sweet tomato-cashew gravy.",
+  },
+  "Aloo Methi": {
+    url: "/images/dishes/remaining_meal_photos/aloo%20methi.png",
+    alt: "Potato sautéed with fresh fenugreek leaves.",
+  },
+  "Matar Ghugni": {
+    url: "/images/dishes/remaining_meal_photos/matar%20ghugni.png",
+    alt: "Dried white peas simmered in a spiced onion-tomato masala.",
+  },
+  "Aloo Tamatar": {
+    url: "/images/dishes/remaining_meal_photos/aloo%20tamatar.png",
+    alt: "A tangy potato-tomato curry.",
+  },
+  "Sevaiyan Upma": {
+    url: "/images/dishes/remaining_meal_photos/seviyaan%20upma.png",
+    alt: "Roasted vermicelli upma with vegetables.",
+  },
+  "Chana Dal Paratha": {
+    url: "/images/dishes/remaining_meal_photos/chana%20dal%20paratha.png",
+    alt: "Paratha stuffed with a spiced chana dal filling.",
+  },
+  "Paneer Paratha": {
+    url: "/images/dishes/remaining_meal_photos/paneer%20paratha.png",
+    alt: "Paratha stuffed with spiced grated paneer.",
+  },
+  "Suji Uttapam": {
+    url: "/images/dishes/remaining_meal_photos/suji%20uttapam.png",
+    alt: "An instant semolina uttapam topped with vegetables.",
+  },
+  "Besan Cheela": {
+    url: "/images/dishes/remaining_meal_photos/besan%20cheela.png",
+    alt: "A savoury gram-flour pancake with onion and tomato.",
+  },
+  "Aloo Sandwich": {
+    url: "/images/dishes/remaining_meal_photos/alo%20sandwich.png",
+    alt: "A spiced mashed-potato sandwich.",
+  },
+  "Paneer Corn Grilled Sandwich": {
+    url: "/images/dishes/remaining_meal_photos/corn%20grilled%20sandwich.png",
+    alt: "A grilled sandwich stuffed with paneer, corn and cheese.",
+  },
+  "Moong Dal Cheela": {
+    url: "/images/dishes/remaining_meal_photos/moong%20dal%20cheela.png",
+    alt: "A protein-rich moong dal pancake.",
+  },
+  "Suji Idli Fry": {
+    url: "/images/dishes/remaining_meal_photos/fried%20idli.png",
+    alt: "Steamed semolina idli, cubed and pan-fried with a tempering.",
+  },
+  "Boiled Chana Salad": {
+    url: "/images/dishes/remaining_meal_photos/boiled%20chana%20salad.png",
+    alt: "A protein-rich boiled black-chana salad with lemon and chaat masala.",
+  },
+  "Bread Poha": {
+    url: "/images/dishes/remaining_meal_photos/bread%20poha.png",
+    alt: "A quick poha-style tempering made with bread.",
+  },
+  "Garlic Bread": {
+    url: "/images/dishes/remaining_meal_photos/garlic%20bread.png",
+    alt: "Toasted bread brushed with garlic butter.",
+  },
+  "Gobhi Paratha": {
+    url: "/images/dishes/remaining_meal_photos/gobhi%20paratha.png",
+    alt: "Paratha stuffed with spiced grated cauliflower.",
+  },
+  "Egg Paratha": {
+    url: "/images/dishes/remaining_meal_photos/egg%20paratha.png",
+    alt: "A paratha layered and rolled with a spiced egg coating.",
+  },
+  // Reused from the meal_photos batch per user confirmation.
+  "Medu Vada": {
+    url: "/images/dishes/meal_photos/sambar%20vada.png",
+    alt: "Crispy medu vada (fried lentil donuts) served with sambar.",
+  },
+  "Butter Chicken": {
+    url: "/images/dishes/meal_photos/chicken%20tikka%20masala.png",
+    alt: "Butter chicken in a rich, creamy tomato gravy.",
   },
 };
