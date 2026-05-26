@@ -20,6 +20,7 @@ export type MealSlot = Database["public"]["Enums"]["meal_slot"];
 export type MealRole = Database["public"]["Enums"]["meal_role"];
 export type PairingType = Database["public"]["Enums"]["pairing_type"];
 export type ImageStatus = Database["public"]["Enums"]["image_status"];
+export type MealFrequency = Database["public"]["Enums"]["meal_frequency"];
 
 /**
  * Meal roles that may be a **standalone** primary recommendation. A dish in any
@@ -45,6 +46,12 @@ export interface HouseholdContext {
   weekendCookingTimeMinutes: number | null;
   varietyGapDays: number;
   kidsCount: number;
+  /**
+   * Per-dish frequency tiers the household chose in `build` mode (P10), dishId →
+   * tier. `daily` opts a staple out of the variety-gap penalty (it's meant to
+   * recur); `once_in_a_while` is gently down-weighted. Empty when unused.
+   */
+  dishFrequencies: ReadonlyMap<string, MealFrequency>;
 }
 
 /**
@@ -101,6 +108,8 @@ export interface CandidateDish {
   mealRole: MealRole;
   /** Stored-generated `prep + cook` (design/01); null only if unset. */
   totalTimeMinutes: number | null;
+  /** How often households have picked this dish (P10) — drives the popular bonus. */
+  popularityCount: number;
   difficulty: DifficultyLevel;
   kidFriendly: boolean;
   lunchboxFriendly: boolean;
@@ -147,6 +156,10 @@ export const FACTOR_LABELS = [
   "exceedsCookingTime",
   "highDifficultyOnWeekday",
   "ingredientRepetition",
+  // P10 — combination popularity + per-dish frequency (gated by config.combinations).
+  "popularDish",
+  "frequencyDaily",
+  "frequencyOnceInAWhile",
 ] as const;
 
 export type FactorLabel = (typeof FACTOR_LABELS)[number];
@@ -210,6 +223,12 @@ export interface SlotRecommendationInput {
   now: Date;
   /** Dishes already chosen earlier in a weekly run; treated as recently cooked (§10). */
   usedThisRun?: ReadonlySet<string>;
+  /**
+   * Dish ids that belong to a *popular* active meal combination (P10) — they earn
+   * the `popularDish` bonus alongside dishes whose own popularity clears the
+   * config threshold. Empty/absent when the combinations feature is off.
+   */
+  popularCombinationDishIds?: ReadonlySet<string>;
   /** Overrides the default tuned weights/thresholds (§11). */
   config?: RecommendationConfig;
 }

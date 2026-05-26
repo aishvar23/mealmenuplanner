@@ -51,6 +51,8 @@ describe("loadHouseholdContext", () => {
       weekendCookingTimeMinutes: 90,
       varietyGapDays: 7,
       kidsCount: 2,
+      // P10: no household_dish_preferences rows in the stub → empty map.
+      dishFrequencies: new Map(),
     });
   });
 

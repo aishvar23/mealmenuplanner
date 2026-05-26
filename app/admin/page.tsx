@@ -15,6 +15,12 @@ const CARDS = [
     description:
       "Maintain the ingredient catalog: categories, default units, allergen types, and common names.",
   },
+  {
+    href: "/admin/combinations",
+    title: "Combinations",
+    description:
+      "Review household-proposed meal combinations and curate the global plate catalog used by onboarding and the recommendation engine.",
+  },
 ] as const;
 
 /** Operator console landing — entry points into the content tooling (docs/06). */

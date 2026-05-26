@@ -107,6 +107,8 @@ export interface ScoringContext {
   prepOutcome: PrepOutcome;
   /** V2 only — set of primary ingredient ids cooked recently (§6.2). */
   recentPrimaryIngredientIds: ReadonlySet<string>;
+  /** P10 — dish ids belonging to a popular active combination (earn `popularDish`). */
+  popularCombinationDishIds: ReadonlySet<string>;
   config: RecommendationConfig;
 }
 
@@ -163,12 +165,22 @@ export function scoreDish(
     }
   }
 
+  // The household's chosen frequency tier for this dish (P10), only when the
+  // combinations feature is on — otherwise scoring stays doc-04 exact.
+  const dishFrequency = ctx.config.combinations.enabled
+    ? ctx.household.dishFrequencies.get(dish.id)
+    : undefined;
+
   // Variety / rotation (+40 not-repeated / −60 recently-cooked) (design/05 § 6.1).
+  // A `daily`-tier staple (P10) is meant to recur, so it waives the recently-cooked
+  // penalty — exactly the "dal/rice every day" intent.
   if (isRecentlyCooked(dish.id, ctx.history, ctx.usedThisRun)) {
-    factors.push({
-      label: "recentlyCookedWithinGap",
-      weight: w.recentlyCookedWithinGap,
-    });
+    if (dishFrequency !== "daily") {
+      factors.push({
+        label: "recentlyCookedWithinGap",
+        weight: w.recentlyCookedWithinGap,
+      });
+    }
   } else {
     factors.push({
       label: "notRepeatedRecently",
@@ -226,6 +238,28 @@ export function scoreDish(
       label: "highDifficultyOnWeekday",
       weight: w.highDifficultyOnWeekday,
     });
+  }
+
+  // Combination popularity + per-dish frequency (P10) — soft signals that bias
+  // ranking without ever excluding. Gated by the combinations flag so the doc-04
+  // baseline is reproducible.
+  if (ctx.config.combinations.enabled) {
+    const popular =
+      dish.popularityCount >= ctx.config.combinations.popularityThreshold ||
+      ctx.popularCombinationDishIds.has(dish.id);
+    if (popular) {
+      factors.push({ label: "popularDish", weight: w.popularDish });
+    }
+
+    if (dishFrequency === "daily") {
+      factors.push({ label: "frequencyDaily", weight: w.frequencyDaily });
+    } else if (dishFrequency === "once_in_a_while") {
+      factors.push({
+        label: "frequencyOnceInAWhile",
+        weight: w.frequencyOnceInAWhile,
+      });
+    }
+    // `once_a_week` is the neutral baseline — no factor.
   }
 
   // Primary-ingredient repetition (V2, off by default — design/05 § 6.2).

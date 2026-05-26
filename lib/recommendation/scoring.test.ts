@@ -38,6 +38,7 @@ function ctx(overrides: Partial<ScoringContext> = {}): ScoringContext {
     cookingTimeLimit: 45,
     prepOutcome: "none",
     recentPrimaryIngredientIds: EMPTY,
+    popularCombinationDishIds: EMPTY,
     config: RECOMMENDATION_CONFIG,
     ...overrides,
   };
@@ -262,6 +263,93 @@ describe("scoreDish — ingredient repetition (V2)", () => {
       }),
     );
     expect(w.ingredientRepetition).toBe(-25);
+  });
+});
+
+describe("scoreDish — combinations + frequency (P10)", () => {
+  const baselineConfig: RecommendationConfig = {
+    ...RECOMMENDATION_CONFIG,
+    combinations: { enabled: false, popularityThreshold: 5 },
+  };
+
+  it("adds +15 popularDish when own popularity clears the threshold", () => {
+    const popular = makeDish({ popularityCount: 5 });
+    expect(weightsByLabel(popular, ctx()).popularDish).toBe(15);
+    // One below the threshold does not fire.
+    expect(
+      weightsByLabel(makeDish({ popularityCount: 4 }), ctx()).popularDish,
+    ).toBeUndefined();
+  });
+
+  it("adds +15 popularDish when the dish belongs to a popular combination", () => {
+    const w = weightsByLabel(
+      makeDish({ id: "dish-1", popularityCount: 0 }),
+      ctx({ popularCombinationDishIds: new Set(["dish-1"]) }),
+    );
+    expect(w.popularDish).toBe(15);
+  });
+
+  it("adds +35 frequencyDaily for a daily-tier dish", () => {
+    const household = makeHousehold({
+      dishFrequencies: new Map([["dish-1", "daily"]]),
+    });
+    expect(weightsByLabel(makeDish(), ctx({ household })).frequencyDaily).toBe(
+      35,
+    );
+  });
+
+  it("adds −20 frequencyOnceInAWhile for an once_in_a_while dish", () => {
+    const household = makeHousehold({
+      dishFrequencies: new Map([["dish-1", "once_in_a_while"]]),
+    });
+    expect(
+      weightsByLabel(makeDish(), ctx({ household })).frequencyOnceInAWhile,
+    ).toBe(-20);
+  });
+
+  it("treats once_a_week as the neutral baseline (no frequency factor)", () => {
+    const household = makeHousehold({
+      dishFrequencies: new Map([["dish-1", "once_a_week"]]),
+    });
+    const w = weightsByLabel(makeDish(), ctx({ household }));
+    expect(w.frequencyDaily).toBeUndefined();
+    expect(w.frequencyOnceInAWhile).toBeUndefined();
+  });
+
+  it("waives the recently-cooked penalty for a daily-tier staple", () => {
+    const household = makeHousehold({
+      dishFrequencies: new Map([["dish-1", "daily"]]),
+    });
+    const history = emptyHistory({
+      recentlyCookedDishIds: new Set(["dish-1"]),
+    });
+    const w = weightsByLabel(
+      makeDish({ id: "dish-1" }),
+      ctx({ household, history }),
+    );
+    // Neither the −60 penalty nor the +40 fresh bonus — the staple is exempt.
+    expect(w.recentlyCookedWithinGap).toBeUndefined();
+    expect(w.notRepeatedRecently).toBeUndefined();
+    // Still earns its daily bonus.
+    expect(w.frequencyDaily).toBe(35);
+  });
+
+  it("reduces to the doc-04 baseline when combinations are disabled", () => {
+    const household = makeHousehold({
+      dishFrequencies: new Map([["dish-1", "daily"]]),
+    });
+    const history = emptyHistory({
+      recentlyCookedDishIds: new Set(["dish-1"]),
+    });
+    const w = weightsByLabel(
+      makeDish({ id: "dish-1", popularityCount: 100 }),
+      ctx({ config: baselineConfig, household, history }),
+    );
+    // No P10 factors, and the daily waiver no longer applies → the −60 fires.
+    expect(w.popularDish).toBeUndefined();
+    expect(w.frequencyDaily).toBeUndefined();
+    expect(w.frequencyOnceInAWhile).toBeUndefined();
+    expect(w.recentlyCookedWithinGap).toBe(-60);
   });
 });
 

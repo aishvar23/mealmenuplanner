@@ -1275,3 +1275,47 @@ from (values
 join dishes p on p.name = v.primary_name
 join dishes q on q.name = v.paired_name
 on conflict do nothing;
+
+-- Meal combinations (8), seeded active.
+insert into meal_combinations (id, name, description, cuisine, region, diet_type, status, popularity_count, source) values
+  ('b814874b-2340-be52-ef88-c69a4b29bc2f', 'Rajma Chawal Thali', 'Rajma masala with steamed rice and roti — the classic North Indian comfort plate.', 'North Indian', null, 'vegetarian', 'active', 80, 'admin'),
+  ('2d6257e9-5962-1bc4-bf6f-25251b7f5730', 'Dal Roti Sabzi', 'An everyday plate: tempered dal, a dry vegetable, roti and rice.', 'North Indian', null, 'vegetarian', 'active', 70, 'admin'),
+  ('cae02927-a561-0609-b7e8-f503da220b4c', 'Chole Bhature', 'Spiced chickpeas with fluffy fried bhature.', 'Punjabi', null, 'vegetarian', 'active', 60, 'admin'),
+  ('7422a339-8fc2-e3c6-c1c0-d72d0f8025dd', 'Paneer Butter Masala Meal', 'Rich paneer butter masala with butter naan and cumin rice.', 'North Indian', null, 'vegetarian', 'active', 50, 'admin'),
+  ('eb41b90d-1004-2b20-c787-9447d9371647', 'Idli Sambar Chutney', 'Steamed idli with sambar and coconut chutney.', 'South Indian', null, 'vegan', 'active', 40, 'admin'),
+  ('520daad2-427b-f1da-3e84-fc9c39b07d53', 'Masala Dosa Plate', 'Crispy potato-filled dosa with sambar and coconut chutney.', 'South Indian', null, 'vegan', 'active', 30, 'admin'),
+  ('b3de537c-5d7a-f11a-3881-70ecd8dff471', 'Jain Dal Pulao Thali', 'A no-onion-no-garlic plate: jain dal, paneer bhurji and vegetable pulao.', 'North Indian', null, 'jain', 'active', 20, 'admin'),
+  ('e466a7ec-bc00-2b25-2d3a-8fa7f18f40fb', 'Chicken Curry Meal', 'Home-style chicken curry with rice and roti.', 'Indian', null, 'non_vegetarian', 'active', 10, 'admin')
+on conflict do nothing;
+
+-- Combination items (24).
+insert into meal_combination_items (combination_id, dish_id, role_in_combo, sort_order)
+select v.combination_id::uuid, d.id, v.role, v.ord
+from (values
+  ('b814874b-2340-be52-ef88-c69a4b29bc2f', 'Rajma Masala', 'dal', 0),
+  ('b814874b-2340-be52-ef88-c69a4b29bc2f', 'Steamed Rice', 'rice', 1),
+  ('b814874b-2340-be52-ef88-c69a4b29bc2f', 'Roti', 'bread', 2),
+  ('2d6257e9-5962-1bc4-bf6f-25251b7f5730', 'Dal Tadka', 'dal', 0),
+  ('2d6257e9-5962-1bc4-bf6f-25251b7f5730', 'Aloo Gobi', 'dry_veg', 1),
+  ('2d6257e9-5962-1bc4-bf6f-25251b7f5730', 'Roti', 'bread', 2),
+  ('2d6257e9-5962-1bc4-bf6f-25251b7f5730', 'Steamed Rice', 'rice', 3),
+  ('cae02927-a561-0609-b7e8-f503da220b4c', 'Chole Masala', 'dal', 0),
+  ('cae02927-a561-0609-b7e8-f503da220b4c', 'Bhature', 'bread', 1),
+  ('7422a339-8fc2-e3c6-c1c0-d72d0f8025dd', 'Paneer Butter Masala', 'main', 0),
+  ('7422a339-8fc2-e3c6-c1c0-d72d0f8025dd', 'Butter Naan', 'bread', 1),
+  ('7422a339-8fc2-e3c6-c1c0-d72d0f8025dd', 'Jeera Rice', 'rice', 2),
+  ('eb41b90d-1004-2b20-c787-9447d9371647', 'Idli', 'main', 0),
+  ('eb41b90d-1004-2b20-c787-9447d9371647', 'Sambar', 'dal', 1),
+  ('eb41b90d-1004-2b20-c787-9447d9371647', 'Coconut Chutney', 'condiment', 2),
+  ('520daad2-427b-f1da-3e84-fc9c39b07d53', 'Masala Dosa', 'main', 0),
+  ('520daad2-427b-f1da-3e84-fc9c39b07d53', 'Sambar', 'dal', 1),
+  ('520daad2-427b-f1da-3e84-fc9c39b07d53', 'Coconut Chutney', 'condiment', 2),
+  ('b3de537c-5d7a-f11a-3881-70ecd8dff471', 'Jain Dal Fry', 'dal', 0),
+  ('b3de537c-5d7a-f11a-3881-70ecd8dff471', 'Jain Paneer Bhurji', 'dry_veg', 1),
+  ('b3de537c-5d7a-f11a-3881-70ecd8dff471', 'Jain Vegetable Pulao', 'rice', 2),
+  ('e466a7ec-bc00-2b25-2d3a-8fa7f18f40fb', 'Chicken Curry', 'main', 0),
+  ('e466a7ec-bc00-2b25-2d3a-8fa7f18f40fb', 'Steamed Rice', 'rice', 1),
+  ('e466a7ec-bc00-2b25-2d3a-8fa7f18f40fb', 'Roti', 'bread', 2)
+) as v(combination_id, dish_name, role, ord)
+join dishes d on d.name = v.dish_name
+on conflict do nothing;

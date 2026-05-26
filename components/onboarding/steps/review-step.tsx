@@ -79,17 +79,7 @@ export function ReviewStep({
           title="Preferred dishes"
           step="preferred_dishes"
           onEditStep={onEditStep}
-          rows={[
-            [
-              "Selection",
-              preferred.mode === "manual"
-                ? "Hand-picked"
-                : preferred.mode === "system"
-                  ? "System chooses"
-                  : undefined,
-            ],
-            ["Dishes", joinList(preferred.dishNames)],
-          ]}
+          rows={preferredDishesRows(preferred)}
         />
       )}
 
@@ -202,6 +192,37 @@ function Section({
       </dl>
     </section>
   );
+}
+
+/** The review rows for the preferred-dishes step, per mode (P10). */
+function preferredDishesRows(
+  preferred: NonNullable<DraftData["preferredDishes"]>,
+): Row[] {
+  switch (preferred.mode) {
+    case "combinations": {
+      const count = preferred.selectedCombinationIds?.length ?? 0;
+      return [
+        ["Selection", "Meal combinations"],
+        ["Combinations", count > 0 ? `${count} selected` : undefined],
+      ];
+    }
+    case "build": {
+      const built = preferred.builtDishes ?? [];
+      return [
+        ["Selection", "Built your own"],
+        ["Dishes", joinList(built.map((dish) => dish.dishName))],
+      ];
+    }
+    case "system":
+      return [["Selection", "System chooses"]];
+    case "manual":
+      return [
+        ["Selection", "Hand-picked"],
+        ["Dishes", joinList(preferred.dishNames)],
+      ];
+    default:
+      return [["Selection", undefined]];
+  }
 }
 
 function joinList(values: readonly string[] | undefined): string | undefined {

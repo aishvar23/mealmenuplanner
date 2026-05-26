@@ -37,11 +37,13 @@ vi.mock("./suggest", () => ({
     })),
 }));
 vi.mock("./generate", () => ({ generateToday: vi.fn() }));
+vi.mock("./propose-combination", () => ({ safeProposeCombination: vi.fn() }));
 
 import { requireAuthUser } from "@/lib/auth";
 
 import { loadItemForAction } from "./access";
 import { generateToday } from "./generate";
+import { safeProposeCombination } from "./propose-combination";
 import {
   acceptItem,
   markCookedItem,
@@ -196,6 +198,8 @@ describe("acceptItem", () => {
     expect(update.status).toBe("accepted");
     expect(update.changed_by_user_id).toBe(USER.id);
     expect(result.status).toBe("accepted");
+    // Accepting fires the daily-approval promotion hook (P10-5).
+    expect(vi.mocked(safeProposeCombination)).toHaveBeenCalledTimes(1);
   });
 });
 

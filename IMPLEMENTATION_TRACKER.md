@@ -24,22 +24,23 @@ phases that follow the [MVP roadmap](docs/12_mvp_roadmap.md) and reference the
 
 ## Progress summary
 
-| Phase   | Area                        | Done / Total | Status      |
-| ------- | --------------------------- | ------------ | ----------- |
-| —       | Product specs (`docs/`)     | ✅           | Complete    |
-| —       | Design docs (`design/`)     | ✅           | Complete    |
-| P0      | Project setup & schema      | 15 / 16      | In progress |
-| P1      | Auth & household foundation | 8 / 8        | Complete    |
-| P2      | Onboarding (save/resume)    | 7 / 7        | Complete    |
-| P3      | Dish admin / content        | 8 / 8        | Complete    |
-| P4      | Recommendation engine       | 8 / 8        | Complete    |
-| P5      | Meal planning               | 7 / 7        | Complete    |
-| P6      | Household collaboration     | 9 / 9        | Complete    |
-| P7      | Grocery & prep              | 6 / 6        | Complete    |
-| P8      | Notifications               | 6 / 6        | Complete    |
-| P9      | Beta hardening              | 0 / 7        | Not started |
-| BUG-014 | Dish & ingredient images    | 2 / 7        | In progress |
-|         | **Total**                   | **74 / 82**  |             |
+| Phase   | Area                              | Done / Total | Status      |
+| ------- | --------------------------------- | ------------ | ----------- |
+| —       | Product specs (`docs/`)           | ✅           | Complete    |
+| —       | Design docs (`design/`)           | ✅           | Complete    |
+| P0      | Project setup & schema            | 15 / 16      | In progress |
+| P1      | Auth & household foundation       | 8 / 8        | Complete    |
+| P2      | Onboarding (save/resume)          | 7 / 7        | Complete    |
+| P3      | Dish admin / content              | 8 / 8        | Complete    |
+| P4      | Recommendation engine             | 8 / 8        | Complete    |
+| P5      | Meal planning                     | 7 / 7        | Complete    |
+| P6      | Household collaboration           | 9 / 9        | Complete    |
+| P7      | Grocery & prep                    | 6 / 6        | Complete    |
+| P8      | Notifications                     | 6 / 6        | Complete    |
+| P9      | Beta hardening                    | 0 / 7        | Not started |
+| P10     | Meal combinations & 3-mode dishes | 7 / 7        | Complete    |
+| BUG-014 | Dish & ingredient images          | 2 / 7        | In progress |
+|         | **Total**                         | **77 / 82**  |             |
 
 **Suggested next task:** **P1 is complete** — `P1-1` (Google OAuth) and `P1-3`
 (server-side session resolution + the `proxy.ts` edge gate + the `(app)`-shell
@@ -495,3 +496,66 @@ content-table`app_role` write-RLS backstop to fire under a user JWT, add a
 - [ ] **P9-5** Seed data improvements from recommendation-quality feedback
 - [ ] **P9-6** Accessibility & responsive pass
 - [ ] **P9-7** Beta with 10–20 households for 2 weeks + bug-fix buffer
+
+## P10 — Meal combinations & 3-mode preferred dishes
+
+> Design: extends [docs/04](docs/04_recommendation_engine.md),
+> [docs/07](docs/07_onboarding_save_resume_spec.md), and
+> [design/01](design/01_database_design.md). Plan:
+> `.claude/plans/we-just-add-a-warm-dragonfly.md`.
+>
+> Expands the onboarding "preferred dishes" step into **three card-based modes** —
+> Select admin-curated meal combinations, Build your own (per-dish frequency tier +
+> "goes with" accompaniments), or Let the system decide — for the South-Asian
+> "dal + dry veg + bread + rice" plate. Combinations are a fixed set of catalog
+> dishes; frequency is a three-tier enum (`daily` / `once_a_week` /
+> `once_in_a_while`); user-built combos reach the catalog via **pending admin
+> review**. Confirmed scope: everything end-to-end.
+
+- [x] **P10-1** Schema: `meal_combinations` + `meal_combination_items` tables,
+      `combination_status` + `meal_frequency` enums, `dishes.popularity_count`,
+      `household_dish_preferences` + `household_dish_accompaniments`, indexes, RLS,
+      and the `increment_combination_popularity` / `increment_dish_popularity` /
+      `propose_meal_combination` SECURITY DEFINER RPCs — _migrations
+      `20260525210000`..`20260525210300`, applied to cloud dev via MCP; types
+      regenerated; security advisor shows only the expected by-design SECURITY
+      DEFINER WARNs. Combinations are global content (auth read of `active` + admin
+      write + proposer self-read); the frequency/accompaniment tables are
+      household-scoped (`is_active_member` / `can_edit_household_preferences`)._
+- [x] **P10-2** Seed: admin-curated starter combinations — _`supabase/seed/combinations.mjs`
+      (8 combos covering vegetarian/vegan/jain/non-veg, e.g. Rajma Chawal Thali,
+      Idli Sambar Chutney) wired into `generate.mjs` with diet-coherence validation;
+      regenerated `seed.sql`; applied to cloud dev (8 combos / 24 items, descending
+      seed popularity)._
+- [x] **P10-3** Onboarding: 3-mode card UI + data plumbing — _expanded the
+      `PreferredDishes` draft shape; new catalog services/routes
+      (`/api/onboarding/combinations`, `/api/onboarding/accompaniments`, shared
+      `diet-compatibility.ts`, popularity-ordered dish catalog); `DishCard` /
+      `CombinationCard` / `BuildDishConfig` / `ModeCard` components; the rewritten
+      `preferred-dishes-step.tsx`; `validate-completion.ts` + the
+      `complete_onboarding` RPC (`20260525210400`, +`p_combination_prefs`) persist
+      combos/frequency/goes-with; review-step + edit round-trip updated._
+- [x] **P10-4** Recommendation engine: combination popularity + frequency tier —
+      _added `popularDish` / `frequencyDaily` / `frequencyOnceInAWhile` factors
+      (types/config/scoring/explanation) behind a `combinations.enabled` config flag
+      so the doc-04 baseline stays reproducible; a `daily`-tier dish waives the
+      variety-gap penalty (the "everyday staple" intent); loaders read
+      `dishes.popularity_count`, the household's `household_dish_preferences`, and
+      the popular-combination dish set, threaded through `recommend.ts` + weekly
+      `generate.ts`. typecheck, lint, format:check, and all 759 tests green._
+- [x] **P10-5** Promotion workflow: daily-approval hook submits a self-built combo
+      as `proposed` (`safeProposeCombination` in `acceptItem`), admin review service + routes + pages (`/admin/combinations`, list/approve/reject), nav link — _**Promotion:** `safeProposeCombination` (new `lib/services/meal-plan/propose-combination.ts`) fires from `acceptItem`; when the accepted dish has household `household_dish_accompaniments` (a Mode-2 self-built plate) it submits main + accompaniments through the `propose_meal_combination` SECURITY DEFINER RPC (active-member gate, active-dish validation, name dedupe), best-effort so a glitch never fails the accept. The combo diet is the household's own diet (the plate is coherent by construction); cuisine comes off the main dish. **Review:** new `admin` service `combinations.ts` (`listCombinations` by status, `approveCombination` to active, `rejectCombination` to rejected) on the service-role client behind `requireAdmin`, resolving member-dish names plus the proposer + household display names via id-to-name lookups (no embedded FK-hint joins, matching admin/client.ts). Routes `GET /api/admin/combinations` and `POST /api/admin/combinations/{id}/status`; the server-rendered `/admin/combinations` page (status tabs, proposed = FIFO review queue) with a `CombinationReviewActions` client island, plus the nav + console-home links. No new migration (reuses the P10-1/P10-3 tables + RPC)._
+- [x] **P10-6** Tests: engine factor/explanation/variety coverage, validate-completion
+      modes, admin combinations service, diet-compatibility unit — _35 new tests (759 to 794): the P10 scoring factors (popularDish via own-popularity-or-popular-combo, frequencyDaily +35 / frequencyOnceInAWhile −20, the daily-staple variety waiver, and the combinations-disabled doc-04 baseline); the explanation phrases for the new positive factors; `validate-completion` combinations + build modes (selected-combo dedupe + uuid guard, built-dish to liked-dish mapping, bad-frequency reject); the admin combinations service (hydrate/order/approve/reject/404 paths); the `safeProposeCombination` hook (payload shape, no-accompaniments / no-prefs / no-dish no-ops, best-effort error swallow); and a `diet-compatibility` unit. items.test asserts accept fires the hook._
+- [x] **P10-7** Verification: RPC checks in a rolled-back tx; end-to-end manual walk
+      of all 3 modes + admin approval + regenerate; quality gates — _RPC + RLS verified live on cloud dev in rolled-back transactions: `propose_meal_combination` inserts a `proposed` user_proposed combo with both dishes in sort order and is idempotent on re-submit (same id); a non-member call raises 42501 (403) and a fewer-than-two-dish or inactive-dish set raises 23514; and the approval transition flips a combo from member-invisible (`proposed`) to globally readable (`active`) for a different authenticated user. Live gating: `/admin/combinations` 307s to `/sign-in` and both combination APIs return the 401 envelope unauthenticated. Security advisor unchanged (P10 added no migration; only the by-design self-gated SECURITY DEFINER WARNs). Quality gates green: lint, typecheck, 794 tests, format:check, build. The full authenticated admin UI walk needs the operator `app_role` (the documented ops gap), so the console render is covered by typecheck + build._
+
+> **P10 complete.** All seven tasks are done and verified on branch
+> `feat/p10-meal-combinations` (typecheck, lint, format:check, 794 tests, build
+> green; RPC + RLS checks in rolled-back transactions on cloud dev). The completion
+> RPC bumps combo popularity (Mode 1), writes `household_dish_preferences` /
+> accompaniments + dish popularity (Mode 2), and folds built mains into
+> `liked_dishes`; accepting a self-built plate now promotes it to the admin review
+> queue (P10-5). Open design note: Mode 1 combo selections influence
+> recommendations only via **global** combo popularity (no per-household
+> combo-selection table yet — deferred, see the plan's risks).

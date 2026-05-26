@@ -26,16 +26,19 @@ import { Constants } from "@/lib/db/database.types";
 import type { Database } from "@/lib/db/database.types";
 import { ValidationError, type ValidationIssue } from "@/lib/errors";
 import type { DraftData } from "@/lib/onboarding";
+import { isUuid } from "@/lib/validation/uuid";
 
 type DietType = Database["public"]["Enums"]["diet_type"];
 type SpiceLevel = Database["public"]["Enums"]["spice_level"];
 type BudgetPreference = Database["public"]["Enums"]["budget_preference"];
 type MealSlot = Database["public"]["Enums"]["meal_slot"];
+type MealFrequency = Database["public"]["Enums"]["meal_frequency"];
 
 const DIET_TYPES = Constants.public.Enums.diet_type;
 const SPICE_LEVELS = Constants.public.Enums.spice_level;
 const BUDGET_PREFERENCES = Constants.public.Enums.budget_preference;
 const MEAL_SLOTS = Constants.public.Enums.meal_slot;
+const MEAL_FREQUENCIES = Constants.public.Enums.meal_frequency;
 
 /** Mirrors the `create_household` name bound (doc 01 `households.name`). */
 const MAX_HOUSEHOLD_NAME_LENGTH = 100;
@@ -79,11 +82,30 @@ export interface FoodPreferencesPayload {
   spicePreference?: SpiceLevel;
 }
 
+/** One self-built dish (P10 `build` mode) the RPC writes household prefs from. */
+export interface SelfBuiltDishPayload {
+  dishName: string;
+  frequency: MealFrequency;
+  goesWith: string[];
+}
+
+/**
+ * The P10 combination/build slice the RPC reads (`p_combination_prefs`): the
+ * `combinations` mode's selected combo ids (popularity bump) and the `build`
+ * mode's self-built dishes. `null` when the household chose `system`/`manual` or
+ * picked nothing.
+ */
+export interface CombinationPrefsPayload {
+  selectedCombinationIds: string[];
+  builtDishes: SelfBuiltDishPayload[];
+}
+
 /** Everything `complete_onboarding` needs to write the live rows. */
 export interface CompletionPayload {
   household: HouseholdPayload;
   preferences: PreferencesPayload;
   foodPreferences: FoodPreferencesPayload | null;
+  combinationPrefs: CombinationPrefsPayload | null;
 }
 
 function isInteger(value: unknown): value is number {
@@ -239,6 +261,13 @@ export function buildCompletionPayload(draft: DraftData): CompletionPayload {
     }
   }
 
+  // Preferred dishes (step 3, P10) — validated here so a bad frequency/combo id
+  // joins the same ValidationError; the resolved values are used after the gate.
+  const { likedDishes, combinationPrefs } = resolvePreferredDishes(
+    preferred,
+    issues,
+  );
+
   if (issues.length > 0) {
     throw new ValidationError(
       "Your household setup is incomplete or invalid.",
@@ -273,10 +302,7 @@ export function buildCompletionPayload(draft: DraftData): CompletionPayload {
   const allergies = cleanStringArray(health.allergies);
   const dislikedIngredients = cleanStringArray(health.dislikedIngredients);
   const healthPreferenceTags = cleanStringArray(health.healthPreferenceTags);
-  // Preferred dishes (step 3): only "manual" picks carry liked dishes; choosing
-  // "let the system decide" leaves them empty (BUG-006, PREFDISH-002).
-  const likedDishes =
-    preferred.mode === "system" ? [] : cleanStringArray(preferred.dishNames);
+  // `likedDishes` / `combinationPrefs` were resolved above (before the gate).
   const hasFoodPrefs =
     allergies.length > 0 ||
     dislikedIngredients.length > 0 ||
@@ -293,7 +319,105 @@ export function buildCompletionPayload(draft: DraftData): CompletionPayload {
       }
     : null;
 
-  return { household, preferences, foodPreferences };
+  return { household, preferences, foodPreferences, combinationPrefs };
+}
+
+/** The preferred-dishes step (P10) is one slice of the draft; this is its shape. */
+interface PreferredDishesSlice {
+  mode?: string;
+  dishNames?: unknown;
+  selectedCombinationIds?: unknown;
+  builtDishes?: unknown;
+}
+
+/**
+ * Resolve the preferred-dishes step into the owner's `liked_dishes` and the RPC's
+ * combination-prefs slice, validating any bad leaf into `issues` (P10). See the
+ * mode table at the call site.
+ */
+function resolvePreferredDishes(
+  preferred: PreferredDishesSlice,
+  issues: ValidationIssue[],
+): { likedDishes: string[]; combinationPrefs: CombinationPrefsPayload | null } {
+  switch (preferred.mode) {
+    case "system":
+      return { likedDishes: [], combinationPrefs: null };
+
+    case "combinations": {
+      const ids = cleanStringArray(preferred.selectedCombinationIds);
+      const valid: string[] = [];
+      for (const id of ids) {
+        if (isUuid(id)) valid.push(id);
+        else issues.push({ field: "selectedCombinationIds", rule: "uuid" });
+      }
+      // De-dupe while preserving order.
+      const unique = [...new Set(valid)];
+      return {
+        likedDishes: [],
+        combinationPrefs:
+          unique.length > 0
+            ? { selectedCombinationIds: unique, builtDishes: [] }
+            : null,
+      };
+    }
+
+    case "build": {
+      const builtDishes = normalizeBuiltDishes(preferred.builtDishes, issues);
+      // The built mains also become liked_dishes so the engine's +10 bonus fires.
+      const likedDishes = [...new Set(builtDishes.map((b) => b.dishName))];
+      return {
+        likedDishes,
+        combinationPrefs:
+          builtDishes.length > 0
+            ? { selectedCombinationIds: [], builtDishes }
+            : null,
+      };
+    }
+
+    default:
+      // Legacy `manual` (or unset): hand-picked dish names.
+      return {
+        likedDishes: cleanStringArray(preferred.dishNames),
+        combinationPrefs: null,
+      };
+  }
+}
+
+/**
+ * Normalize the `build`-mode self-built dishes: each needs a non-blank dish name
+ * (de-duplicated) and a valid `meal_frequency`; `goesWith` is cleaned. A bad
+ * frequency pushes a ValidationIssue and drops that entry.
+ */
+function normalizeBuiltDishes(
+  value: unknown,
+  issues: ValidationIssue[],
+): SelfBuiltDishPayload[] {
+  if (!Array.isArray(value)) return [];
+  const out: SelfBuiltDishPayload[] = [];
+  const seen = new Set<string>();
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object") continue;
+    const record = entry as Record<string, unknown>;
+    const dishName =
+      typeof record.dishName === "string" ? record.dishName.trim() : "";
+    if (dishName.length === 0 || seen.has(dishName)) continue;
+    const frequency = record.frequency;
+    if (!isEnumValue(frequency, MEAL_FREQUENCIES)) {
+      issues.push({
+        field: "builtDishes.frequency",
+        rule: "enum",
+        allowed: MEAL_FREQUENCIES,
+      });
+      continue;
+    }
+    seen.add(dishName);
+    // De-dupe accompaniments and drop the main itself if it sneaks in.
+    const goesWith = [...new Set(cleanStringArray(record.goesWith))].filter(
+      (name) => name !== dishName,
+    );
+    out.push({ dishName, frequency, goesWith });
+  }
+  return out;
 }
 
 /** Optional count: absent → default 0; present must be an integer ≥ 0. */

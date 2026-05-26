@@ -26,6 +26,7 @@ import {
 } from "./dto";
 import { generateToday } from "./generate";
 import { attachPackages } from "./packaging";
+import { safeProposeCombination } from "./propose-combination";
 import { suggestForSlot, toAlternatives } from "./suggest";
 import type { FeedbackType } from "./validate";
 
@@ -59,6 +60,12 @@ export async function acceptItem(itemId: string): Promise<MealPlanItemDto> {
   });
   const dto = toMealPlanItemDto(updated);
   await attachPackages(supabase, [dto]);
+
+  // Daily-approval promotion (design extension, P10-5): if this dish is a
+  // self-built combo (the household configured "goes with" accompaniments for
+  // it), submit the plate for admin review. Best-effort — never fails the accept.
+  await safeProposeCombination(supabase, item);
+
   return dto;
 }
 
