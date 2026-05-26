@@ -8,7 +8,11 @@ import {
   getHousehold,
   resolveCurrentHousehold,
 } from "@/lib/services/household";
-import { getDayPlan } from "@/lib/services/meal-plan";
+import {
+  ensureDaySuggestions,
+  getDayPlan,
+  type MealSlot,
+} from "@/lib/services/meal-plan";
 import { getUpcomingPrepTasks } from "@/lib/services/prep";
 
 export const metadata = { title: "Today" };
@@ -29,13 +33,36 @@ export default async function TodayPage() {
 
   const household = await getHousehold(current.householdId);
   const today = new Date().toISOString().slice(0, 10);
-  const [{ items }, prepReminders] = await Promise.all([
+  const [dayPlan, prepReminders] = await Promise.all([
     getDayPlan(current.householdId, today),
     getUpcomingPrepTasks(current.householdId),
   ]);
 
   const slots = household.preferences?.mealsToPlan ?? [];
   const canChange = current.currentUserPermissions.canChangeTodayMenu;
+
+  // Never open Today with a blank slot: any planned slot with no dish yet (and
+  // not deliberately marked eating-out) gets the engine's top pick, persisted as
+  // a `suggested` item the user can approve or swap. Gated on the menu-change
+  // permission; pre-fill is best-effort, so a glitch falls back to the manual
+  // "Suggest a meal" action rather than failing the screen.
+  let items = dayPlan.items;
+  const emptySlots = slots.filter((slot) => {
+    const item = items.find((entry) => entry.mealSlot === slot);
+    return !item || (!item.dishId && item.status !== "eating_out");
+  });
+  if (canChange && emptySlots.length > 0) {
+    try {
+      await ensureDaySuggestions(
+        current.householdId,
+        today,
+        emptySlots as MealSlot[],
+      );
+    } catch {
+      // Pre-fill is best-effort; the board still offers manual generation.
+    }
+    items = (await getDayPlan(current.householdId, today)).items;
+  }
 
   return (
     <section className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 lg:px-8">

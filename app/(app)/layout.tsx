@@ -8,6 +8,7 @@ import { AppNav } from "@/components/app-nav";
 import { AccountMenu } from "@/components/auth/account-menu";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { getAuthUser } from "@/lib/auth";
+import { resolveCurrentHousehold } from "@/lib/services/household";
 import { getUnreadNotificationCount } from "@/lib/services/notification";
 
 /**
@@ -23,6 +24,16 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const user = await getAuthUser();
   if (!user) {
     redirect("/sign-in");
+  }
+
+  // Onboarding gate: no active household means setup was never finished. Force
+  // the user through onboarding before any app screen renders — this covers a
+  // returning, reloaded, or cross-device visit, and any deep-linked app route
+  // (the individual pages re-resolve this for their data and redirect too, as a
+  // backstop). `/onboarding` lives outside this `(app)` group, so this can't loop.
+  const current = await resolveCurrentHousehold();
+  if (!current) {
+    redirect("/onboarding");
   }
 
   // Best-effort badge count — a notifications glitch must not break the shell.

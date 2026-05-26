@@ -7,11 +7,26 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { buttonVariants } from "@/components/ui/button";
+import { getAuthUser } from "@/lib/auth";
+import { resolveCurrentHousehold } from "@/lib/services/household";
 import { cn } from "@/lib/utils";
 
-export default function LandingPage() {
+// Reads the session to decide whether to route a signed-in visitor onward.
+export const dynamic = "force-dynamic";
+
+export default async function LandingPage() {
+  // The marketing page is for signed-out visitors only. A signed-in user is
+  // sent straight to Today once onboarding is done, or into onboarding until
+  // they finish it — so their "landing page" is always today's decisions.
+  const user = await getAuthUser();
+  if (user) {
+    const current = await resolveCurrentHousehold();
+    redirect(current ? "/today" : "/onboarding");
+  }
+
   return (
     <main className="flex-1 bg-background">
       <section className="relative isolate flex min-h-[86dvh] items-end overflow-hidden">

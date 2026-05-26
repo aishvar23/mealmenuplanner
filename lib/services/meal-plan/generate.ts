@@ -279,7 +279,139 @@ export async function generateWeek(
   };
 }
 
+/**
+ * Pre-fill any empty planned slot for `date` with the engine's top pick, so the
+ * Today screen always opens with a suggestion in every slot — never a blank card
+ * (product vision: "Approve today's meals"). Idempotent and silent:
+ *
+ *  - Only the `slots` passed in are considered, and a slot is filled only when
+ *    it is still empty. A slot that already holds a dish, is locked, or is
+ *    marked eating-out is left untouched, so a reload or a second viewer never
+ *    overwrites a real choice — and a second visit finds everything filled and
+ *    does nothing.
+ *  - Picks are deduplicated across the day (a dish chosen for one slot won't be
+ *    re-suggested for another), mirroring weekly generation's `usedThisRun`.
+ *  - Writes `suggested` rows awaiting the user's Approve, emits no household
+ *    event (a pre-fill isn't a user decision), and refreshes the derived grocery
+ *    list once if anything changed.
+ *
+ * Gated on `can_change_today_menu` like {@link generateToday}; the Today page
+ * only calls it for members who can change the menu, so viewers/guests just see
+ * whatever is already persisted.
+ */
+export async function ensureDaySuggestions(
+  householdId: string,
+  date: string,
+  slots: readonly MealSlot[],
+  options: { now?: Date } = {},
+): Promise<void> {
+  if (slots.length === 0) return;
+
+  await requireHouseholdPermission(
+    householdId,
+    "can_change_today_menu",
+    "You don't have permission to change today's menu.",
+  );
+  const user = await requireAuthUser();
+  const supabase = await createServerSupabaseClient();
+
+  const plan = await resolveOrCreateDayPlan(
+    supabase,
+    householdId,
+    date,
+    user.id,
+  );
+  const existing = await loadDayCells(supabase, plan.id, date);
+
+  // Seed the cross-slot exclusion with dishes already chosen for the day so a
+  // pre-fill never duplicates one the user already sees in another slot.
+  const usedThisRun = new Set<string>();
+  for (const cell of existing.values()) {
+    if (cell.dish_id) usedThisRun.add(cell.dish_id);
+  }
+
+  type FillRow = {
+    meal_plan_id: string;
+    household_id: string;
+    date: string;
+    meal_slot: MealSlot;
+    dish_id: string;
+    status: "suggested";
+    reason: string | null;
+  };
+  const rows: FillRow[] = [];
+
+  for (const slot of slots) {
+    const cell = existing.get(slot);
+    // Respect any real state already in the cell.
+    if (cell?.locked || cell?.status === "eating_out" || cell?.dish_id)
+      continue;
+
+    const { recommendations } = await suggestForSlot(householdId, date, slot, {
+      excludeDishIds: [...usedThisRun],
+      now: options.now,
+    });
+    const top = recommendations[0];
+    if (!top) continue; // no eligible dish — leave the slot blank
+
+    rows.push({
+      meal_plan_id: plan.id,
+      household_id: householdId,
+      date,
+      meal_slot: slot,
+      dish_id: top.dishId,
+      status: "suggested",
+      reason: top.reason,
+    });
+    usedThisRun.add(top.dishId);
+  }
+
+  if (rows.length === 0) return;
+
+  const { error } = await supabase
+    .from("meal_plan_items")
+    .upsert(rows, { onConflict: "meal_plan_id,date,meal_slot" });
+  if (error) {
+    throw new InternalError("Failed to pre-fill today's suggestions.", {
+      cause: error,
+    });
+  }
+
+  // Derived grocery list refresh, once for the day (design/08 § 9, P7-3).
+  // Best-effort: a grocery glitch must not fail the pre-fill.
+  await safeRegenerateGroceryListForPlan(supabase, householdId, plan.id);
+}
+
 // ──────────────────────────────── helpers ────────────────────────────────
+
+/** This day's cells keyed by slot — the state {@link ensureDaySuggestions} respects. */
+async function loadDayCells(
+  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+  planId: string,
+  date: string,
+): Promise<Map<MealSlot, Pick<PlanCell, "dish_id" | "status" | "locked">>> {
+  const { data, error } = await supabase
+    .from("meal_plan_items")
+    .select("meal_slot, dish_id, status, locked")
+    .eq("meal_plan_id", planId)
+    .eq("date", date);
+  if (error) {
+    throw new InternalError("Failed to load the day's plan items.", {
+      cause: error,
+    });
+  }
+  const map = new Map<
+    MealSlot,
+    Pick<PlanCell, "dish_id" | "status" | "locked">
+  >();
+  for (const cell of (data ?? []) as Pick<
+    PlanCell,
+    "meal_slot" | "dish_id" | "status" | "locked"
+  >[]) {
+    map.set(cell.meal_slot, cell);
+  }
+  return map;
+}
 
 /**
  * Attach display packages (design/08 criterion 10, BUG-008/009/010) to a today
