@@ -74,19 +74,19 @@ The seed data must include dishes with accurate metadata and images.
 
 #### Required meal packages
 
-| Package                 | Components                    |
-| ----------------------- | ----------------------------- |
-| Masala Dosa Meal        | Masala Dosa + Coconut Chutney |
-| Rajma Rice Meal         | Rajma + Jeera Rice            |
-| Chole Rice Meal         | Chole + Jeera Rice            |
-| Dal Roti Meal           | Dal Tadka + Roti              |
-| Paratha Jeera Aloo Meal | Paratha + Jeera Aloo          |
-| Paneer Bhurji Roti Meal | Paneer Bhurji + Roti          |
-| Khichdi Raita Meal      | Khichdi + Raita               |
-| Arhar Dal Mix Veg Meal  | Arhar Dal + Mix Veg + Roti + Jeera Rice |
-| Chole Poori Rice Meal   | Chole + Poori + Jeera Rice    |
-| Rajma Roti Rice Meal    | Rajma + Roti + Jeera Rice     |
-| Sambhar Idli Meal       | Sambhar + Idli + Coconut Chutney |
+| Package                 | Components                                           |
+| ----------------------- | ---------------------------------------------------- |
+| Masala Dosa Meal        | Masala Dosa + Coconut Chutney                        |
+| Rajma Rice Meal         | Rajma + Jeera Rice                                   |
+| Chole Rice Meal         | Chole + Jeera Rice                                   |
+| Dal Roti Meal           | Dal Tadka + Roti                                     |
+| Paratha Jeera Aloo Meal | Paratha + Jeera Aloo                                 |
+| Paneer Bhurji Roti Meal | Paneer Bhurji + Roti                                 |
+| Khichdi Raita Meal      | Khichdi + Raita                                      |
+| Arhar Dal Mix Veg Meal  | Arhar Dal + Mix Veg + Roti + Jeera Rice              |
+| Chole Poori Rice Meal   | Chole + Poori + Jeera Rice                           |
+| Rajma Roti Rice Meal    | Rajma + Roti + Jeera Rice                            |
+| Sambhar Idli Meal       | Sambhar + Idli + Coconut Chutney                     |
 | Sambhar Dosa Aloo Meal  | Sambhar + Masala Dosa + Aloo Sabzi + Coconut Chutney |
 
 ### Required meal-combination catalog data
@@ -583,7 +583,7 @@ chutney/dip/accompaniments.
 ### Steps
 
 1. Complete onboarding with a build-your-own preference such as `Arhar Dal +
-   Mix Veg + Roti + Jeera Rice`.
+Mix Veg + Roti + Jeera Rice`.
 2. Generate today's meal or the weekly plan.
 3. Approve a recommendation that matches the user-built combination.
 4. Inspect the approved meal-combination catalog.
