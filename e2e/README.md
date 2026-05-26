@@ -2,17 +2,34 @@
 
 Browser automation for the acceptance specs in
 [`test/14_end_to_end_acceptance_tests.md`](../test/14_end_to_end_acceptance_tests.md).
-This is the **pilot slice** — a proven harness plus a thin vertical (AUTH →
-ONBOARD → today/recommendation). It's the foundation later phases extend to cover
-the remaining areas (MEALPREF, MEALCOMP, COLLAB, GROCERY, NOTIF, ADMIN, …).
+Every acceptance case is represented as a Playwright test: implemented,
+deterministically-verifiable behavior runs as a real assertion; everything else
+is a `test.fixme` with a one-line reason (unbuilt feature, external mock needed,
+or seed/time control the UI doesn't expose). `npx playwright test --list` shows
+the full set; fixmes report as "skipped".
 
-## What it runs
+## Coverage by area
 
-| Spec                 | Acceptance IDs             | Covers                                                 |
-| -------------------- | -------------------------- | ------------------------------------------------------ |
-| `auth.spec.ts`       | AUTH-001, AUTH-002         | Email/password sign-in; invalid-login error            |
-| `onboarding.spec.ts` | ONBOARD-001, ONBOARD-002   | No-household routing; complete minimum onboarding      |
-| `today-reco.spec.ts` | today happy path, RECO-001 | Generate an explainable, meat-free suggestion (veg HH) |
+| Area     | Real (verified)                          | Fixme (reason)                                                     |
+| -------- | ---------------------------------------- | ------------------------------------------------------------------ |
+| AUTH     | 001, 002, 003, 004                       | 005–007 (Google OAuth needs a mocked provider)                     |
+| PROFILE  | 001, 002, 003                            | —                                                                  |
+| ONBOARD  | 001–009                                  | 010 (API fault injection)                                          |
+| MEALPREF | implemented 2-mode preferred-dishes step | 001–009 combination/frequency cases (not built in the app)         |
+| IMAGE    | 001                                      | 002–007 (seeded broken/missing statuses, LCP, specific dishes)     |
+| MEALCOMP | 001 (sides never standalone)             | 002–010 (can't force a specific dish via UI; admin in ADMIN)       |
+| RECO     | 001, 002, 005                            | 003,004,006–012 (seed/time control; combination/frequency unbuilt) |
+| PLAN     | 001–005                                  | —                                                                  |
+| GROCERY  | 001, 002, 003                            | 004 (ingredient correlation)                                       |
+| COLLAB   | 006, 008, 011, 015/016, 017, 018, 020    | invite/decline/transfer/notify round-trips (two browser contexts)  |
+| NOTIF    | 006                                      | 001–005 (need a second member's action)                            |
+| ADMIN    | console access + non-admin gating        | 001–005 (catalog mutations pollute the shared catalog)             |
+| SECURITY | 001, 002, 005                            | 003, 004 (invite-lifecycle setup)                                  |
+| MOBILE   | 001, 002                                 | 003 (invite UI round-trip)                                         |
+| A11Y     | 001, 002, 003                            | —                                                                  |
+
+Security-critical permission checks (global criterion 15) are verified at BOTH
+layers: the UI hides the control AND a direct API call is rejected.
 
 ## Setup
 
@@ -55,14 +72,24 @@ have running locally.
   users (`owner@`, `member@`, `viewer@`, `guest@`, `admin@`, `nohousehold@`),
   then signs in as `owner@` and — on first run — completes a minimum
   **vegetarian** onboarding, capturing the session to `e2e/.auth/owner.json`.
-- **Data isolation:**
-  - _Read-only / idempotent_ flows reuse the seeded `owner@` household via its
-    `storageState` (today/RECO) — fast, no per-test sign-in.
-  - _Mutating_ flows use the **`freshUser`** fixture (`fixtures/auth.ts`): a
-    brand-new email-confirmed user per test, torn down afterwards (its household
-    is deleted first because `households.created_by_user_id` has no FK cascade).
-    This keeps mutating tests repeatable against shared cloud dev. It's a
-    deliberate, documented deviation from the spec's fixed `nohousehold@` name.
+  It also grants `admin@` the operator role (`app_metadata.app_role`) and
+  captures its `storageState` for the ADMIN specs.
+- **Data isolation (fixtures in `fixtures/auth.ts`):**
+  - _Read-only_ flows reuse the seeded `owner@`/`admin@` `storageState` — fast,
+    no per-test sign-in.
+  - `freshUser` — a brand-new email-confirmed user, no household, torn down after.
+  - `onboardedHousehold` — signs a fresh user in and completes minimum
+    (vegetarian) onboarding, yielding a clean owner household per test.
+  - `team` — multi-user: mint users, onboard an owner, add members by role
+    (`addHouseholdMember` mirrors `defaultPermissionsForRole`), grant admin.
+    Teardown deletes every created user; deleting the owner cascades the
+    household and all memberships (`households.created_by_user_id` has no FK
+    cascade, so the household is removed before the owner user).
+  - A documented deviation from the spec's fixed `member@`/`guest@` names, for
+    isolation against shared cloud dev.
+- **Sign-out / switching users:** `signInWithPassword` clears cookies first.
+  Never sign out a _seeded_ user in a test — Supabase global sign-out revokes
+  all of that user's sessions (including captured storageState).
 - **Selectors:** the app has no `data-testid`s but solid accessible markup, so
   specs use role/label/text locators (`getByRole`, `getByLabel`, `getByText`).
 
@@ -77,9 +104,18 @@ from "../fixtures/auth"` and take the `freshUser` fixture.
 4. Prefer role/label/text locators. Only add a `data-testid` in the app when a
    node is genuinely ambiguous.
 
-## Not yet covered (follow-ups)
+## Follow-ups (current `test.fixme`s)
 
-- The remaining ~100 cases, area by area on top of this harness.
-- Google OAuth / magic-link AUTH tests (need a mocked/test OAuth provider).
-- CI wiring (a non-blocking `e2e` GitHub job) once the isolation model is proven
-  under parallelism.
+- **Multi-browser collaboration round-trips** (COLLAB invite/accept/decline/
+  transfer, NOTIF fan-out): need a second authenticated browser context + the
+  invite-acceptance UI. The permission/access-loss core is already covered.
+- **Google OAuth** AUTH-005/006/007: need a mocked/test OAuth provider.
+- **Admin catalog mutations** (ADMIN-001..005, IMAGE-006, MEALCOMP-010): write to
+  the shared dish catalog; need an isolated content environment to avoid skewing
+  the recommendations other specs rely on.
+- **Meal-combination catalog + frequency tags** (MEALPREF-001..008, RECO-011/012,
+  global criteria 7/9/10): not wired into the app — schema-only.
+- **Seed/time-controlled RECO** (cooking time, variety gap, prep timing) and
+  seeded image statuses (broken/missing, LCP): need fault/seed/time injection.
+- **CI wiring**: a non-blocking `e2e` GitHub job once the isolation model is
+  proven under parallelism.
