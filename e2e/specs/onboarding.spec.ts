@@ -20,6 +20,19 @@ async function clickNext(page: Page) {
   await page.getByRole("button", { name: "Next", exact: true }).click();
 }
 
+/** Click Next and wait for the per-step draft autosave (PUT) to complete, so a
+ * following reload / cookie-clear can't race the persistence. */
+async function nextSavingDraft(page: Page) {
+  const saved = page.waitForResponse(
+    (r) =>
+      r.url().includes("/api/onboarding/draft") &&
+      r.request().method() === "PUT",
+    { timeout: 15_000 },
+  );
+  await clickNext(page);
+  await saved;
+}
+
 test("ONBOARD-001: new signed-in user is prompted to set up a household", async ({
   page,
   freshUser,
@@ -58,7 +71,7 @@ test("ONBOARD-003: onboarding autosaves and restores after refresh", async ({
   await page.waitForURL("**/onboarding", { timeout: 30_000 });
 
   await fillBasics(page, "Autosave House", "3");
-  await clickNext(page); // immediate per-step save
+  await nextSavingDraft(page); // advance + wait for the autosave to persist
 
   await page.reload();
 
@@ -82,7 +95,7 @@ test("ONBOARD-004: user can resume onboarding after closing the app", async ({
   await signInWithPassword(page, freshUser.email, freshUser.password);
   await page.waitForURL("**/onboarding", { timeout: 30_000 });
   await fillBasics(page, "Resume House", "5");
-  await clickNext(page);
+  await nextSavingDraft(page);
 
   // Simulate close/reopen: drop the session, then sign back in.
   await page.context().clearCookies();

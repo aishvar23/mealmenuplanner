@@ -2,9 +2,14 @@ import { expect, type Locator, type Page } from "@playwright/test";
 
 import { DEFAULT_ONBOARDING } from "../fixtures/constants";
 
-type OnboardingAnswers = { householdName: string } & Partial<
-  typeof DEFAULT_ONBOARDING
->;
+type OnboardingAnswers = {
+  householdName: string;
+  familySize?: number;
+  diet?: string;
+  cuisine?: string;
+  mealSlot?: string;
+  weekdayMinutes?: number;
+};
 
 async function fillIfVisible(locator: Locator, value: string): Promise<void> {
   if (await locator.isVisible().catch(() => false)) {
