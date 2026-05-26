@@ -295,6 +295,7 @@ describe("generateWeek", () => {
       varietyGapDays: 7,
       kidsCount: 0,
       dishFrequencies: new Map(),
+      dishSuitableSlots: new Map(),
     });
     vi.mocked(loadActiveMembers).mockResolvedValue([]);
     vi.mocked(loadMealHistory).mockResolvedValue({

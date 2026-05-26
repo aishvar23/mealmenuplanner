@@ -168,12 +168,14 @@ describe("buildCompletionPayload", () => {
         {
           dishName: "Rajma Masala",
           frequency: "daily",
+          suitableFor: ["lunch", "dinner"],
           // The main itself is dropped from its own accompaniments.
           goesWith: ["Jeera Rice", "Roti", "Rajma Masala"],
         },
+        // No `suitableFor` → defaults to [] (no restriction).
         { dishName: "Idli", frequency: "once_a_week", goesWith: ["Sambar"] },
       ],
-    };
+    } as unknown as DraftData["preferredDishes"];
     const payload = buildCompletionPayload(draft);
     expect(payload.combinationPrefs).toEqual({
       selectedCombinationIds: [],
@@ -181,9 +183,15 @@ describe("buildCompletionPayload", () => {
         {
           dishName: "Rajma Masala",
           frequency: "daily",
+          suitableFor: ["lunch", "dinner"],
           goesWith: ["Jeera Rice", "Roti"],
         },
-        { dishName: "Idli", frequency: "once_a_week", goesWith: ["Sambar"] },
+        {
+          dishName: "Idli",
+          frequency: "once_a_week",
+          suitableFor: [],
+          goesWith: ["Sambar"],
+        },
       ],
     });
     // Built mains also fold into liked_dishes so the engine's +10 bonus fires.
@@ -204,6 +212,44 @@ describe("buildCompletionPayload", () => {
     expect(issueFields(() => buildCompletionPayload(draft))).toContain(
       "builtDishes.frequency",
     );
+  });
+
+  it("de-dupes valid suitableFor slots and rejects an invalid one (P10-8)", () => {
+    const draft = completeDraft();
+    draft.preferredDishes = {
+      mode: "build",
+      builtDishes: [
+        {
+          dishName: "Poha",
+          frequency: "daily",
+          // Duplicate `breakfast` collapses; `brunch` is not a valid meal_slot.
+          suitableFor: ["breakfast", "breakfast", "brunch"],
+          goesWith: [],
+        },
+      ],
+    } as unknown as DraftData["preferredDishes"];
+    expect(issueFields(() => buildCompletionPayload(draft))).toContain(
+      "builtDishes.suitableFor",
+    );
+  });
+
+  it("normalizes deduped suitableFor when every slot is valid (P10-8)", () => {
+    const draft = completeDraft();
+    draft.preferredDishes = {
+      mode: "build",
+      builtDishes: [
+        {
+          dishName: "Poha",
+          frequency: "daily",
+          suitableFor: ["breakfast", "breakfast"],
+          goesWith: [],
+        },
+      ],
+    } as unknown as DraftData["preferredDishes"];
+    const payload = buildCompletionPayload(draft);
+    expect(payload.combinationPrefs?.builtDishes[0]?.suitableFor).toEqual([
+      "breakfast",
+    ]);
   });
 
   it("collects every missing required field into one ValidationError", () => {

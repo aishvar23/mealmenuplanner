@@ -52,6 +52,14 @@ export interface HouseholdContext {
    * recur); `once_in_a_while` is gently down-weighted. Empty when unused.
    */
   dishFrequencies: ReadonlyMap<string, MealFrequency>;
+  /**
+   * Per-dish meal-slot restrictions the household set in `build` mode (P10-8),
+   * dishId → the slots the dish may be suggested in. A dish present here is
+   * hard-filtered out of any slot NOT in its list (§4). Only dishes the household
+   * actually restricted appear; an absent dish has no restriction beyond its
+   * global `dishes.meal_slots`. Empty map when unused.
+   */
+  dishSuitableSlots: ReadonlyMap<string, MealSlot[]>;
 }
 
 /**

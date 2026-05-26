@@ -61,6 +61,8 @@ A dish should be excluded if:
 - It violates diet type.
 - It contains an allergy ingredient.
 - It does not match the meal slot.
+- The household marked it "suitable for" specific meal slots (when building its
+  own combination) and the requested slot is not one of them.
 - It requires prep that is impossible for the selected time.
 - It is marked as do-not-suggest-again.
 - It violates temporary guest restrictions during guest stay.

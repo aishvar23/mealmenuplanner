@@ -86,6 +86,8 @@ export interface FoodPreferencesPayload {
 export interface SelfBuiltDishPayload {
   dishName: string;
   frequency: MealFrequency;
+  /** Meal slots the dish is suitable for (P10-8); `[]` = no restriction. */
+  suitableFor: MealSlot[];
   goesWith: string[];
 }
 
@@ -385,8 +387,9 @@ function resolvePreferredDishes(
 
 /**
  * Normalize the `build`-mode self-built dishes: each needs a non-blank dish name
- * (de-duplicated) and a valid `meal_frequency`; `goesWith` is cleaned. A bad
- * frequency pushes a ValidationIssue and drops that entry.
+ * (de-duplicated) and a valid `meal_frequency`; `suitableFor` and `goesWith` are
+ * cleaned. A bad frequency pushes a ValidationIssue and drops that entry; a bad
+ * `suitableFor` slot pushes an issue and drops just that slot.
  */
 function normalizeBuiltDishes(
   value: unknown,
@@ -411,11 +414,49 @@ function normalizeBuiltDishes(
       continue;
     }
     seen.add(dishName);
+    const suitableFor = normalizeSuitableFor(record.suitableFor, issues);
     // De-dupe accompaniments and drop the main itself if it sneaks in.
     const goesWith = [...new Set(cleanStringArray(record.goesWith))].filter(
       (name) => name !== dishName,
     );
-    out.push({ dishName, frequency, goesWith });
+    out.push({ dishName, frequency, suitableFor, goesWith });
+  }
+  return out;
+}
+
+/**
+ * Normalize a built dish's `suitableFor` slots (P10-8): de-duped valid
+ * `meal_slot`s, preserving order. Empty/absent is allowed (no restriction); an
+ * invalid slot pushes a ValidationIssue and is dropped.
+ */
+function normalizeSuitableFor(
+  value: unknown,
+  issues: ValidationIssue[],
+): MealSlot[] {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value)) {
+    issues.push({
+      field: "builtDishes.suitableFor",
+      rule: "enumArray",
+      allowed: MEAL_SLOTS,
+    });
+    return [];
+  }
+  const seen = new Set<MealSlot>();
+  const out: MealSlot[] = [];
+  for (const slot of value) {
+    if (isEnumValue(slot, MEAL_SLOTS)) {
+      if (!seen.has(slot)) {
+        seen.add(slot);
+        out.push(slot);
+      }
+    } else {
+      issues.push({
+        field: "builtDishes.suitableFor",
+        rule: "enumArray",
+        allowed: MEAL_SLOTS,
+      });
+    }
   }
   return out;
 }

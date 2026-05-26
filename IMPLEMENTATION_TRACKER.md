@@ -38,9 +38,9 @@ phases that follow the [MVP roadmap](docs/12_mvp_roadmap.md) and reference the
 | P7      | Grocery & prep                    | 6 / 6        | Complete    |
 | P8      | Notifications                     | 6 / 6        | Complete    |
 | P9      | Beta hardening                    | 0 / 7        | Not started |
-| P10     | Meal combinations & 3-mode dishes | 7 / 7        | Complete    |
+| P10     | Meal combinations & 3-mode dishes | 8 / 8        | Complete    |
 | BUG-014 | Dish & ingredient images          | 2 / 7        | In progress |
-|         | **Total**                         | **77 / 82**  |             |
+|         | **Total**                         | **78 / 83**  |             |
 
 **Suggested next task:** **P1 is complete** — `P1-1` (Google OAuth) and `P1-3`
 (server-side session resolution + the `proxy.ts` edge gate + the `(app)`-shell
@@ -550,12 +550,29 @@ content-table`app_role` write-RLS backstop to fire under a user JWT, add a
 - [x] **P10-7** Verification: RPC checks in a rolled-back tx; end-to-end manual walk
       of all 3 modes + admin approval + regenerate; quality gates — _RPC + RLS verified live on cloud dev in rolled-back transactions: `propose_meal_combination` inserts a `proposed` user_proposed combo with both dishes in sort order and is idempotent on re-submit (same id); a non-member call raises 42501 (403) and a fewer-than-two-dish or inactive-dish set raises 23514; and the approval transition flips a combo from member-invisible (`proposed`) to globally readable (`active`) for a different authenticated user. Live gating: `/admin/combinations` 307s to `/sign-in` and both combination APIs return the 401 envelope unauthenticated. Security advisor unchanged (P10 added no migration; only the by-design self-gated SECURITY DEFINER WARNs). Quality gates green: lint, typecheck, 794 tests, format:check, build. The full authenticated admin UI walk needs the operator `app_role` (the documented ops gap), so the console render is covered by typecheck + build._
 
-> **P10 complete.** All seven tasks are done and verified on branch
-> `feat/p10-meal-combinations` (typecheck, lint, format:check, 794 tests, build
-> green; RPC + RLS checks in rolled-back transactions on cloud dev). The completion
-> RPC bumps combo popularity (Mode 1), writes `household_dish_preferences` /
-> accompaniments + dish popularity (Mode 2), and folds built mains into
-> `liked_dishes`; accepting a self-built plate now promotes it to the admin review
-> queue (P10-5). Open design note: Mode 1 combo selections influence
-> recommendations only via **global** combo popularity (no per-household
-> combo-selection table yet — deferred, see the plan's risks).
+- [x] **P10-8** Per-dish "suitable for" meal slots in `build` mode (schema, UI,
+      engine hard filter) — _added `household_dish_preferences.suitable_meal_slots`
+      (`text[]`, migration `20260526120000`, applied to cloud dev via MCP; types
+      regenerated and the `emit_household_event` arg-nullability hand-adjustment
+      re-applied). Threaded `suitableFor` through the `build`-mode draft
+      (`SelfBuiltDish`), `validate-completion` (deduped, enum-checked against
+      `meal_slot`, empty means no restriction), and the `complete_onboarding` RPC
+      (writes the column in the same upsert as the frequency tier). The "Build your
+      own combination" card (`BuildDishConfig`) gained a breakfast/lunch/dinner
+      multi-select; selecting none reads as "any of its usual times". The engine
+      loads the per-dish slots into `HouseholdContext.dishSuitableSlots`, and a new
+      `householdSlot` hard filter (`hard-filters.ts`) excludes a dish from any slot
+      the household didn't mark suitable, layered on top of the global
+      `dishes.meal_slots` rule (design/05 §4, docs/04). typecheck, lint,
+      format:check, build, and all 800 tests green._
+
+> **P10 complete.** All eight tasks are done. P10-1..P10-7 verified on branch
+> `feat/p10-meal-combinations` (RPC + RLS checks in rolled-back transactions on
+> cloud dev). The completion RPC bumps combo popularity (Mode 1), writes
+> `household_dish_preferences` / accompaniments + dish popularity (Mode 2), and
+> folds built mains into `liked_dishes`; accepting a self-built plate now promotes
+> it to the admin review queue (P10-5). P10-8 adds a household per-dish "suitable
+> for" meal-slot restriction enforced as a recommendation hard filter (typecheck,
+> lint, format:check, 800 tests, build green). Open design note: Mode 1 combo
+> selections influence recommendations only via **global** combo popularity (no
+> per-household combo-selection table yet — deferred, see the plan's risks).

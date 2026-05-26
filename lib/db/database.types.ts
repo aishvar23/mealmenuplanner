@@ -11,7 +11,8 @@
 // (meal_combinations, meal_combination_items, household_dish_preferences,
 // household_dish_accompaniments tables; combination_status + meal_frequency enums;
 // increment_combination_popularity / increment_dish_popularity /
-// propose_meal_combination RPCs + complete_onboarding combination-prefs param).
+// propose_meal_combination RPCs + complete_onboarding combination-prefs param) +
+// P10-8 household_dish_preferences.suitable_meal_slots.
 // After regenerating, run `npm run format` so the output matches Prettier.
 
 export type Json =
@@ -460,6 +461,7 @@ export type Database = {
           frequency: Database["public"]["Enums"]["meal_frequency"];
           household_id: string;
           id: string;
+          suitable_meal_slots: string[];
           updated_at: string;
         };
         Insert: {
@@ -468,6 +470,7 @@ export type Database = {
           frequency?: Database["public"]["Enums"]["meal_frequency"];
           household_id: string;
           id?: string;
+          suitable_meal_slots?: string[];
           updated_at?: string;
         };
         Update: {
@@ -476,6 +479,7 @@ export type Database = {
           frequency?: Database["public"]["Enums"]["meal_frequency"];
           household_id?: string;
           id?: string;
+          suitable_meal_slots?: string[];
           updated_at?: string;
         };
         Relationships: [

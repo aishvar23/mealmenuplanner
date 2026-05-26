@@ -51,9 +51,54 @@ describe("loadHouseholdContext", () => {
       weekendCookingTimeMinutes: 90,
       varietyGapDays: 7,
       kidsCount: 2,
-      // P10: no household_dish_preferences rows in the stub → empty map.
+      // P10: no household_dish_preferences rows in the stub → empty maps.
       dishFrequencies: new Map(),
+      dishSuitableSlots: new Map(),
     });
+  });
+
+  it("loads per-dish frequencies and non-empty suitable slots (P10-8)", async () => {
+    const supabase = client({
+      tables: {
+        household_preferences: {
+          data: {
+            diet_type: "vegetarian",
+            preferred_cuisines: ["North Indian"],
+            weekday_cooking_time_minutes: 45,
+            weekend_cooking_time_minutes: 90,
+            variety_gap_days: 7,
+            kids_count: 0,
+          },
+          error: null,
+        },
+        household_dish_preferences: {
+          data: [
+            {
+              dish_id: "dish-a",
+              frequency: "daily",
+              suitable_meal_slots: ["breakfast"],
+            },
+            {
+              dish_id: "dish-b",
+              frequency: "once_a_week",
+              suitable_meal_slots: [],
+            },
+          ],
+          error: null,
+        },
+      },
+    });
+    const ctx = await loadHouseholdContext(supabase, HOUSEHOLD_ID);
+    expect(ctx?.dishFrequencies).toEqual(
+      new Map([
+        ["dish-a", "daily"],
+        ["dish-b", "once_a_week"],
+      ]),
+    );
+    // Only the restricted dish appears; an empty list means "no restriction".
+    expect(ctx?.dishSuitableSlots).toEqual(
+      new Map([["dish-a", ["breakfast"]]]),
+    );
   });
 
   it("returns null when there is no preferences row", async () => {
