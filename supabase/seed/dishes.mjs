@@ -95,6 +95,9 @@ export const MEAL_ROLE_OVERRIDES = {
   Papad: "side",
   Raita: "side",
   "Green Salad": "side",
+  // Also defined in the shared dev DB (parallel work) — roles mirror those rows.
+  Curd: "side",
+  "Bread Pizza": "complete_meal",
 };
 
 export const DISHES = [
@@ -2624,6 +2627,70 @@ export const DISHES = [
     ],
     { desc: "A fresh diced salad of cucumber, tomato and onion (kachumber)." },
   ),
+
+  // ── Also present in the shared dev DB (parallel work). Definitions mirror those
+  //    rows exactly so the deterministic uuid + a re-seed line up, not diverge. ──
+  d(
+    "Bread Pizza",
+    "Indian",
+    "vegetarian",
+    ["breakfast"],
+    10,
+    10,
+    "easy",
+    "mild",
+    ["kid_friendly"],
+    [
+      ["Bread", 2, "slice"],
+      ["Cheese", 40, "g"],
+      ["Capsicum", 30, "g"],
+      ["Onion", 20, "g"],
+      ["Tomato", 30, "g"],
+      ["Sweet Corn", 20, "g"],
+      ["Tomato Ketchup", 1, "tbsp"],
+      ["Cooking Oil", 1, "tsp"],
+      ["Black Pepper", 0.25, "tsp"],
+      ["Salt", 0.5, "tsp"],
+    ],
+    { desc: "Toasted bread topped with cheese and vegetables, pizza-style." },
+  ),
+
+  d(
+    "Curd",
+    "Indian",
+    "vegetarian",
+    ["breakfast", "lunch", "dinner"],
+    2,
+    0,
+    "easy",
+    "mild",
+    ["kid_friendly", "diabetic_friendly", "low_carb"],
+    [["Yogurt", 150, "g"]],
+    { desc: "A bowl of plain set curd (dahi)." },
+  ),
+
+  d(
+    "Oats Cheela",
+    "Indian",
+    "vegan",
+    ["breakfast"],
+    10,
+    10,
+    "easy",
+    "mild",
+    ["diabetic_friendly", "high_protein"],
+    [
+      ["Oats", 50, "g"],
+      ["Gram Flour", 20, "g"],
+      ["Onion", 30, "g"],
+      ["Tomato", 20, "g"],
+      ["Green Chili", 4, "g"],
+      ["Coriander Leaves", 5, "g"],
+      ["Cooking Oil", 1, "tbsp"],
+      ["Salt", 0.5, "tsp"],
+    ],
+    { desc: "A savoury oats-and-besan pancake." },
+  ),
 ];
 
 /**
@@ -3030,5 +3097,17 @@ export const DISH_IMAGES = {
   "Jain Paneer Bhurji": {
     url: "/images/dishes/remaining_meal_images/jain%20paneer%20bhurji.png",
     alt: "Scrambled paneer bhurji with diced tomato and capsicum, made without onion or garlic.",
+  },
+  "Bread Pizza": {
+    url: "/images/dishes/remaining_meal_images/bread%20pizza.png",
+    alt: "Toasted bread topped with melted cheese, capsicum, onion and corn.",
+  },
+  Curd: {
+    url: "/images/dishes/remaining_meal_images/curd.png",
+    alt: "A bowl of plain set curd (dahi) garnished with a coriander leaf.",
+  },
+  "Oats Cheela": {
+    url: "/images/dishes/remaining_meal_images/oats%20cheela.png",
+    alt: "Savoury oats cheela pancakes served with green chutney and curd.",
   },
 };

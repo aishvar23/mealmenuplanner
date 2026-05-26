@@ -140,7 +140,7 @@ insert into ingredients (id, name, category, default_unit, common_names, allerge
   ('a6e78546-4591-15c9-f227-262130929c2f', 'Poppy Seeds', 'pantry', 'tsp', ARRAY['khus khus']::text[], null, null, null, 'placeholder', false)
 on conflict do nothing;
 
--- Dishes (106), seeded active.
+-- Dishes (109), seeded active.
 insert into dishes (id, name, description, cuisine, region, meal_slots, diet_type, prep_time_minutes, cook_time_minutes, difficulty, spice_level, kid_friendly, lunchbox_friendly, leftover_friendly, batch_cook_friendly, diabetic_friendly, low_sodium, high_protein, low_carb, meal_role, image_url, image_alt_text, image_status, image_verified, status) values
   ('ee4fb66d-8a10-c3c9-59ae-24a9388d9ce1', 'Dal Tadka', 'Yellow lentils tempered with cumin, garlic and ghee.', 'North Indian', null, ARRAY['lunch', 'dinner']::text[], 'vegetarian', 10, 25, 'easy', 'medium', false, false, true, true, false, false, true, false, 'main_component', '/images/dishes/dal-tadka.jpg', 'A bowl of yellow lentils tempered with cumin and spices.', 'verified', true, 'active'),
   ('2f8a8b06-f245-b14a-9f37-dbbcdadd6515', 'Rajma Masala', null, 'North Indian', null, ARRAY['lunch', 'dinner']::text[], 'vegetarian', 15, 40, 'medium', 'medium', false, false, true, true, false, false, true, false, 'main_component', '/images/dishes/rajma.jpg', 'Red kidney beans simmered in a thick spiced onion-tomato gravy.', 'verified', true, 'active'),
@@ -247,7 +247,10 @@ insert into dishes (id, name, description, cuisine, region, meal_slots, diet_typ
   ('e2b94dd3-b867-6ad9-50f9-e499606014ce', 'Mango Pickle', 'Tangy Indian mango pickle (aam ka achaar) in oil and spices.', 'North Indian', null, ARRAY['lunch', 'dinner']::text[], 'vegan', 20, 0, 'easy', 'spicy', false, false, false, false, false, false, false, false, 'condiment', '/images/dishes/mango-pickle.jpg', 'Indian mango pickle (aam ka achaar) in oil and spices.', 'verified', true, 'active'),
   ('4cd6ef76-dec8-2e7b-16e2-92e20d88adda', 'Papad', 'A thin crisp roasted Indian papad.', 'Indian', null, ARRAY['lunch', 'dinner']::text[], 'vegan', 2, 3, 'easy', 'mild', false, false, false, false, false, false, false, false, 'side', '/images/dishes/papad.jpg', 'A thin crisp roasted Indian papad (papadum).', 'verified', true, 'active'),
   ('a3b0a56d-cb69-e030-25ca-643bc0bb892b', 'Raita', 'A cooling bowl of Indian yogurt raita with cucumber.', 'North Indian', null, ARRAY['lunch', 'dinner']::text[], 'vegetarian', 10, 0, 'easy', 'mild', true, false, false, false, true, false, false, true, 'side', '/images/dishes/raita.jpg', 'A bowl of Indian yogurt raita.', 'verified', true, 'active'),
-  ('ef447e45-34fb-dffc-8650-b94537a4f003', 'Green Salad', 'A fresh diced salad of cucumber, tomato and onion (kachumber).', 'Indian', null, ARRAY['lunch', 'dinner']::text[], 'vegan', 10, 0, 'easy', 'mild', false, false, false, false, true, false, false, true, 'side', '/images/dishes/green-salad.jpg', 'A fresh diced salad of cucumber, tomato and onion (kachumber).', 'verified', true, 'active')
+  ('ef447e45-34fb-dffc-8650-b94537a4f003', 'Green Salad', 'A fresh diced salad of cucumber, tomato and onion (kachumber).', 'Indian', null, ARRAY['lunch', 'dinner']::text[], 'vegan', 10, 0, 'easy', 'mild', false, false, false, false, true, false, false, true, 'side', '/images/dishes/green-salad.jpg', 'A fresh diced salad of cucumber, tomato and onion (kachumber).', 'verified', true, 'active'),
+  ('79833878-db3c-d0b7-e86c-be4b3be74819', 'Bread Pizza', 'Toasted bread topped with cheese and vegetables, pizza-style.', 'Indian', null, ARRAY['breakfast']::text[], 'vegetarian', 10, 10, 'easy', 'mild', true, false, false, false, false, false, false, false, 'complete_meal', '/images/dishes/remaining_meal_images/bread%20pizza.png', 'Toasted bread topped with melted cheese, capsicum, onion and corn.', 'verified', true, 'active'),
+  ('2db1418d-224a-3ea2-d840-9b230bf5a38d', 'Curd', 'A bowl of plain set curd (dahi).', 'Indian', null, ARRAY['breakfast', 'lunch', 'dinner']::text[], 'vegetarian', 2, 0, 'easy', 'mild', true, false, false, false, true, false, false, true, 'side', '/images/dishes/remaining_meal_images/curd.png', 'A bowl of plain set curd (dahi) garnished with a coriander leaf.', 'verified', true, 'active'),
+  ('71994888-8d3e-6911-9fa4-a25adef4281f', 'Oats Cheela', 'A savoury oats-and-besan pancake.', 'Indian', null, ARRAY['breakfast']::text[], 'vegan', 10, 10, 'easy', 'mild', false, false, false, false, true, false, true, false, 'main_component', '/images/dishes/remaining_meal_images/oats%20cheela.png', 'Savoury oats cheela pancakes served with green chutney and curd.', 'verified', true, 'active')
 on conflict do nothing;
 
 -- Sync meal_role onto existing rows (idempotent).
@@ -358,7 +361,10 @@ from (values
   ('e2b94dd3-b867-6ad9-50f9-e499606014ce', 'condiment'),
   ('4cd6ef76-dec8-2e7b-16e2-92e20d88adda', 'side'),
   ('a3b0a56d-cb69-e030-25ca-643bc0bb892b', 'side'),
-  ('ef447e45-34fb-dffc-8650-b94537a4f003', 'side')
+  ('ef447e45-34fb-dffc-8650-b94537a4f003', 'side'),
+  ('79833878-db3c-d0b7-e86c-be4b3be74819', 'complete_meal'),
+  ('2db1418d-224a-3ea2-d840-9b230bf5a38d', 'side'),
+  ('71994888-8d3e-6911-9fa4-a25adef4281f', 'main_component')
 ) as v(id, role)
 where d.id = v.id::uuid and d.meal_role is distinct from v.role::meal_role;
 
@@ -463,7 +469,10 @@ from (values
   ('6bfbd31d-5e86-5c3e-884a-f86f6193c2e9', '/images/dishes/remaining_meal_images/tofu%20stir%20fry.png', 'Tofu stir-fried with mixed vegetables.'),
   ('0bfecbfb-6f85-3e41-4c16-53320cbf66c6', '/images/dishes/remaining_meal_images/thai%20green%20curry.png', 'Thai green curry with vegetables in a coconut-based green sauce.'),
   ('69cb1ab1-8f67-2f9f-7606-4b43fe32c28b', '/images/dishes/remaining_meal_images/vegetable%20soup.png', 'A bowl of clear vegetable soup with diced vegetables.'),
-  ('4601666b-9886-d59a-6e9c-8d5a3ee5ce45', '/images/dishes/remaining_meal_images/jain%20paneer%20bhurji.png', 'Scrambled paneer bhurji with diced tomato and capsicum, made without onion or garlic.')
+  ('4601666b-9886-d59a-6e9c-8d5a3ee5ce45', '/images/dishes/remaining_meal_images/jain%20paneer%20bhurji.png', 'Scrambled paneer bhurji with diced tomato and capsicum, made without onion or garlic.'),
+  ('79833878-db3c-d0b7-e86c-be4b3be74819', '/images/dishes/remaining_meal_images/bread%20pizza.png', 'Toasted bread topped with melted cheese, capsicum, onion and corn.'),
+  ('2db1418d-224a-3ea2-d840-9b230bf5a38d', '/images/dishes/remaining_meal_images/curd.png', 'A bowl of plain set curd (dahi) garnished with a coriander leaf.'),
+  ('71994888-8d3e-6911-9fa4-a25adef4281f', '/images/dishes/remaining_meal_images/oats%20cheela.png', 'Savoury oats cheela pancakes served with green chutney and curd.')
 ) as v(id, url, alt)
 where d.id = v.id::uuid and (d.image_url is distinct from v.url or d.image_alt_text is distinct from v.alt or d.image_status is distinct from 'verified'::image_status or d.image_verified is distinct from true);
 
@@ -477,7 +486,7 @@ from (values
 ) as v(id, url, alt)
 where g.id = v.id::uuid and (g.image_url is distinct from v.url or g.image_alt_text is distinct from v.alt or g.image_status is distinct from 'verified'::image_status or g.image_verified is distinct from true);
 
--- Dish ingredients (797).
+-- Dish ingredients (816).
 insert into dish_ingredients (dish_id, ingredient_id, quantity_per_serving, unit, is_required, is_optional)
 select d.id, i.id, v.qty, v.unit, v.req, v.opt
 from (values
@@ -1277,7 +1286,26 @@ from (values
   ('Green Salad', 'Onion', 30, 'g', true, false),
   ('Green Salad', 'Lemon', 0.5, 'piece', true, false),
   ('Green Salad', 'Coriander Leaves', 5, 'g', false, true),
-  ('Green Salad', 'Salt', 0.5, 'tsp', true, false)
+  ('Green Salad', 'Salt', 0.5, 'tsp', true, false),
+  ('Bread Pizza', 'Bread', 2, 'slice', true, false),
+  ('Bread Pizza', 'Cheese', 40, 'g', true, false),
+  ('Bread Pizza', 'Capsicum', 30, 'g', true, false),
+  ('Bread Pizza', 'Onion', 20, 'g', true, false),
+  ('Bread Pizza', 'Tomato', 30, 'g', true, false),
+  ('Bread Pizza', 'Sweet Corn', 20, 'g', true, false),
+  ('Bread Pizza', 'Tomato Ketchup', 1, 'tbsp', true, false),
+  ('Bread Pizza', 'Cooking Oil', 1, 'tsp', true, false),
+  ('Bread Pizza', 'Black Pepper', 0.25, 'tsp', true, false),
+  ('Bread Pizza', 'Salt', 0.5, 'tsp', true, false),
+  ('Curd', 'Yogurt', 150, 'g', true, false),
+  ('Oats Cheela', 'Oats', 50, 'g', true, false),
+  ('Oats Cheela', 'Gram Flour', 20, 'g', true, false),
+  ('Oats Cheela', 'Onion', 30, 'g', true, false),
+  ('Oats Cheela', 'Tomato', 20, 'g', true, false),
+  ('Oats Cheela', 'Green Chili', 4, 'g', true, false),
+  ('Oats Cheela', 'Coriander Leaves', 5, 'g', true, false),
+  ('Oats Cheela', 'Cooking Oil', 1, 'tbsp', true, false),
+  ('Oats Cheela', 'Salt', 0.5, 'tsp', true, false)
 ) as v(dish, ingredient, qty, unit, req, opt)
 join dishes d on d.name = v.dish
 join ingredients i on i.name = v.ingredient
