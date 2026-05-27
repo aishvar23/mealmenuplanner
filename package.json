@@ -24,7 +24,17 @@
     "db:diff": "supabase db diff",
     "db:push": "supabase db push",
     "db:lint": "supabase db lint",
-    "db:types": "supabase gen types typescript --local --schema public > lib/db/database.types.ts"
+    "db:types": "supabase gen types typescript --local --schema public > lib/db/database.types.ts",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix --no-warn-ignored",
+      "prettier --write"
+    ],
+    "*.{js,mjs,cjs,jsx,css,md,json,yml,yaml}": [
+      "prettier --write"
+    ]
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
@@ -54,6 +64,8 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "eslint-config-prettier": "^10.1.8",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.5",
     "prettier": "3.8.3",
     "prettier-plugin-tailwindcss": "^0.8.0",
     "supabase": "^2.101.0",
