@@ -200,7 +200,12 @@ function preferredDishesRows(
 ): Row[] {
   switch (preferred.mode) {
     case "combinations": {
-      const count = preferred.selectedCombinationIds?.length ?? 0;
+      // P10-9 stores the richer `selectedCombinations`; fall back to the legacy
+      // id-only shape for a resumed pre-P10-9 draft.
+      const count =
+        preferred.selectedCombinations?.length ??
+        preferred.selectedCombinationIds?.length ??
+        0;
       return [
         ["Selection", "Meal combinations"],
         ["Combinations", count > 0 ? `${count} selected` : undefined],

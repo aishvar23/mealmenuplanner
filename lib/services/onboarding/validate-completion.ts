@@ -92,13 +92,25 @@ export interface SelfBuiltDishPayload {
 }
 
 /**
+ * One selected combination (P10-9 `combinations` mode) the RPC writes household
+ * prefs from: the combo id (popularity bump) plus the plate-level frequency +
+ * suitable slots applied to each of its member dishes.
+ */
+export interface SelectedCombinationPayload {
+  combinationId: string;
+  frequency: MealFrequency;
+  /** Meal slots the combination is suitable for (P10-8/9); `[]` = no restriction. */
+  suitableFor: MealSlot[];
+}
+
+/**
  * The P10 combination/build slice the RPC reads (`p_combination_prefs`): the
- * `combinations` mode's selected combo ids (popularity bump) and the `build`
- * mode's self-built dishes. `null` when the household chose `system`/`manual` or
- * picked nothing.
+ * `combinations` mode's selected combinations (popularity bump + per-dish prefs)
+ * and the `build` mode's self-built dishes. `null` when the household chose
+ * `system`/`manual` or picked nothing.
  */
 export interface CombinationPrefsPayload {
-  selectedCombinationIds: string[];
+  selectedCombinations: SelectedCombinationPayload[];
   builtDishes: SelfBuiltDishPayload[];
 }
 
@@ -328,6 +340,8 @@ export function buildCompletionPayload(draft: DraftData): CompletionPayload {
 interface PreferredDishesSlice {
   mode?: string;
   dishNames?: unknown;
+  selectedCombinations?: unknown;
+  /** @deprecated pre-P10-9 id-only shape; still read for resumed drafts. */
   selectedCombinationIds?: unknown;
   builtDishes?: unknown;
 }
@@ -346,19 +360,15 @@ function resolvePreferredDishes(
       return { likedDishes: [], combinationPrefs: null };
 
     case "combinations": {
-      const ids = cleanStringArray(preferred.selectedCombinationIds);
-      const valid: string[] = [];
-      for (const id of ids) {
-        if (isUuid(id)) valid.push(id);
-        else issues.push({ field: "selectedCombinationIds", rule: "uuid" });
-      }
-      // De-dupe while preserving order.
-      const unique = [...new Set(valid)];
+      const selectedCombinations = normalizeSelectedCombinations(
+        preferred,
+        issues,
+      );
       return {
         likedDishes: [],
         combinationPrefs:
-          unique.length > 0
-            ? { selectedCombinationIds: unique, builtDishes: [] }
+          selectedCombinations.length > 0
+            ? { selectedCombinations, builtDishes: [] }
             : null,
       };
     }
@@ -371,7 +381,7 @@ function resolvePreferredDishes(
         likedDishes,
         combinationPrefs:
           builtDishes.length > 0
-            ? { selectedCombinationIds: [], builtDishes }
+            ? { selectedCombinations: [], builtDishes }
             : null,
       };
     }
@@ -414,7 +424,11 @@ function normalizeBuiltDishes(
       continue;
     }
     seen.add(dishName);
-    const suitableFor = normalizeSuitableFor(record.suitableFor, issues);
+    const suitableFor = normalizeSuitableFor(
+      record.suitableFor,
+      issues,
+      "builtDishes.suitableFor",
+    );
     // De-dupe accompaniments and drop the main itself if it sneaks in.
     const goesWith = [...new Set(cleanStringArray(record.goesWith))].filter(
       (name) => name !== dishName,
@@ -425,21 +439,19 @@ function normalizeBuiltDishes(
 }
 
 /**
- * Normalize a built dish's `suitableFor` slots (P10-8): de-duped valid
- * `meal_slot`s, preserving order. Empty/absent is allowed (no restriction); an
- * invalid slot pushes a ValidationIssue and is dropped.
+ * Normalize a `suitableFor` slot list (P10-8): de-duped valid `meal_slot`s,
+ * preserving order. Empty/absent is allowed (no restriction); an invalid slot
+ * pushes a ValidationIssue (under `field`) and is dropped. Shared by the build
+ * mode (per dish) and combinations mode (per combination).
  */
 function normalizeSuitableFor(
   value: unknown,
   issues: ValidationIssue[],
+  field: string,
 ): MealSlot[] {
   if (value === undefined || value === null) return [];
   if (!Array.isArray(value)) {
-    issues.push({
-      field: "builtDishes.suitableFor",
-      rule: "enumArray",
-      allowed: MEAL_SLOTS,
-    });
+    issues.push({ field, rule: "enumArray", allowed: MEAL_SLOTS });
     return [];
   }
   const seen = new Set<MealSlot>();
@@ -451,12 +463,66 @@ function normalizeSuitableFor(
         out.push(slot);
       }
     } else {
-      issues.push({
-        field: "builtDishes.suitableFor",
-        rule: "enumArray",
-        allowed: MEAL_SLOTS,
-      });
+      issues.push({ field, rule: "enumArray", allowed: MEAL_SLOTS });
     }
+  }
+  return out;
+}
+
+/**
+ * Normalize the `combinations`-mode selections into the RPC payload (P10-9): each
+ * needs a valid combination UUID (de-duplicated), a valid `meal_frequency` (a bad
+ * one pushes an issue and drops the entry; absent defaults to `once_in_a_while`),
+ * and cleaned `suitableFor` slots. A resumed pre-P10-9 draft carries only
+ * `selectedCombinationIds` (ids, no prefs) — those rehydrate with the defaults.
+ */
+function normalizeSelectedCombinations(
+  preferred: PreferredDishesSlice,
+  issues: ValidationIssue[],
+): SelectedCombinationPayload[] {
+  const raw: unknown[] = Array.isArray(preferred.selectedCombinations)
+    ? preferred.selectedCombinations
+    : cleanStringArray(preferred.selectedCombinationIds).map((id) => ({
+        combinationId: id,
+        frequency: "once_in_a_while",
+        suitableFor: [],
+      }));
+
+  const out: SelectedCombinationPayload[] = [];
+  const seen = new Set<string>();
+  for (const entry of raw) {
+    if (!entry || typeof entry !== "object") continue;
+    const record = entry as Record<string, unknown>;
+    const id =
+      typeof record.combinationId === "string"
+        ? record.combinationId.trim()
+        : "";
+    if (!isUuid(id)) {
+      issues.push({ field: "selectedCombinations", rule: "uuid" });
+      continue;
+    }
+    if (seen.has(id)) continue;
+
+    let frequency: MealFrequency = "once_in_a_while";
+    if (record.frequency !== undefined) {
+      if (isEnumValue(record.frequency, MEAL_FREQUENCIES)) {
+        frequency = record.frequency;
+      } else {
+        issues.push({
+          field: "selectedCombinations.frequency",
+          rule: "enum",
+          allowed: MEAL_FREQUENCIES,
+        });
+        continue;
+      }
+    }
+    seen.add(id);
+    const suitableFor = normalizeSuitableFor(
+      record.suitableFor,
+      issues,
+      "selectedCombinations.suitableFor",
+    );
+    out.push({ combinationId: id, frequency, suitableFor });
   }
   return out;
 }

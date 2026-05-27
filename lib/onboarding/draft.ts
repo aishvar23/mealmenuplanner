@@ -58,10 +58,32 @@ export interface SelfBuiltDish {
 }
 
 /**
+ * One selected meal combination in `combinations` mode (P10-9): the admin-curated
+ * combination plus the household's plate-level preferences for it — how often it
+ * wants the plate and the meal slots it's suitable for. This mirrors the per-dish
+ * controls of `build` mode **minus "goes with"** (a combination already fixes the
+ * dishes that go together). On completion the frequency + suitable slots are
+ * applied to every dish in the combination (`household_dish_preferences`).
+ */
+export interface SelectedCombination {
+  /** The admin-curated combination's id. */
+  combinationId: string;
+  /** How often the household wants this combination in rotation. */
+  frequency: MealFrequency;
+  /**
+   * Meal slots this combination is suitable for (mirrors {@link SelfBuiltDish}).
+   * Empty = no restriction; a non-empty list hard-filters the engine.
+   */
+  suitableFor: MealSlot[];
+}
+
+/**
  * Step 3 — preferred dishes (BUG-006 + P10). Four modes, all reaching the same
  * step but persisting differently at completion:
- *   • `combinations` — pick admin-curated meal combinations (popularity-ranked);
- *     selecting bumps each combo's popularity (`selectedCombinationIds`).
+ *   • `combinations` — pick admin-curated meal combinations (popularity-ranked),
+ *     each tagged with a frequency tier + the slots it's "suitable for" (P10-9).
+ *     Selecting bumps each combo's popularity and writes those plate-level prefs
+ *     onto every member dish (`selectedCombinations` → `household_dish_preferences`).
  *   • `build` — pick main dishes and tag each with a frequency tier + the
  *     accompaniments it goes with (`builtDishes` → `household_dish_preferences` /
  *     `household_dish_accompaniments`; the mains also become `liked_dishes`).
@@ -74,7 +96,15 @@ export interface PreferredDishes {
   mode?: "combinations" | "build" | "system" | "manual";
   /** Dish names the household likes (legacy `manual` mode). */
   dishNames?: string[];
-  /** Admin-curated combination ids the household selected (`combinations` mode). */
+  /**
+   * Selected meal combinations + plate-level prefs (`combinations` mode, P10-9).
+   */
+  selectedCombinations?: SelectedCombination[];
+  /**
+   * @deprecated Pre-P10-9 `combinations`-mode shape (ids only, no frequency/slots).
+   * Superseded by {@link selectedCombinations}; still read when rehydrating an
+   * older draft so a resumed session doesn't lose its picks.
+   */
   selectedCombinationIds?: string[];
   /** The household's self-built dishes (`build` mode). */
   builtDishes?: SelfBuiltDish[];
