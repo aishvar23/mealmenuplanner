@@ -65,20 +65,25 @@ export function CombinationCard({
           </span>
         </div>
 
-        <ul className="flex flex-wrap gap-2">
+        {/*
+         * The dish images carry the visual; the combination name + description
+         * above already name the plate, so we don't repeat each dish name as a
+         * caption (that read as the name appearing twice — BUG-025). The dish
+         * name stays available to assistive tech via the image alt text. The
+         * thumbnails fill a 3-up grid so they're as prominent as the build-mode
+         * DishCard images rather than the old 4rem chips (BUG-025).
+         */}
+        <ul className="grid grid-cols-3 gap-2">
           {combination.dishes.map((dish) => (
-            <li key={dish.id} className="flex w-16 flex-col items-center gap-1">
+            <li key={dish.id}>
               <FoodImage
                 kind="dish"
                 src={dish.imageUrl}
                 status={dish.imageStatus}
                 altText={dish.imageAltText ?? dish.name}
-                className="w-16"
-                sizes="4rem"
+                className="w-full"
+                sizes="(max-width: 640px) 30vw, 8rem"
               />
-              <span className="line-clamp-2 text-center text-[11px] leading-tight text-muted-foreground">
-                {dish.name}
-              </span>
             </li>
           ))}
         </ul>

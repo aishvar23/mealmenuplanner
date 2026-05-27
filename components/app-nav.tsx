@@ -10,7 +10,7 @@ const LINKS = [
   {
     href: "/today",
     label: "Today",
-    description: "Approve tonight",
+    description: "Today's meals",
     icon: CalendarDays,
   },
   {

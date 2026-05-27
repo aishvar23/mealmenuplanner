@@ -6,12 +6,23 @@
 
 import type { MemberRole, MembershipType } from "@/lib/auth/permissions";
 import type { Database } from "@/lib/db/database.types";
+// Type-only import (erased at build) — keeps the server-only notifier module out
+// of any client bundle that imports this DTO.
+import type { InviteEmailOutcome } from "@/lib/events/notifier/router";
+
+/**
+ * Whether the invitee was emailed. `no_recipient` is the phone-only invite case
+ * (no email to send to); the rest mirror {@link InviteEmailOutcome}.
+ */
+export type InviteEmailStatus = InviteEmailOutcome | "no_recipient";
 
 /** `POST /api/households/{id}/invites` response (design/04 § 4.3). */
 export interface CreateInviteResult {
   inviteId: string;
   /** The shareable link carrying the plaintext token — returned ONCE. */
   inviteLink: string;
+  /** Outcome of the best-effort invite email so the UI can guide the inviter. */
+  emailStatus: InviteEmailStatus;
 }
 
 /** One row of the `get_invite_preview` RPC (the safe, anon-readable projection). */

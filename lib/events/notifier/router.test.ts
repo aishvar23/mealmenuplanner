@@ -20,29 +20,39 @@ beforeEach(() => {
 });
 
 describe("sendInviteEmail", () => {
-  it("dispatches through the registry's email adapter", async () => {
+  it("dispatches through the registry's email adapter and reports 'sent'", async () => {
     const notifier = new EmailNotifier({ send: vi.fn() });
     const sendInvite = vi.spyOn(notifier, "sendInvite").mockResolvedValue();
     const registry = new NotifierRegistry().register(notifier);
 
-    await sendInviteEmail(INVITE, registry);
+    await expect(sendInviteEmail(INVITE, registry)).resolves.toBe("sent");
     expect(sendInvite).toHaveBeenCalledWith(INVITE);
   });
 
-  it("swallows a transport failure (best-effort — never fails invite creation)", async () => {
+  it("reports 'failed' on a transport failure (best-effort — never throws)", async () => {
     const notifier = new EmailNotifier({
       send: vi.fn().mockRejectedValue(new Error("down")),
     });
     const registry = new NotifierRegistry().register(notifier);
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    await expect(sendInviteEmail(INVITE, registry)).resolves.toBeUndefined();
+    await expect(sendInviteEmail(INVITE, registry)).resolves.toBe("failed");
     expect(spy).toHaveBeenCalled();
     spy.mockRestore();
   });
 
-  it("is a no-op when no email adapter is registered", async () => {
+  it("reports 'not_configured' when no email adapter is registered", async () => {
     const registry = new NotifierRegistry();
-    await expect(sendInviteEmail(INVITE, registry)).resolves.toBeUndefined();
+    await expect(sendInviteEmail(INVITE, registry)).resolves.toBe(
+      "not_configured",
+    );
+  });
+
+  it("reports 'not_configured' when the adapter has no transport", async () => {
+    const notifier = new EmailNotifier(null);
+    const registry = new NotifierRegistry().register(notifier);
+    await expect(sendInviteEmail(INVITE, registry)).resolves.toBe(
+      "not_configured",
+    );
   });
 });

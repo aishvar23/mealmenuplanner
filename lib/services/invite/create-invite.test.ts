@@ -133,6 +133,7 @@ describe("createInvite", () => {
 
   it("fans out a member_invited event and emails the invitee (P8-6)", async () => {
     stubInsert({ data: { id: "inv-1" }, error: null });
+    vi.mocked(sendInviteEmail).mockResolvedValue("sent");
     const result = await createInvite(
       HOUSEHOLD_ID,
       { email: "guest@example.com" },
@@ -150,6 +151,8 @@ describe("createInvite", () => {
         householdName: "Suhane Household",
       }),
     );
+    // The email outcome is surfaced back to the caller (BUG-018).
+    expect(result.emailStatus).toBe("sent");
   });
 
   it("404s a malformed household id before the guard", async () => {

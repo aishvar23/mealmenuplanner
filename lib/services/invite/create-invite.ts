@@ -16,7 +16,7 @@ import { ForbiddenError, InternalError, NotFoundError } from "@/lib/errors";
 import type { JsonObject } from "@/lib/http";
 import { isUuid } from "@/lib/validation";
 
-import type { CreateInviteResult } from "./dto";
+import type { CreateInviteResult, InviteEmailStatus } from "./dto";
 import { generateInviteToken, hashInviteToken } from "./token";
 import { validateCreateInvite } from "./validate";
 
@@ -106,9 +106,12 @@ export async function createInvite(
   });
 
   // The one external send in MVP: email the invite link to the invitee
-  // (best-effort; the link is also returned for manual sharing).
+  // (best-effort; the link is also returned for manual sharing). The outcome is
+  // returned so the UI can confirm the email went out, or prompt the inviter to
+  // share the link manually when email isn't configured (BUG-018).
+  let emailStatus: InviteEmailStatus = "no_recipient";
   if (invite.invitedEmail) {
-    await sendInviteEmail({
+    emailStatus = await sendInviteEmail({
       toEmail: invite.invitedEmail,
       inviteLink,
       householdName,
@@ -117,5 +120,5 @@ export async function createInvite(
     });
   }
 
-  return { inviteId: data.id, inviteLink };
+  return { inviteId: data.id, inviteLink, emailStatus };
 }

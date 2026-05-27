@@ -97,6 +97,15 @@ export function useDraftAutosave({
     const json = JSON.stringify(snapshot);
     // Coalesce: nothing changed since the last successful save.
     if (json === savedJsonRef.current && statusRef.current !== "error") {
+      // The buffered snapshot already matches what's persisted. If it's still
+      // the latest edit, clear the dirty flag that saveNow/queueSave optimistically
+      // set so the `beforeunload` guard doesn't warn on an already-saved draft —
+      // e.g. clicking Finish right after a per-step save persisted the identical
+      // snapshot (BUG-019: spurious "changes may not be saved" leave dialog).
+      if (JSON.stringify(latestRef.current) === json) {
+        markUnsaved(false);
+        setStatusSafe("saved");
+      }
       return savedDtoRef.current;
     }
 

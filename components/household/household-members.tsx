@@ -18,7 +18,10 @@ import type {
   CurrentUserPermissionsDto,
   MemberDto,
 } from "@/lib/services/household/dto";
-import type { PendingInviteDto } from "@/lib/services/invite/dto";
+import type {
+  InviteEmailStatus,
+  PendingInviteDto,
+} from "@/lib/services/invite/dto";
 
 import * as api from "./household-client";
 
@@ -120,6 +123,10 @@ function InvitePanel({ householdId }: { householdId: string }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [link, setLink] = useState<string | null>(null);
+  const [invitedEmail, setInvitedEmail] = useState<string | null>(null);
+  const [emailStatus, setEmailStatus] = useState<InviteEmailStatus | null>(
+    null,
+  );
   const [copied, setCopied] = useState(false);
 
   async function submit(event: React.FormEvent) {
@@ -127,9 +134,11 @@ function InvitePanel({ householdId }: { householdId: string }) {
     setPending(true);
     setError(null);
     setLink(null);
+    setEmailStatus(null);
     try {
+      const trimmedEmail = email.trim();
       const input: api.CreateInviteInput = {
-        email: email.trim(),
+        email: trimmedEmail,
         role,
         membershipType,
       };
@@ -140,6 +149,8 @@ function InvitePanel({ householdId }: { householdId: string }) {
       }
       const result = await api.createInvite(householdId, input);
       setLink(result.inviteLink);
+      setEmailStatus(result.emailStatus);
+      setInvitedEmail(trimmedEmail);
       setEmail("");
       // Surface the new invite in the "Pending invites" section immediately.
       router.refresh();
@@ -227,6 +238,25 @@ function InvitePanel({ householdId }: { householdId: string }) {
       </form>
 
       {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+
+      {link && emailStatus === "sent" && (
+        <p className="mt-2 text-sm font-medium text-primary">
+          Invitation emailed{invitedEmail ? ` to ${invitedEmail}` : ""}. You can
+          also share the link below.
+        </p>
+      )}
+      {link && emailStatus === "not_configured" && (
+        <p className="mt-2 text-sm text-muted-foreground">
+          Email delivery isn&apos;t set up yet, so share the link below
+          manually.
+        </p>
+      )}
+      {link && emailStatus === "failed" && (
+        <p className="mt-2 text-sm text-destructive">
+          We couldn&apos;t send the invitation email — share the link below
+          manually.
+        </p>
+      )}
 
       {link && (
         <div className="mt-3 rounded-lg border bg-muted/30 p-3">

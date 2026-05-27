@@ -13,24 +13,38 @@ import { getNotifierRegistry, type NotifierRegistry } from "./registry";
  */
 
 /**
+ * Outcome of the best-effort invite email so the caller can tell the inviter
+ * whether the invitee was actually emailed or they should share the link
+ * manually (design/09 § 5, § 9). `not_configured` means no transport is wired
+ * (e.g. `RESEND_API_KEY` unset); `failed` means the send was attempted but the
+ * transport errored after its own retries.
+ */
+export type InviteEmailOutcome = "sent" | "not_configured" | "failed";
+
+/**
  * Send the invite email, best-effort (design/09 § 5, § 9). Resolves the email
  * adapter from the registry; logs and swallows any transport failure so a failed
  * email never fails invite creation (the invite is persisted and the link is
- * also returned for manual sharing). A no-op when the transport is unconfigured.
+ * also returned for manual sharing). Returns the {@link InviteEmailOutcome} so
+ * the UI can reflect what happened; a no-op (`not_configured`) when the
+ * transport is unconfigured.
  */
 export async function sendInviteEmail(
   params: InviteEmailParams,
   registry: NotifierRegistry = getNotifierRegistry(),
-): Promise<void> {
+): Promise<InviteEmailOutcome> {
+  const notifier = registry.get("email");
+  if (!(notifier instanceof EmailNotifier) || !notifier.isConfigured) {
+    return "not_configured";
+  }
   try {
-    const notifier = registry.get("email");
-    if (notifier instanceof EmailNotifier) {
-      await notifier.sendInvite(params);
-    }
+    await notifier.sendInvite(params);
+    return "sent";
   } catch (error) {
     console.error("[events] failed to send invite email", {
       household: params.householdName,
       error,
     });
+    return "failed";
   }
 }

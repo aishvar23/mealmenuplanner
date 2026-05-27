@@ -32,6 +32,7 @@ describe("POST /api/households/{householdId}/invites", () => {
     vi.mocked(createInvite).mockResolvedValue({
       inviteId: "inv-1",
       inviteLink: "http://test.local/invite/abc",
+      emailStatus: "sent",
     });
 
     const res = await POST(
@@ -43,6 +44,7 @@ describe("POST /api/households/{householdId}/invites", () => {
     expect(await res.json()).toEqual({
       inviteId: "inv-1",
       inviteLink: "http://test.local/invite/abc",
+      emailStatus: "sent",
     });
     // The service receives the household id, the body, and the resolved base URL.
     expect(createInvite).toHaveBeenCalledWith(
