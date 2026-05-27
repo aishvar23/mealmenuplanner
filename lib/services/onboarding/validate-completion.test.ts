@@ -123,39 +123,111 @@ describe("buildCompletionPayload", () => {
     expect(buildCompletionPayload(draft).foodPreferences).toBeNull();
   });
 
-  it("collects selected combination ids (deduped) in combinations mode (P10)", () => {
+  it("collects selected combinations with frequency + suitableFor, deduped (P10-9)", () => {
     const id1 = "11111111-1111-1111-1111-111111111111";
     const id2 = "22222222-2222-2222-2222-222222222222";
     const draft = completeDraft();
     draft.preferredDishes = {
       mode: "combinations",
-      selectedCombinationIds: [id1, id2, id1],
-    };
+      selectedCombinations: [
+        {
+          combinationId: id1,
+          frequency: "once_a_week",
+          suitableFor: ["lunch"],
+        },
+        // No suitableFor → defaults to [] (no restriction).
+        { combinationId: id2, frequency: "daily", suitableFor: [] },
+        // Duplicate id collapses (first wins).
+        { combinationId: id1, frequency: "daily", suitableFor: ["dinner"] },
+      ],
+    } as unknown as DraftData["preferredDishes"];
     const payload = buildCompletionPayload(draft);
     expect(payload.combinationPrefs).toEqual({
-      selectedCombinationIds: [id1, id2],
+      selectedCombinations: [
+        {
+          combinationId: id1,
+          frequency: "once_a_week",
+          suitableFor: ["lunch"],
+        },
+        { combinationId: id2, frequency: "daily", suitableFor: [] },
+      ],
       builtDishes: [],
     });
     // Combinations mode contributes nothing to liked dishes.
     expect(payload.foodPreferences).toBeNull();
   });
 
-  it("rejects a non-uuid combination id in combinations mode (P10)", () => {
+  it("rehydrates a legacy id-only combinations draft with defaults (P10-9)", () => {
+    const id1 = "11111111-1111-1111-1111-111111111111";
+    const id2 = "22222222-2222-2222-2222-222222222222";
+    const draft = completeDraft();
+    // Pre-P10-9 shape: ids only, no per-combination prefs.
+    draft.preferredDishes = {
+      mode: "combinations",
+      selectedCombinationIds: [id1, id2, id1],
+    };
+    const payload = buildCompletionPayload(draft);
+    expect(payload.combinationPrefs).toEqual({
+      selectedCombinations: [
+        { combinationId: id1, frequency: "once_in_a_while", suitableFor: [] },
+        { combinationId: id2, frequency: "once_in_a_while", suitableFor: [] },
+      ],
+      builtDishes: [],
+    });
+  });
+
+  it("rejects a non-uuid combination id in combinations mode (P10-9)", () => {
     const draft = completeDraft();
     draft.preferredDishes = {
       mode: "combinations",
-      selectedCombinationIds: ["not-a-uuid"],
-    };
+      selectedCombinations: [
+        { combinationId: "not-a-uuid", frequency: "daily", suitableFor: [] },
+      ],
+    } as unknown as DraftData["preferredDishes"];
     expect(issueFields(() => buildCompletionPayload(draft))).toContain(
-      "selectedCombinationIds",
+      "selectedCombinations",
     );
   });
 
-  it("returns no combinationPrefs when combinations mode selects nothing (P10)", () => {
+  it("rejects an invalid frequency on a selected combination (P10-9)", () => {
     const draft = completeDraft();
     draft.preferredDishes = {
       mode: "combinations",
-      selectedCombinationIds: [],
+      selectedCombinations: [
+        {
+          combinationId: "11111111-1111-1111-1111-111111111111",
+          frequency: "weekly",
+          suitableFor: [],
+        },
+      ],
+    } as unknown as DraftData["preferredDishes"];
+    expect(issueFields(() => buildCompletionPayload(draft))).toContain(
+      "selectedCombinations.frequency",
+    );
+  });
+
+  it("rejects an invalid suitableFor slot on a selected combination (P10-9)", () => {
+    const draft = completeDraft();
+    draft.preferredDishes = {
+      mode: "combinations",
+      selectedCombinations: [
+        {
+          combinationId: "11111111-1111-1111-1111-111111111111",
+          frequency: "daily",
+          suitableFor: ["brunch"],
+        },
+      ],
+    } as unknown as DraftData["preferredDishes"];
+    expect(issueFields(() => buildCompletionPayload(draft))).toContain(
+      "selectedCombinations.suitableFor",
+    );
+  });
+
+  it("returns no combinationPrefs when combinations mode selects nothing (P10-9)", () => {
+    const draft = completeDraft();
+    draft.preferredDishes = {
+      mode: "combinations",
+      selectedCombinations: [],
     };
     expect(buildCompletionPayload(draft).combinationPrefs).toBeNull();
   });
@@ -178,7 +250,7 @@ describe("buildCompletionPayload", () => {
     } as unknown as DraftData["preferredDishes"];
     const payload = buildCompletionPayload(draft);
     expect(payload.combinationPrefs).toEqual({
-      selectedCombinationIds: [],
+      selectedCombinations: [],
       builtDishes: [
         {
           dishName: "Rajma Masala",

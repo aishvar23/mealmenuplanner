@@ -566,13 +566,33 @@ content-table`app_role` write-RLS backstop to fire under a user JWT, add a
       `dishes.meal_slots` rule (design/05 §4, docs/04). typecheck, lint,
       format:check, build, and all 800 tests green._
 
-> **P10 complete.** All eight tasks are done. P10-1..P10-7 verified on branch
+- [x] **P10-9** Per-combination "how often" + "suitable for" in `combinations` mode
+      (Mode 1) — _a selected meal-combination card now shows the same per-card
+      controls as a build-your-own dish (a frequency tier and a breakfast / lunch /
+      dinner multi-select), **minus "goes with"** since a combination already fixes
+      the dishes that go together. Extracted the shared `FrequencyField` +
+      `SuitableForField` (`dish-config-fields.tsx`) so `BuildDishConfig` and the new
+      `CombinationConfig` render identical chips; `CombinationCard` gained a
+      `DishCard`-style footer slot. Draft shape: `selectedCombinationIds` is
+      superseded by `selectedCombinations` (`{ combinationId, frequency, suitableFor }`),
+      with the old id-only shape rehydrated on resume. `validate-completion`
+      normalizes the new array (uuid + enum-checked frequency + deduped slots); the
+      `complete_onboarding` RPC (migration `20260526140000`, applied to cloud dev via
+      MCP) now applies each selected active combo's frequency + suitable slots onto
+      every member dish via `household_dish_preferences` (the same rows Mode 2 writes,
+      so the engine's frequency tier + slot hard filter honor a combo pick), on top of
+      the existing popularity bump. No type regen needed (signature unchanged). New
+      combinations branch verified against real combo data on cloud dev; typecheck,
+      lint, format:check, and all 806 tests green._
+
+> **P10 complete.** All nine tasks are done. P10-1..P10-7 verified on branch
 > `feat/p10-meal-combinations` (RPC + RLS checks in rolled-back transactions on
 > cloud dev). The completion RPC bumps combo popularity (Mode 1), writes
 > `household_dish_preferences` / accompaniments + dish popularity (Mode 2), and
 > folds built mains into `liked_dishes`; accepting a self-built plate now promotes
 > it to the admin review queue (P10-5). P10-8 adds a household per-dish "suitable
-> for" meal-slot restriction enforced as a recommendation hard filter (typecheck,
-> lint, format:check, 800 tests, build green). Open design note: Mode 1 combo
-> selections influence recommendations only via **global** combo popularity (no
-> per-household combo-selection table yet — deferred, see the plan's risks).
+> for" meal-slot restriction enforced as a recommendation hard filter. P10-9
+> resolves the earlier open design note: Mode 1 combo selections now influence
+> recommendations **per household** (each selected combo's frequency + suitable
+> slots are written onto its member dishes' `household_dish_preferences`), not just
+> via global combo popularity (typecheck, lint, format:check, 806 tests green).

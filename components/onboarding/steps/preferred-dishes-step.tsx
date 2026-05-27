@@ -5,11 +5,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { BuildDishConfig } from "@/components/onboarding/cards/build-dish-config";
 import { CombinationCard } from "@/components/onboarding/cards/combination-card";
+import { CombinationConfig } from "@/components/onboarding/cards/combination-config";
 import { DishCard } from "@/components/onboarding/cards/dish-card";
 import { ModeCard } from "@/components/onboarding/mode-card";
 import { Input } from "@/components/ui/input";
 import type { Database } from "@/lib/db/database.types";
-import type { PreferredDishes, SelfBuiltDish } from "@/lib/onboarding";
+import type {
+  PreferredDishes,
+  SelectedCombination,
+  SelfBuiltDish,
+} from "@/lib/onboarding";
 import type { CombinationCatalogItem } from "@/lib/services/onboarding/list-combination-catalog";
 import type { DishCatalogItem } from "@/lib/services/onboarding/list-dish-catalog";
 
@@ -74,6 +79,7 @@ export function PreferredDishesStep({
             onChange({
               mode: "build",
               dishNames: [],
+              selectedCombinations: [],
               selectedCombinationIds: [],
             })
           }
@@ -87,6 +93,7 @@ export function PreferredDishesStep({
             onChange({
               mode: "system",
               dishNames: [],
+              selectedCombinations: [],
               selectedCombinationIds: [],
               builtDishes: [],
             })
@@ -137,13 +144,60 @@ function CombinationsMode({
   catalog: LazyCatalog<CombinationCatalogItem>;
 }) {
   const [search, setSearch] = useState("");
-  const selected = value.selectedCombinationIds ?? [];
+
+  // Each selected combination carries plate-level prefs (P10-9). Rehydrate the
+  // pre-P10-9 id-only shape into the richer form so resumed drafts don't lose
+  // their picks (default frequency, no slot restriction).
+  const selected = useMemo<SelectedCombination[]>(() => {
+    if (value.selectedCombinations) return value.selectedCombinations;
+    return (value.selectedCombinationIds ?? []).map((id) => ({
+      combinationId: id,
+      frequency: "once_in_a_while",
+      suitableFor: [],
+    }));
+  }, [value.selectedCombinations, value.selectedCombinationIds]);
+
+  const selectedById = useMemo(
+    () => new Map(selected.map((s) => [s.combinationId, s])),
+    [selected],
+  );
+
+  // Write the new shape and clear the legacy field so the two never disagree.
+  function setSelected(next: SelectedCombination[]) {
+    onChange({ selectedCombinations: next, selectedCombinationIds: undefined });
+  }
 
   function toggle(id: string) {
-    const next = selected.includes(id)
-      ? selected.filter((s) => s !== id)
-      : [...selected, id];
-    onChange({ selectedCombinationIds: next });
+    setSelected(
+      selectedById.has(id)
+        ? selected.filter((s) => s.combinationId !== id)
+        : [
+            ...selected,
+            {
+              combinationId: id,
+              frequency: "once_in_a_while",
+              suitableFor: [],
+            },
+          ],
+    );
+  }
+
+  function setFrequency(id: string, frequency: MealFrequency) {
+    setSelected(
+      selected.map((s) => (s.combinationId === id ? { ...s, frequency } : s)),
+    );
+  }
+
+  function toggleSlot(id: string, slot: MealSlot) {
+    setSelected(
+      selected.map((s) => {
+        if (s.combinationId !== id) return s;
+        const suitableFor = s.suitableFor.includes(slot)
+          ? s.suitableFor.filter((existing) => existing !== slot)
+          : [...s.suitableFor, slot];
+        return { ...s, suitableFor };
+      }),
+    );
   }
 
   const filtered = (catalog.data ?? []).filter((combo) =>
@@ -173,15 +227,30 @@ function CombinationsMode({
         loadingLabel="Loading combinations…"
       >
         <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {filtered.map((combo) => (
-            <li key={combo.id}>
-              <CombinationCard
-                combination={combo}
-                selected={selected.includes(combo.id)}
-                onToggle={() => toggle(combo.id)}
-              />
-            </li>
-          ))}
+          {filtered.map((combo) => {
+            const config = selectedById.get(combo.id);
+            return (
+              <li key={combo.id}>
+                <CombinationCard
+                  combination={combo}
+                  selected={Boolean(config)}
+                  onToggle={() => toggle(combo.id)}
+                  footer={
+                    config ? (
+                      <CombinationConfig
+                        frequency={config.frequency}
+                        suitableFor={config.suitableFor}
+                        onFrequencyChange={(frequency) =>
+                          setFrequency(combo.id, frequency)
+                        }
+                        onToggleSlot={(slot) => toggleSlot(combo.id, slot)}
+                      />
+                    ) : null
+                  }
+                />
+              </li>
+            );
+          })}
         </ul>
       </CatalogState>
     </div>
