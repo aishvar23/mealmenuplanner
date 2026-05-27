@@ -10,6 +10,6 @@ import type { ReactNode } from "react";
  */
 export default function AppTemplate({ children }: { children: ReactNode }) {
   return (
-    <div className="animate-in fade-in duration-300 ease-out">{children}</div>
+    <div className="animate-in duration-300 ease-out fade-in">{children}</div>
   );
 }
