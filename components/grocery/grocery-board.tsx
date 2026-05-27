@@ -2,8 +2,10 @@
 
 import { Check, RotateCcw, ShoppingBasket } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { FoodImage } from "@/components/ui/food-image";
 import { categoryLabel, formatQuantity } from "@/lib/grocery/labels";
 import type {
@@ -55,7 +57,10 @@ export function GroceryBoard({
   const onRegenerate = () =>
     run(
       () => api.regenerateGroceryList(householdId, mealPlanId),
-      (updated) => setList(updated),
+      (updated) => {
+        setList(updated);
+        toast.success("Grocery list updated");
+      },
     );
 
   const onToggle = (item: GroceryItemDto) =>
@@ -89,7 +94,7 @@ export function GroceryBoard({
 
   return (
     <div className="flex flex-col gap-5">
-      <section className="rounded-lg border bg-card p-5 shadow-xs">
+      <section className="rounded-xl border bg-card p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <span className="flex size-12 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -150,23 +155,28 @@ export function GroceryBoard({
       {!list ? (
         <EmptyGroceryState canManage={canManage} />
       ) : list.items.length === 0 ? (
-        <div className="rounded-lg border border-dashed bg-card p-10 text-center text-sm text-muted-foreground shadow-xs">
-          Nothing to buy. No dishes with ingredients are planned for this plan.
-        </div>
+        <EmptyState
+          icon={ShoppingBasket}
+          title="Nothing to buy"
+          description="No dishes with ingredients are planned for this plan yet."
+        />
       ) : (
         <div className="flex flex-col gap-4">
           <FilterTabs value={filter} onChange={setFilter} />
           {visibleItems.length === 0 ? (
-            <div className="rounded-lg border border-dashed bg-card p-8 text-center text-sm text-muted-foreground shadow-xs">
-              {filter === "remaining"
-                ? "Everything is checked off."
-                : "No bought items yet."}
-            </div>
+            <EmptyState
+              icon={Check}
+              title={
+                filter === "remaining"
+                  ? "Everything is checked off"
+                  : "No bought items yet"
+              }
+            />
           ) : (
             groupByCategory(visibleItems).map((group) => (
               <section
                 key={group.category}
-                className="rounded-lg border bg-card shadow-xs"
+                className="overflow-hidden rounded-xl border bg-card shadow-sm"
               >
                 <div className="flex items-center justify-between border-b px-4 py-3">
                   <h2 className="font-heading text-sm font-bold tracking-tight">
@@ -272,11 +282,15 @@ function FilterTabs({
 
 function EmptyGroceryState({ canManage }: { canManage: boolean }) {
   return (
-    <div className="rounded-lg border border-dashed bg-card p-10 text-center text-sm text-muted-foreground shadow-xs">
-      {canManage
-        ? "Generate a grocery list from your current plan to get started."
-        : "No grocery list has been generated for this plan yet."}
-    </div>
+    <EmptyState
+      icon={ShoppingBasket}
+      title="No grocery list yet"
+      description={
+        canManage
+          ? "Generate a grocery list from your current plan to get started."
+          : "No grocery list has been generated for this plan yet."
+      }
+    />
   );
 }
 

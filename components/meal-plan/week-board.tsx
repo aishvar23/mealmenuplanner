@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { FoodImage } from "@/components/ui/food-image";
@@ -54,12 +55,13 @@ export function WeekBoard({
   const plannedCount = items.filter((item) => item.dishId).length;
   const totalSlots = dates.length * slots.length;
 
-  function act(fn: () => Promise<unknown>) {
+  function act(fn: () => Promise<unknown>, successMessage?: string) {
     setError(null);
     startTransition(async () => {
       try {
         await fn();
         router.refresh();
+        if (successMessage) toast.success(successMessage);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Something went wrong.");
       }
@@ -68,7 +70,7 @@ export function WeekBoard({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="rounded-lg border bg-card p-4 shadow-xs">
+      <div className="rounded-xl border bg-card p-4 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <span className="flex size-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -87,7 +89,10 @@ export function WeekBoard({
             <Button
               disabled={pending}
               onClick={() =>
-                act(() => api.generateWeek(householdId, startDate, endDate))
+                act(
+                  () => api.generateWeek(householdId, startDate, endDate),
+                  "Week planned",
+                )
               }
             >
               <Sparkles data-icon="inline-start" />
@@ -103,12 +108,18 @@ export function WeekBoard({
         ) : null}
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7">
+      {/*
+        Below xl the week is a horizontal, snap-scrolling strip (swipe through
+        days, one column ~16rem) so it never crushes on phones/tablets; at xl+
+        it reflows into a static 4- then 7-column grid where the whole week is
+        visible at a glance. Flex sizing (w-64/shrink-0) is ignored in grid mode.
+      */}
+      <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 xl:grid xl:grid-cols-4 xl:overflow-visible xl:pb-0 2xl:grid-cols-7">
         {dates.map((date, dateIndex) => (
           <section
             key={date}
             className={cn(
-              "rounded-lg border bg-card p-3 shadow-xs",
+              "w-64 shrink-0 snap-start rounded-xl border bg-card p-4 shadow-sm xl:w-auto",
               dateIndex === 0 && "border-primary/40 bg-primary/5",
             )}
           >

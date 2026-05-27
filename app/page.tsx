@@ -9,6 +9,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { buttonVariants } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Stagger, StaggerItem } from "@/components/ui/motion";
 import { getAuthUser } from "@/lib/auth";
 import { resolveCurrentHousehold } from "@/lib/services/household";
 
@@ -104,7 +106,7 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      <section className="mx-auto grid w-full max-w-6xl gap-4 px-5 py-8 md:grid-cols-3">
+      <Stagger className="mx-auto grid w-full max-w-6xl gap-4 px-5 py-8 md:grid-cols-3">
         {[
           {
             icon: CalendarCheck,
@@ -122,18 +124,19 @@ export default async function LandingPage() {
             text: "Groceries are grouped, checkable, and optimized for phone-in-hand use.",
           },
         ].map(({ icon: Icon, title, text }) => (
-          <article
-            key={title}
-            className="rounded-lg border bg-card p-5 shadow-xs"
-          >
-            <Icon className="size-5 text-primary" />
-            <h2 className="mt-4 font-heading text-lg font-bold">{title}</h2>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              {text}
-            </p>
-          </article>
+          <StaggerItem key={title}>
+            <Card interactive className="h-full p-6">
+              <span className="flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Icon className="size-5" />
+              </span>
+              <h2 className="mt-4 font-heading text-lg font-bold">{title}</h2>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                {text}
+              </p>
+            </Card>
+          </StaggerItem>
         ))}
-      </section>
+      </Stagger>
     </main>
   );
 }

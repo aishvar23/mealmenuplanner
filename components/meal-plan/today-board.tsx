@@ -10,6 +10,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { FoodImage } from "@/components/ui/food-image";
@@ -157,6 +158,7 @@ function SlotCard({
       (updated) => {
         setItem(updated);
         setAlternatives([]);
+        toast.success(`${mealSlotLabel(slot)} approved`);
       },
     );
 
@@ -176,6 +178,7 @@ function SlotCard({
       (r) => {
         setItem(r.mealPlanItem);
         setAlternatives([]);
+        toast.success("Meal swapped");
       },
     );
 
@@ -185,6 +188,7 @@ function SlotCard({
       (updated) => {
         setItem(updated);
         setAlternatives([]);
+        toast.success(`${mealSlotLabel(slot)} set to eating out`);
       },
     );
 

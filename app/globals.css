@@ -4,6 +4,17 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * "Forest & Ember" — a warm, premium artisan-kitchen palette.
+ * Source anchors (sRGB hex) and their OKLCh conversions:
+ *   canvas ivory      #F7F4EC  -> oklch(0.966 0.013 96)
+ *   primary emerald   #1E6B4F  -> oklch(0.47  0.105 162)  (chroma nudged for boldness)
+ *   ember terracotta  #D9602E  -> oklch(0.632 0.165 41)   (button fill darkened for AA white text)
+ *   marigold warn     #E8A317  -> oklch(0.77  0.15  78)   (uses dark foreground)
+ *   charcoal text     #221F1A  -> oklch(0.24  0.012 80)
+ * Tokens carry both LIGHT (:root) and DARK (.dark) sets; verify AA contrast in-browser.
+ */
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -17,7 +28,7 @@
   --color-herb: var(--herb);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-geist-sans);
+  --font-heading: var(--font-fraunces);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -54,83 +65,119 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  /*
+   * Elevation scale — warm-tinted, two-layer (ambient + cast) shadows that give
+   * cards real depth and provide a rest -> raised pair for hover-lift. Strength
+   * is driven by --shadow-color so dark mode can swap to a stronger black tint.
+   * `shadow-xs` stays the flattest tier (inputs); cards use sm/md, popovers lg/xl.
+   */
+  --shadow-2xs: 0 1px 2px 0 oklch(var(--shadow-color) / 0.05);
+  --shadow-xs: 0 1px 2px 0 oklch(var(--shadow-color) / 0.07);
+  --shadow-sm:
+    0 1px 2px -1px oklch(var(--shadow-color) / 0.08),
+    0 2px 6px -1px oklch(var(--shadow-color) / 0.08);
+  --shadow-md:
+    0 2px 4px -2px oklch(var(--shadow-color) / 0.08),
+    0 6px 16px -4px oklch(var(--shadow-color) / 0.12);
+  --shadow-lg:
+    0 4px 8px -3px oklch(var(--shadow-color) / 0.1),
+    0 12px 28px -6px oklch(var(--shadow-color) / 0.16);
+  --shadow-xl:
+    0 8px 16px -6px oklch(var(--shadow-color) / 0.12),
+    0 24px 48px -12px oklch(var(--shadow-color) / 0.2);
+  --shadow-2xl: 0 28px 56px -14px oklch(var(--shadow-color) / 0.28);
 }
 
 :root {
-  --background: oklch(0.985 0.012 92);
-  --canvas: oklch(0.962 0.018 97);
-  --foreground: oklch(0.18 0.035 145);
-  --card: oklch(0.998 0.003 92);
-  --card-foreground: oklch(0.18 0.035 145);
-  --popover: oklch(0.998 0.003 92);
-  --popover-foreground: oklch(0.18 0.035 145);
-  --primary: oklch(0.42 0.112 148);
-  --primary-foreground: oklch(0.995 0.005 92);
-  --secondary: oklch(0.934 0.028 93);
-  --secondary-foreground: oklch(0.25 0.045 120);
-  --muted: oklch(0.94 0.018 95);
-  --muted-foreground: oklch(0.47 0.025 112);
-  --accent: oklch(0.91 0.055 85);
-  --accent-foreground: oklch(0.28 0.055 95);
-  --fresh: oklch(0.53 0.125 151);
-  --fresh-foreground: oklch(0.995 0.005 92);
-  --tomato: oklch(0.63 0.165 36);
-  --tomato-foreground: oklch(0.995 0.005 92);
-  --saffron: oklch(0.82 0.14 78);
-  --saffron-foreground: oklch(0.24 0.055 85);
-  --herb: oklch(0.67 0.16 143);
-  --destructive: oklch(0.58 0.2 26);
-  --border: oklch(0.86 0.018 94);
-  --input: oklch(0.88 0.018 94);
-  --ring: oklch(0.58 0.13 148);
-  --chart-1: oklch(0.53 0.125 151);
-  --chart-2: oklch(0.63 0.165 36);
-  --chart-3: oklch(0.82 0.14 78);
-  --chart-4: oklch(0.54 0.09 205);
-  --chart-5: oklch(0.48 0.07 290);
-  --radius: 0.5rem;
-  --sidebar: oklch(0.21 0.045 145);
-  --sidebar-foreground: oklch(0.96 0.014 95);
-  --sidebar-primary: oklch(0.74 0.15 137);
-  --sidebar-primary-foreground: oklch(0.16 0.035 145);
-  --sidebar-accent: oklch(0.28 0.052 145);
-  --sidebar-accent-foreground: oklch(0.98 0.01 95);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.74 0.15 137);
+  /* Forest & Ember — light */
+  --background: oklch(0.985 0.01 95);
+  --canvas: oklch(0.966 0.013 96);
+  --foreground: oklch(0.24 0.012 80);
+  --card: oklch(0.995 0.006 95);
+  --card-foreground: oklch(0.24 0.012 80);
+  --popover: oklch(0.995 0.006 95);
+  --popover-foreground: oklch(0.24 0.012 80);
+  --primary: oklch(0.47 0.105 162);
+  --primary-foreground: oklch(0.99 0.01 95);
+  --secondary: oklch(0.925 0.026 88);
+  --secondary-foreground: oklch(0.31 0.045 140);
+  --muted: oklch(0.935 0.016 92);
+  --muted-foreground: oklch(0.46 0.022 88);
+  --accent: oklch(0.905 0.05 58);
+  --accent-foreground: oklch(0.39 0.09 46);
+  --fresh: oklch(0.55 0.13 158);
+  --fresh-foreground: oklch(0.99 0.01 95);
+  /* ember terracotta — fill darkened from the #D9602E anchor so white text clears AA */
+  --tomato: oklch(0.585 0.16 42);
+  --tomato-foreground: oklch(0.99 0.01 95);
+  /* marigold — uses dark foreground */
+  --saffron: oklch(0.77 0.15 78);
+  --saffron-foreground: oklch(0.26 0.05 80);
+  --herb: oklch(0.66 0.15 150);
+  --destructive: oklch(0.55 0.21 27);
+  --border: oklch(0.885 0.014 85);
+  --input: oklch(0.89 0.014 85);
+  --ring: oklch(0.55 0.12 162);
+  --chart-1: oklch(0.55 0.13 158);
+  --chart-2: oklch(0.63 0.165 42);
+  --chart-3: oklch(0.78 0.15 78);
+  --chart-4: oklch(0.55 0.1 230);
+  --chart-5: oklch(0.5 0.1 330);
+  --radius: 0.6875rem;
+  --shadow-color: 0.21 0.035 75;
+  --sidebar: oklch(0.26 0.055 158);
+  --sidebar-foreground: oklch(0.95 0.015 95);
+  --sidebar-primary: oklch(0.72 0.15 155);
+  --sidebar-primary-foreground: oklch(0.18 0.04 158);
+  --sidebar-accent: oklch(0.33 0.055 158);
+  --sidebar-accent-foreground: oklch(0.97 0.01 95);
+  --sidebar-border: oklch(1 0 0 / 12%);
+  --sidebar-ring: oklch(0.72 0.15 155);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
+  /* Forest & Ember — dark (warm green-charcoal, not neutral gray) */
+  --background: oklch(0.17 0.012 155);
+  --canvas: oklch(0.145 0.01 155);
+  --foreground: oklch(0.96 0.008 90);
+  --card: oklch(0.21 0.014 155);
+  --card-foreground: oklch(0.96 0.008 90);
+  --popover: oklch(0.21 0.014 155);
+  --popover-foreground: oklch(0.96 0.008 90);
+  --primary: oklch(0.7 0.14 158);
+  --primary-foreground: oklch(0.16 0.03 158);
+  --secondary: oklch(0.28 0.02 155);
+  --secondary-foreground: oklch(0.96 0.008 90);
+  --muted: oklch(0.27 0.015 155);
+  --muted-foreground: oklch(0.72 0.015 90);
+  --accent: oklch(0.3 0.04 60);
+  --accent-foreground: oklch(0.95 0.02 80);
+  --fresh: oklch(0.62 0.14 158);
+  --fresh-foreground: oklch(0.16 0.03 158);
+  --tomato: oklch(0.62 0.16 42);
+  --tomato-foreground: oklch(0.99 0.01 95);
+  --saffron: oklch(0.8 0.15 78);
+  --saffron-foreground: oklch(0.24 0.05 80);
+  --herb: oklch(0.68 0.14 150);
+  --destructive: oklch(0.62 0.2 27);
   --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.55 0.12 160);
+  --chart-1: oklch(0.62 0.14 158);
+  --chart-2: oklch(0.66 0.16 42);
+  --chart-3: oklch(0.8 0.15 78);
+  --chart-4: oklch(0.62 0.1 230);
+  --chart-5: oklch(0.58 0.1 330);
+  --shadow-color: 0 0 0;
+  --sidebar: oklch(0.2 0.02 155);
+  --sidebar-foreground: oklch(0.95 0.012 90);
+  --sidebar-primary: oklch(0.7 0.14 155);
+  --sidebar-primary-foreground: oklch(0.16 0.03 158);
+  --sidebar-accent: oklch(0.28 0.025 155);
+  --sidebar-accent-foreground: oklch(0.96 0.01 90);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --sidebar-ring: oklch(0.7 0.14 155);
 }
 
 @layer base {
@@ -148,5 +195,20 @@
   }
   ::selection {
     @apply bg-saffron text-saffron-foreground;
+  }
+  /*
+   * Reduced-motion safety net for CSS-driven motion (transitions, keyframes,
+   * smooth scroll). JS/Motion animations additionally gate on useReducedMotion;
+   * component transforms (e.g. button hover-lift) gate via `motion-reduce:` utilities.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }

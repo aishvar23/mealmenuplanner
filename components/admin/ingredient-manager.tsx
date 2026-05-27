@@ -144,71 +144,75 @@ export function IngredientManager({ initial }: { initial: IngredientDto[] }) {
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
-      <div className="overflow-hidden rounded-lg border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
-            <tr>
-              <th className="px-4 py-2 font-medium">Name</th>
-              <th className="px-4 py-2 font-medium">Category</th>
-              <th className="px-4 py-2 font-medium">Unit</th>
-              <th className="px-4 py-2 font-medium">Allergen</th>
-              <th className="px-4 py-2" />
-            </tr>
-          </thead>
-          <tbody>
-            {items.length === 0 ? (
+      <div className="overflow-hidden rounded-xl border shadow-sm">
+        {/* Inner scroller so the table scrolls horizontally on narrow screens
+            instead of being clipped by the rounded `overflow-hidden` frame. */}
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[36rem] text-sm">
+            <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
               <tr>
-                <td
-                  colSpan={5}
-                  className="px-4 py-10 text-center text-muted-foreground"
-                >
-                  No ingredients yet.
-                </td>
+                <th className="px-4 py-2 font-medium">Name</th>
+                <th className="px-4 py-2 font-medium">Category</th>
+                <th className="px-4 py-2 font-medium">Unit</th>
+                <th className="px-4 py-2 font-medium">Allergen</th>
+                <th className="px-4 py-2" />
               </tr>
-            ) : (
-              items.map((item) => (
-                <tr key={item.id} className="border-t hover:bg-muted/30">
-                  <td className="px-4 py-2.5">
-                    <span className="font-medium">{item.name}</span>
-                    {item.commonNames.length > 0 ? (
-                      <span className="block text-xs text-muted-foreground">
-                        {item.commonNames.join(", ")}
-                      </span>
-                    ) : null}
-                  </td>
-                  <td className="px-4 py-2.5 text-muted-foreground">
-                    {item.category}
-                  </td>
-                  <td className="px-4 py-2.5 text-muted-foreground">
-                    {item.defaultUnit}
-                  </td>
-                  <td className="px-4 py-2.5 text-muted-foreground">
-                    {item.allergenType ?? "—"}
-                  </td>
-                  <td className="px-4 py-2.5 text-right whitespace-nowrap">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => edit(item)}
-                    >
-                      Edit
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      disabled={busy}
-                      onClick={() => remove(item.id)}
-                    >
-                      Delete
-                    </Button>
+            </thead>
+            <tbody>
+              {items.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-4 py-10 text-center text-muted-foreground"
+                  >
+                    No ingredients yet.
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : (
+                items.map((item) => (
+                  <tr key={item.id} className="border-t hover:bg-muted/30">
+                    <td className="px-4 py-2.5">
+                      <span className="font-medium">{item.name}</span>
+                      {item.commonNames.length > 0 ? (
+                        <span className="block text-xs text-muted-foreground">
+                          {item.commonNames.join(", ")}
+                        </span>
+                      ) : null}
+                    </td>
+                    <td className="px-4 py-2.5 text-muted-foreground">
+                      {item.category}
+                    </td>
+                    <td className="px-4 py-2.5 text-muted-foreground">
+                      {item.defaultUnit}
+                    </td>
+                    <td className="px-4 py-2.5 text-muted-foreground">
+                      {item.allergenType ?? "—"}
+                    </td>
+                    <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => edit(item)}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        disabled={busy}
+                        onClick={() => remove(item.id)}
+                      >
+                        Delete
+                      </Button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <aside className="lg:sticky lg:top-20 lg:self-start">

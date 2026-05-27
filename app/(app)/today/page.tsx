@@ -1,9 +1,11 @@
+import { UtensilsCrossed } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { PrepReminders } from "@/components/meal-plan/prep-reminders";
 import { TodayBoard } from "@/components/meal-plan/today-board";
 import { buttonVariants } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   getHousehold,
   resolveCurrentHousehold,
@@ -91,17 +93,16 @@ export default async function TodayPage() {
       ) : null}
 
       {slots.length === 0 ? (
-        <div className="rounded-lg border border-dashed bg-card p-10 text-center shadow-xs">
-          <p className="text-sm text-muted-foreground">
-            Set up which meals you plan to see suggestions here.
-          </p>
-          <Link
-            href="/onboarding"
-            className={buttonVariants({ className: "mt-4" })}
-          >
-            Finish setup
-          </Link>
-        </div>
+        <EmptyState
+          icon={UtensilsCrossed}
+          title="No meals to plan yet"
+          description="Tell us which meals your household plans each day and we'll start suggesting dishes here."
+          action={
+            <Link href="/onboarding" className={buttonVariants()}>
+              Finish setup
+            </Link>
+          }
+        />
       ) : (
         <TodayBoard
           householdId={current.householdId}
