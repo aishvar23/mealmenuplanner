@@ -426,6 +426,29 @@ function ActionRow({
   onToggleLock: (item: MealPlanItemDto) => void;
   onToggleReject: () => void;
 }) {
+  // A locked meal is frozen until unlocked (design/08 §7; the server rejects
+  // suggest-another / replace / eating-out on a locked cell). Offering "Try
+  // another" etc. here just no-ops or errors, which made unlocking feel pointless
+  // (BUG-028). Surface only the Unlock affordance so unlocking is the clear path
+  // back to editing.
+  if (item?.locked) {
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm text-muted-foreground">
+          Locked so regeneration won&apos;t change it. Unlock to edit.
+        </span>
+        <Button
+          variant="outline"
+          disabled={pending}
+          onClick={() => onToggleLock(item)}
+        >
+          <LockOpen data-icon="inline-start" />
+          Unlock
+        </Button>
+      </div>
+    );
+  }
+
   if (!item || (!item.dishId && item.status !== "eating_out")) {
     return (
       <Button disabled={pending} onClick={onGenerate}>

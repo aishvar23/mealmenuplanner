@@ -259,39 +259,56 @@ function MealCell({
       </p>
 
       {canChange && item ? (
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {item.status !== "eating_out" ? (
+        item.locked ? (
+          // Locked = frozen until unlocked (design/08 §7; the server rejects
+          // change / eating-out on a locked cell). Show only the Unlock path so
+          // unlocking is the clear way back to editing (BUG-028).
+          <div className="mt-3 flex flex-wrap gap-1.5">
             <Button
               size="xs"
               variant="outline"
               disabled={pending}
-              onClick={onChangeMeal}
+              onClick={onToggleLock}
             >
-              <RefreshCw data-icon="inline-start" />
-              Change
+              <LockOpen data-icon="inline-start" />
+              Unlock to edit
             </Button>
-          ) : null}
-          <Button
-            size="icon-xs"
-            variant="ghost"
-            disabled={pending}
-            onClick={onEatingOut}
-            aria-label="Mark eating out"
-            title="Eating out"
-          >
-            <Utensils />
-          </Button>
-          <Button
-            size="icon-xs"
-            variant="ghost"
-            disabled={pending}
-            onClick={onToggleLock}
-            aria-label={item.locked ? "Unlock meal" : "Lock meal"}
-            title={item.locked ? "Unlock meal" : "Lock meal"}
-          >
-            {item.locked ? <Lock /> : <LockOpen />}
-          </Button>
-        </div>
+          </div>
+        ) : (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {item.status !== "eating_out" ? (
+              <Button
+                size="xs"
+                variant="outline"
+                disabled={pending}
+                onClick={onChangeMeal}
+              >
+                <RefreshCw data-icon="inline-start" />
+                Change
+              </Button>
+            ) : null}
+            <Button
+              size="icon-xs"
+              variant="ghost"
+              disabled={pending}
+              onClick={onEatingOut}
+              aria-label="Mark eating out"
+              title="Eating out"
+            >
+              <Utensils />
+            </Button>
+            <Button
+              size="icon-xs"
+              variant="ghost"
+              disabled={pending}
+              onClick={onToggleLock}
+              aria-label="Lock meal"
+              title="Lock meal"
+            >
+              <LockOpen />
+            </Button>
+          </div>
+        )
       ) : null}
     </div>
   );
