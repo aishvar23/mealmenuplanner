@@ -12,6 +12,16 @@ export {
 export { renderNotification } from "./templates";
 export { actorDisplayName, formatShortDate, formatSlotLabel } from "./format";
 export { emitHouseholdEvent, safeEmitHouseholdEvent } from "./emit";
+export { sendEventEmails } from "./email-fanout";
+export {
+  EMAIL_CATEGORIES,
+  EMAIL_CATEGORY_OPTIONS,
+  EVENT_CATEGORY,
+  SETTABLE_EMAIL_CATEGORIES,
+  categoryForEvent,
+  isSettableEmailCategory,
+  type EmailCategory,
+} from "./categories";
 export {
   type Channel,
   type Notifier,

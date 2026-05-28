@@ -56,17 +56,19 @@ flags"):
 | -------------------------------- | :-----: | :-----: | :------: | :------: |
 | `can_view_plan`                  |   ✅    |   ✅    |    ✅    |    ✅    |
 | `can_suggest_meals`              |   ✅    |   ✅    |    ✅    |    ❌    |
-| `can_change_today_menu`          |   ✅    |   ✅    |   ❌¹    |    ❌    |
-| `can_change_weekly_schedule`     |   ✅    |   ✅    |   ❌¹    |    ❌    |
+| `can_change_today_menu`          |   ✅    |   ✅    |    ✅    |    ❌    |
+| `can_change_weekly_schedule`     |   ✅    |   ✅    |    ✅    |    ❌    |
 | `can_manage_grocery_list`        |   ✅    |   ✅    |   ❌¹    |    ❌    |
 | `can_invite_members`             |   ✅    |   ❌¹   |    ❌    |    ❌    |
 | `can_remove_members`             |   ✅    |   ❌¹   |    ❌    |    ❌    |
 | `can_edit_household_preferences` |   ✅    |   ✅²   |    ❌    |    ❌    |
 
 ¹ Toggleable per member by an owner (or an admin acting within their own
-authority). The column defaults in doc 01 match the **`member` / `viewer`**
-baseline (`can_view_plan` and `can_suggest_meals` true, the rest false); the
-service layer raises the appropriate flags for `admin`/`owner` at row creation.
+authority). The raw `can_*` column defaults in doc 01 are `false`, but the
+service layer's `member` bundle (`defaultPermissionsForRole`) enables
+`can_change_today_menu` / `can_change_weekly_schedule` so an invited member can
+collaborate on meals immediately; grocery management stays opt-in. Admin/owner
+flags are raised at row creation.
 ² Admin edits "some" household preferences per `../docs/08`; scope is enforced in
 the service layer, not by a separate column.
 
@@ -79,8 +81,8 @@ Rules:
 - **Admin** mirrors the owner's day-to-day editing capability but defaults
   _without_ `can_invite_members` / `can_remove_members`; an owner may grant
   those per admin.
-- **Member** can view and suggest by default; editing capabilities are opt-in
-  per member.
+- **Member** can view, suggest, and change today's + weekly meals by default;
+  grocery management and household-level capabilities remain opt-in per member.
 - **Viewer** is strictly read-only (`can_view_plan` only) and may receive
   notifications.
 

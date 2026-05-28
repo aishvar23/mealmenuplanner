@@ -1,6 +1,7 @@
 import "server-only";
 
 import { EmailNotifier } from "./email";
+import type { EventEmailParams } from "./event-email";
 import type { InviteEmailParams } from "./invite-email";
 import { getNotifierRegistry, type NotifierRegistry } from "./registry";
 
@@ -47,4 +48,36 @@ export async function sendInviteEmail(
     });
     return "failed";
   }
+}
+
+/**
+ * Send one generic household-event email, best-effort (P9). Same shape as
+ * {@link sendInviteEmail}: resolves the email adapter, no-ops when unconfigured,
+ * and swallows transport failures (returning `"failed"`) so the per-recipient
+ * fan-out keeps going. Title/message are excluded from the log (the body can be
+ * benign, but we keep logs lean and recipient-anonymous).
+ */
+export async function sendEventEmail(
+  params: EventEmailParams,
+  registry: NotifierRegistry = getNotifierRegistry(),
+): Promise<InviteEmailOutcome> {
+  const notifier = registry.get("email");
+  if (!(notifier instanceof EmailNotifier) || !notifier.isConfigured) {
+    return "not_configured";
+  }
+  try {
+    await notifier.sendEvent(params);
+    return "sent";
+  } catch (error) {
+    console.error("[events] failed to send event email", { error });
+    return "failed";
+  }
+}
+
+/** True when an email transport is wired (RESEND_API_KEY present). */
+export function isEmailConfigured(
+  registry: NotifierRegistry = getNotifierRegistry(),
+): boolean {
+  const notifier = registry.get("email");
+  return notifier instanceof EmailNotifier && notifier.isConfigured;
 }

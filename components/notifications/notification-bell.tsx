@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-import { fetchNotifications } from "./notification-client";
+import { fetchNotifications, onUnreadChanged } from "./notification-client";
 
 /**
  * Header notification bell with an unread badge (P8-3, design/09 § 7). The count
@@ -36,9 +36,13 @@ export function NotificationBell({
 
     void refresh();
     window.addEventListener("focus", refresh);
+    // Refetch the moment the inbox marks things read in the same tab (no focus
+    // event fires for an in-tab navigation), so the badge never goes stale.
+    const unsubscribe = onUnreadChanged(refresh);
     return () => {
       cancelled = true;
       window.removeEventListener("focus", refresh);
+      unsubscribe();
     };
   }, []);
 

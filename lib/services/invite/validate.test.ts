@@ -17,11 +17,13 @@ describe("validateCreateInvite", () => {
     expect(Date.parse(result.expiresAt)).toBe(
       NOW.getTime() + DEFAULT_INVITE_TTL_DAYS * DAY,
     );
-    // member role defaults.
+    // member role defaults: can collaborate on today + weekly meals, but not
+    // manage groceries, invite, remove, or edit household preferences.
     expect(result.permissions).toMatchObject({
       can_view_plan: true,
       can_suggest_meals: true,
-      can_change_today_menu: false,
+      can_change_today_menu: true,
+      can_change_weekly_schedule: true,
       can_invite_members: false,
     });
   });

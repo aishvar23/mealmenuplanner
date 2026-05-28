@@ -214,16 +214,20 @@ and the column defaults in [Database Design](01_database_design.md).
 | -------------------------------- | :---: | :---: | :----: | :----: |
 | `can_view_plan`                  |  ✅   |  ✅   |   ✅   |   ✅   |
 | `can_suggest_meals`              |  ✅   |  ✅   |   ✅   |   ❌   |
-| `can_change_today_menu`          |  ✅   |  ✅   |  ❌¹   |   ❌   |
-| `can_change_weekly_schedule`     |  ✅   |  ✅   |  ❌¹   |   ❌   |
+| `can_change_today_menu`          |  ✅   |  ✅   |   ✅   |   ❌   |
+| `can_change_weekly_schedule`     |  ✅   |  ✅   |   ✅   |   ❌   |
 | `can_manage_grocery_list`        |  ✅   |  ✅   |  ❌¹   |   ❌   |
 | `can_invite_members`             |  ✅   |  ✅²  |   ❌   |   ❌   |
 | `can_remove_members`             |  ✅   |  ❌   |   ❌   |   ❌   |
 | `can_edit_household_preferences` |  ✅   |  ✅³  |   ❌   |   ❌   |
 
-¹ Off by default but commonly enabled per-member ("Change meals if permission is
-enabled" — [`../docs/08`](../docs/08_household_collaboration_spec.md)). Matches the
-schema defaults (`can_change_*` default `false`).
+¹ Members may manage the grocery list only if granted per-member ("Change meals
+if permission is enabled" — [`../docs/08`](../docs/08_household_collaboration_spec.md)).
+Note that `can_change_today_menu` / `can_change_weekly_schedule` are **on by
+default for members** — an invited collaborator can edit today's and the weekly
+meals out of the box. The raw schema column defaults remain `false`; the `member`
+bundle in `defaultPermissionsForRole` (`lib/auth/permissions.ts`) is what raises
+the two meal-editing flags at invite/creation time.
 
 ² Admins may invite **only if** `can_invite_members` is enabled
 ([`../docs/08`](../docs/08_household_collaboration_spec.md)). Enabled by default for

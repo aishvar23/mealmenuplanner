@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getEmailTransport, type EmailTransport } from "./email-transport";
+import { renderEventEmail, type EventEmailParams } from "./event-email";
 import { renderInviteEmail, type InviteEmailParams } from "./invite-email";
 import type { Channel, NotificationPayload, Notifier } from "./port";
 
@@ -42,6 +43,17 @@ export class EmailNotifier implements Notifier {
   async sendInvite(params: InviteEmailParams): Promise<void> {
     if (!this.transport) return;
     const { subject, html, text } = renderInviteEmail(params);
+    await this.transport.send({ to: params.toEmail, subject, html, text });
+  }
+
+  /**
+   * Send a generic household-event email to one opted-in recipient (P9). A no-op
+   * when no transport is configured. Throws only on a retryable transport error;
+   * the fan-out caller wraps each send so one failure never aborts the rest.
+   */
+  async sendEvent(params: EventEmailParams): Promise<void> {
+    if (!this.transport) return;
+    const { subject, html, text } = renderEventEmail(params);
     await this.transport.send({ to: params.toEmail, subject, html, text });
   }
 }

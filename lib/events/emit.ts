@@ -5,6 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/db/database.types";
 import { InternalError } from "@/lib/errors";
 
+import { sendEventEmails } from "./email-fanout";
 import { renderNotification } from "./templates";
 import type { EmitEventInput } from "./types";
 
@@ -70,6 +71,20 @@ export async function safeEmitHouseholdEvent(
     await emitHouseholdEvent(supabase, input);
   } catch (error) {
     console.error("[events] failed to emit household event", {
+      eventType: input.eventType,
+      householdId: input.householdId,
+      error,
+    });
+    return;
+  }
+
+  // In-app write committed — now fan out opt-in email (P9), best-effort and a
+  // no-op when no email transport is configured. Kept separate so an email
+  // glitch never rolls back or masks the committed in-app notification.
+  try {
+    await sendEventEmails(supabase, input);
+  } catch (error) {
+    console.error("[events] failed to fan out event email", {
       eventType: input.eventType,
       householdId: input.householdId,
       error,

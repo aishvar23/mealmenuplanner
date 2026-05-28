@@ -13,6 +13,7 @@ export {
   type InviteEmailParams,
   type RenderedEmail,
 } from "./invite-email";
+export { renderEventEmail, type EventEmailParams } from "./event-email";
 export { retryWithBackoff, type RetryOptions } from "./retry";
 export { escapeHtml } from "./html";
 export {
@@ -20,4 +21,4 @@ export {
   buildDefaultRegistry,
   getNotifierRegistry,
 } from "./registry";
-export { sendInviteEmail } from "./router";
+export { sendInviteEmail, sendEventEmail, isEmailConfigured } from "./router";

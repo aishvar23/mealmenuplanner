@@ -12,7 +12,9 @@
 // household_dish_accompaniments tables; combination_status + meal_frequency enums;
 // increment_combination_popularity / increment_dish_popularity /
 // propose_meal_combination RPCs + complete_onboarding combination-prefs param) +
-// P10-8 household_dish_preferences.suitable_meal_slots.
+// P10-8 household_dish_preferences.suitable_meal_slots + P9
+// notification_email_preferences (per-user email opt-ins) +
+// get_event_email_recipients RPC.
 // After regenerating, run `npm run format` so the output matches Prettier.
 
 export type Json =
@@ -1156,6 +1158,48 @@ export type Database = {
           },
         ];
       };
+      notification_email_preferences: {
+        Row: {
+          created_at: string;
+          enabled: boolean;
+          event_category: string;
+          household_id: string;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          enabled?: boolean;
+          event_category: string;
+          household_id: string;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          enabled?: boolean;
+          event_category?: string;
+          household_id?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "notification_email_preferences_household_id_fkey";
+            columns: ["household_id"];
+            isOneToOne: false;
+            referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "notification_email_preferences_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       notifications: {
         Row: {
           actor_user_id: string | null;
@@ -1345,6 +1389,21 @@ export type Database = {
       };
       expire_guests: { Args: never; Returns: number };
       expire_invites: { Args: never; Returns: number };
+      get_event_email_recipients: {
+        // p_extra_recipient_ids is hand-adjusted to `| null` (the email fan-out
+        // passes null when there are no extra recipients); Supabase's type
+        // generator does not emit nullability for function arguments.
+        Args: {
+          p_event_category: string;
+          p_extra_recipient_ids: string[] | null;
+          p_household_id: string;
+        };
+        Returns: {
+          display_name: string;
+          email: string;
+          user_id: string;
+        }[];
+      };
       get_invite_preview: {
         Args: { p_token_hash: string };
         Returns: {

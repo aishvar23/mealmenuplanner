@@ -208,8 +208,8 @@ export function defaultPermissionsForRole(
       return {
         can_view_plan: true,
         can_suggest_meals: true,
-        can_change_today_menu: false,
-        can_change_weekly_schedule: false,
+        can_change_today_menu: true,
+        can_change_weekly_schedule: true,
         can_manage_grocery_list: false,
         can_invite_members: false,
         can_remove_members: false,

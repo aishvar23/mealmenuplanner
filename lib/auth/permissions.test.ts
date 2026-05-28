@@ -151,12 +151,17 @@ describe("defaultPermissionsForRole", () => {
     expect(flags.can_edit_household_preferences).toBe(true);
   });
 
-  it("gives member only view + suggest", () => {
+  it("lets a member view, suggest, and change today + weekly meals by default", () => {
     const flags = defaultPermissionsForRole("member");
     expect(flags.can_view_plan).toBe(true);
     expect(flags.can_suggest_meals).toBe(true);
-    expect(flags.can_change_today_menu).toBe(false);
+    expect(flags.can_change_today_menu).toBe(true);
+    expect(flags.can_change_weekly_schedule).toBe(true);
+    // Still not an admin: no grocery management, invites, removals, or prefs.
+    expect(flags.can_manage_grocery_list).toBe(false);
     expect(flags.can_invite_members).toBe(false);
+    expect(flags.can_remove_members).toBe(false);
+    expect(flags.can_edit_household_preferences).toBe(false);
   });
 
   it("gives viewer only can_view_plan (read-only)", () => {

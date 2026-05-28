@@ -45,6 +45,8 @@ export function NotificationList({ initial }: { initial: NotificationInbox }) {
         prev.map((n) => (n.id === item.id ? { ...n, readAt } : n)),
       );
       setUnreadCount((c) => Math.max(0, c - 1));
+      // Keep the header bell badge in sync (it lives in the persistent shell).
+      api.emitUnreadChanged();
     });
   };
 
@@ -54,6 +56,7 @@ export function NotificationList({ initial }: { initial: NotificationInbox }) {
       const now = new Date().toISOString();
       setItems((prev) => prev.map((n) => ({ ...n, readAt: n.readAt ?? now })));
       setUnreadCount(0);
+      api.emitUnreadChanged();
     });
 
   const onLoadMore = () =>

@@ -8,6 +8,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { DemoVideo } from "@/components/demo-video";
 import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Stagger, StaggerItem } from "@/components/ui/motion";
@@ -85,19 +86,7 @@ export default async function LandingPage() {
               recommended meal, recorded from the real app (scripts/record-demo.mjs). */}
           <div className="hidden self-center justify-self-center md:block">
             <div className="relative w-[260px] rounded-[2rem] border border-white/15 bg-neutral-900/95 p-2 shadow-2xl ring-1 shadow-black/40 ring-white/10">
-              <video
-                className="block aspect-[43/92] w-full rounded-[1.5rem] bg-background object-cover"
-                autoPlay
-                loop
-                muted
-                playsInline
-                preload="metadata"
-                poster="/demo/onboarding-demo-poster.jpg"
-                aria-label="Product demo: set up your household, then see today's recommended meal."
-              >
-                <source src="/demo/onboarding-demo.webm" type="video/webm" />
-                <source src="/demo/onboarding-demo.mp4" type="video/mp4" />
-              </video>
+              <DemoVideo className="block aspect-[43/92] w-full rounded-[1.5rem] bg-background object-cover" />
             </div>
             <p className="mt-4 text-center text-sm font-medium text-white/85">
               Set up once, then decide dinner in seconds

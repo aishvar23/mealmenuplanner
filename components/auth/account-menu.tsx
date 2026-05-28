@@ -1,7 +1,7 @@
 "use client";
 
 import { Menu } from "@base-ui/react/menu";
-import { LogOut, SlidersHorizontal, Users } from "lucide-react";
+import { Bell, LogOut, SlidersHorizontal, Users } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -75,6 +75,13 @@ export function AccountMenu({
             >
               <Users className="size-4" />
               Household
+            </Menu.Item>
+            <Menu.Item
+              render={<Link href="/notifications/settings" />}
+              className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm font-medium text-foreground outline-none select-none data-highlighted:bg-primary/10 data-highlighted:text-primary"
+            >
+              <Bell className="size-4" />
+              Notification settings
             </Menu.Item>
             <Menu.Separator className="my-1 h-px bg-border" />
             <Menu.Item

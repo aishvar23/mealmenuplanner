@@ -62,3 +62,25 @@ export function markRead(id: string): Promise<MarkReadResult> {
 export function markAllRead(): Promise<{ updated: number }> {
   return request(`/api/notifications/read-all`, "POST");
 }
+
+/**
+ * Cross-component signal that the unread set changed (e.g. the inbox marked
+ * items read). The header bell lives in the persistent `(app)` shell, so it
+ * never re-mounts when the inbox marks things read in the same tab — and a
+ * same-tab read fires no `window` focus event either. This tiny `CustomEvent`
+ * bus lets the inbox tell the bell to refetch its authoritative count.
+ */
+const UNREAD_CHANGED_EVENT = "hmp:notifications-changed";
+
+/** Announce that the unread count may have changed. No-op outside the browser. */
+export function emitUnreadChanged(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(UNREAD_CHANGED_EVENT));
+}
+
+/** Subscribe to unread-changed signals; returns an unsubscribe function. */
+export function onUnreadChanged(callback: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  window.addEventListener(UNREAD_CHANGED_EVENT, callback);
+  return () => window.removeEventListener(UNREAD_CHANGED_EVENT, callback);
+}
