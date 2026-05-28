@@ -54,6 +54,7 @@ describe("loadHouseholdContext", () => {
       // P10: no household_dish_preferences rows in the stub → empty maps.
       dishFrequencies: new Map(),
       dishSuitableSlots: new Map(),
+      chosenDishIds: new Set(),
     });
   });
 
@@ -99,6 +100,8 @@ describe("loadHouseholdContext", () => {
     expect(ctx?.dishSuitableSlots).toEqual(
       new Map([["dish-a", ["breakfast"]]]),
     );
+    // BUG-015: every chosen dish (any tier) is in the chosen set for the engine.
+    expect(ctx?.chosenDishIds).toEqual(new Set(["dish-a", "dish-b"]));
   });
 
   it("returns null when there is no preferences row", async () => {

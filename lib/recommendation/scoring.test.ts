@@ -351,6 +351,104 @@ describe("scoreDish — combinations + frequency (P10)", () => {
     expect(w.frequencyOnceInAWhile).toBeUndefined();
     expect(w.recentlyCookedWithinGap).toBe(-60);
   });
+
+  // ── BUG-015: the household's own picks are boosted, not penalized ──────────
+
+  it("ranks a chosen once_in_a_while dish above an equivalent unchosen one (REC-001)", () => {
+    // Regression: before BUG-015 the chosen dish scored −20 vs the unchosen 0.
+    const chosenTotal = total(
+      makeDish({ id: "dish-1" }),
+      ctx({
+        household: makeHousehold({
+          dishFrequencies: new Map([["dish-1", "once_in_a_while"]]),
+          chosenDishIds: new Set(["dish-1"]),
+        }),
+      }),
+    );
+    const unchosenTotal = total(makeDish({ id: "dish-2" }), ctx());
+    expect(chosenTotal).toBeGreaterThan(unchosenTotal);
+  });
+
+  it("orders chosen dishes by tier, both above an unchosen dish (REC-002)", () => {
+    const dailyTotal = total(
+      makeDish({ id: "d-daily" }),
+      ctx({
+        household: makeHousehold({
+          dishFrequencies: new Map([["d-daily", "daily"]]),
+          chosenDishIds: new Set(["d-daily"]),
+        }),
+      }),
+    );
+    const occasionalTotal = total(
+      makeDish({ id: "d-occ" }),
+      ctx({
+        household: makeHousehold({
+          dishFrequencies: new Map([["d-occ", "once_in_a_while"]]),
+          chosenDishIds: new Set(["d-occ"]),
+        }),
+      }),
+    );
+    const unchosenTotal = total(makeDish({ id: "d-none" }), ctx());
+    expect(dailyTotal).toBeGreaterThanOrEqual(occasionalTotal);
+    expect(occasionalTotal).toBeGreaterThan(unchosenTotal);
+  });
+
+  it("boosts a chosen dish below the global popularity threshold (REC-003)", () => {
+    // A fresh household's combo has popularity_count below the threshold, so the
+    // global popularDish signal never fires — but the household-chosen bonus must.
+    const household = makeHousehold({
+      dishFrequencies: new Map([["dish-1", "once_in_a_while"]]),
+      chosenDishIds: new Set(["dish-1"]),
+    });
+    const w = weightsByLabel(
+      makeDish({ id: "dish-1", popularityCount: 0 }),
+      ctx({ household }),
+    );
+    expect(w.householdChosenDish).toBe(60);
+    expect(w.popularDish).toBeUndefined();
+  });
+
+  it("still applies the variety penalty to a recently-cooked non-daily chosen dish (REC-007)", () => {
+    const household = makeHousehold({
+      dishFrequencies: new Map([["dish-1", "once_a_week"]]),
+      chosenDishIds: new Set(["dish-1"]),
+    });
+    const history = emptyHistory({
+      recentlyCookedDishIds: new Set(["dish-1"]),
+    });
+    const w = weightsByLabel(
+      makeDish({ id: "dish-1" }),
+      ctx({ household, history }),
+    );
+    // Chosen bonus is present, but the variety penalty de-prioritizes it too.
+    expect(w.householdChosenDish).toBe(60);
+    expect(w.recentlyCookedWithinGap).toBe(-60);
+  });
+
+  it("boosts a hand-picked favourite (liked dish) with the chosen-dish factor too (BUG-015 follow-up)", () => {
+    // The household's preferred dishes stored as liked_dishes (not
+    // household_dish_preferences) must still get the strong chosen bonus, so a
+    // preferred dish out-ranks an unpreferred one even against a cuisine match.
+    const liked = aggregateMemberPreferences([
+      makeMember({ likedDishes: ["Dal Tadka"] }),
+    ]);
+    const w = weightsByLabel(makeDish(), ctx({ memberAggregate: liked }));
+    expect(w.householdChosenDish).toBe(60);
+    // The weaker +10 liked signal still applies alongside it.
+    expect(w.preferredIngredient).toBe(10);
+  });
+
+  it("does not apply the chosen-dish factor when combinations are disabled (REC-008)", () => {
+    const household = makeHousehold({
+      dishFrequencies: new Map([["dish-1", "daily"]]),
+      chosenDishIds: new Set(["dish-1"]),
+    });
+    const w = weightsByLabel(
+      makeDish({ id: "dish-1" }),
+      ctx({ config: baselineConfig, household }),
+    );
+    expect(w.householdChosenDish).toBeUndefined();
+  });
 });
 
 describe("aggregateMemberPreferences", () => {

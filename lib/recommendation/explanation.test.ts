@@ -26,6 +26,7 @@ const F = {
   // P10 positive factors.
   frequencyDaily: { label: "frequencyDaily", weight: 35 } as ScoredFactor,
   popularDish: { label: "popularDish", weight: 15 } as ScoredFactor,
+  chosen: { label: "householdChosenDish", weight: 60 } as ScoredFactor,
 };
 
 describe("buildReason", () => {
@@ -80,6 +81,13 @@ describe("buildReason", () => {
     );
     expect(reason).toBe(
       "Suggested because it is vegetarian, is one of your everyday staples, and is a popular choice.",
+    );
+  });
+
+  it("names the household's own pick in the reason (BUG-015, REC-005)", () => {
+    const reason = buildReason([F.diet, F.chosen, F.slot], reasonCtx());
+    expect(reason).toBe(
+      "Suggested because it is vegetarian, it is one your household chose, and works well for dinner.",
     );
   });
 

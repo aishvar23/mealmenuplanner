@@ -1,8 +1,15 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+
 import { Field, NumberInput } from "@/components/onboarding/fields";
 import { Input } from "@/components/ui/input";
-import type { HouseholdBasics } from "@/lib/onboarding";
+import { Select } from "@/components/ui/select";
+import {
+  COUNTRIES,
+  resolveLocationFromTimeZone,
+  type HouseholdBasics,
+} from "@/lib/onboarding";
 
 /**
  * Step 1 — household basics (design/06 § 2). `name` and `familySize` are part of
@@ -27,6 +34,39 @@ export function HouseholdBasicsStep({
   errors?: { name?: string | null; familySize?: string | null };
 }) {
   const editing = mode === "edit";
+
+  // BUG-020: on first open of a fresh create-mode draft, seed the name + location
+  // from the browser timezone so the user starts with sensible defaults instead
+  // of blank/placeholder fields. Runs once and only fills fields still empty, so a
+  // resumed draft (or anything the user typed) is never overwritten.
+  const seeded = useRef(false);
+  useEffect(() => {
+    if (editing || seeded.current) return;
+    seeded.current = true;
+
+    const timeZone =
+      typeof Intl !== "undefined"
+        ? Intl.DateTimeFormat().resolvedOptions().timeZone
+        : undefined;
+    const resolved = resolveLocationFromTimeZone(timeZone);
+
+    const patch: Partial<HouseholdBasics> = {};
+    if (!value.name?.trim()) {
+      patch.name = resolved?.city
+        ? `${resolved.city} Household`
+        : "My Household";
+    }
+    if (!value.locationCountry && resolved?.countryCode) {
+      patch.locationCountry = resolved.countryCode;
+    }
+    if (!value.locationCity?.trim() && resolved?.city) {
+      patch.locationCity = resolved.city;
+    }
+    if (Object.keys(patch).length > 0) onChange(patch);
+    // Run-once-on-mount: deliberately excludes value/onChange so re-renders (and
+    // the user later clearing a field) never re-seed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="flex flex-col gap-5">
@@ -94,16 +134,21 @@ export function HouseholdBasicsStep({
       {editing ? null : (
         <div className="grid grid-cols-2 gap-4">
           <Field label="Country" htmlFor="location-country">
-            <Input
+            <Select
               id="location-country"
-              type="text"
-              autoComplete="country-name"
-              placeholder="India"
+              autoComplete="country"
               value={value.locationCountry ?? ""}
               onChange={(event) =>
                 onChange({ locationCountry: event.target.value })
               }
-            />
+            >
+              <option value="">Select country</option>
+              {COUNTRIES.map((country) => (
+                <option key={country.code} value={country.code}>
+                  {country.name}
+                </option>
+              ))}
+            </Select>
           </Field>
           <Field label="City" htmlFor="location-city">
             <Input

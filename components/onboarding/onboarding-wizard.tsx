@@ -33,6 +33,7 @@ import {
 
 import {
   completeDraft,
+  saveDishPreferences,
   saveFoodPreferences,
   savePreferences,
 } from "./draft-client";
@@ -198,16 +199,18 @@ export function OnboardingWizard({
         return;
       }
       try {
-        // Household-scoped preferences and the member's own preferred dishes
-        // live in different tables behind different endpoints (BUG-006); save
-        // both before navigating.
+        // Household-scoped preferences, the member's own liked dishes, and the
+        // household per-dish preferences (the dishes Step-3 combinations/build
+        // picks expanded into) live in different tables behind different
+        // endpoints; save all three before navigating.
         await Promise.all([
           savePreferences(householdId, draftDataToPreferencesPatch(data)),
           saveFoodPreferences(householdId, draftDataToLikedDishes(data)),
+          saveDishPreferences(householdId, data.preferredDishes ?? {}),
         ]);
-        // Full navigation back to the household so the updated preferences are
-        // re-read server-side.
-        window.location.assign("/household");
+        // Full navigation back to the preferences summary so the saved values are
+        // re-read server-side and shown in the read-only roll-up.
+        window.location.assign("/preferences");
       } catch {
         setSubmitError("We couldn't save your changes. Please try again.");
         setSubmitting(false);
@@ -340,6 +343,20 @@ export function OnboardingWizard({
                 onClick={() => goTo(nextStepOf(steps, step))}
               >
                 Skip for now
+              </Button>
+            ) : null}
+            {/* Edit mode seeds every step from live preferences, so a save from
+                any step persists the whole set — let the user save the section
+                they came to edit and leave, without walking to the end. */}
+            {editing ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                onClick={handleSubmit}
+                disabled={!isComplete || submitting}
+              >
+                {submitting ? "Saving…" : "Save & close"}
               </Button>
             ) : null}
             <Button type="button" size="lg" onClick={handleNext}>

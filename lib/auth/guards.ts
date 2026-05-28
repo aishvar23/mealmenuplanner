@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cache } from "react";
+
 import type { User } from "@supabase/supabase-js";
 
 import { createServerSupabaseClient } from "@/lib/db/server";
@@ -43,8 +45,13 @@ const MEMBERSHIP_SELECT =
  * non-throwing primitive the other guards build on; read endpoints that prefer a
  * 404 over a 403 (to avoid leaking household existence, design/04 § 2) use it
  * directly and translate `null` to `NotFoundError`.
+ *
+ * Wrapped in React `cache()` (BUG-016 / PERF-004): a single render resolves a
+ * household's membership from several guards/services, so deduping per
+ * `householdId` per request collapses those into one query. `cache()` is
+ * request-scoped (and a no-op outside a render), so the result is unchanged.
  */
-export async function getActiveMembership(
+export const getActiveMembership = cache(async function getActiveMembership(
   householdId: string,
 ): Promise<MembershipContext | null> {
   const user = await requireAuthUser();
@@ -71,7 +78,7 @@ export async function getActiveMembership(
   if (!isMembershipActive(data)) return null;
 
   return toMembershipContext(householdId, user.id, data);
-}
+});
 
 /**
  * Assert the caller is an active member of `householdId`, returning their

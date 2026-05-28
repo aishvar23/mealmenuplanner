@@ -241,6 +241,62 @@ describe("recommendSlot — deterministic ordering (design/05 §1, §5)", () => 
   });
 });
 
+describe("recommendSlot — household-chosen dishes (BUG-015)", () => {
+  it("ranks the household's chosen dishes above unchosen catalog dishes (REC-004)", () => {
+    const chosenA = makeDish({
+      id: "chosen-a",
+      name: "Rajma",
+      totalTimeMinutes: 30,
+    });
+    const chosenB = makeDish({
+      id: "chosen-b",
+      name: "Chole",
+      totalTimeMinutes: 30,
+    });
+    const other1 = makeDish({
+      id: "other-1",
+      name: "Bhindi",
+      totalTimeMinutes: 30,
+    });
+    const other2 = makeDish({
+      id: "other-2",
+      name: "Aloo Gobi",
+      totalTimeMinutes: 30,
+    });
+    // Both chosen at the *default* once_in_a_while tier — before BUG-015 these
+    // would have ranked below the unchosen dishes.
+    const household = makeHousehold({
+      dishFrequencies: new Map([
+        ["chosen-a", "once_in_a_while"],
+        ["chosen-b", "once_in_a_while"],
+      ]),
+      chosenDishIds: new Set(["chosen-a", "chosen-b"]),
+    });
+    const result = recommendSlot(
+      input({ dishes: [other1, chosenB, other2, chosenA], household }),
+    );
+    expect(
+      result
+        .slice(0, 2)
+        .map((r) => r.dishId)
+        .sort(),
+    ).toEqual(["chosen-a", "chosen-b"]);
+  });
+
+  it("excludes a chosen dish that violates a hard filter despite the bonus (REC-006)", () => {
+    const chosenNonVeg = makeDish({
+      id: "chicken",
+      dietType: "non_vegetarian",
+    });
+    const household = makeHousehold({
+      dishFrequencies: new Map([["chicken", "daily"]]),
+      chosenDishIds: new Set(["chicken"]),
+    });
+    const result = recommendSlot(input({ dishes: [chosenNonVeg], household }));
+    expect(result).toEqual([]);
+  });
+});
+
 describe("recommendSlot — output contract (design/05 §9)", () => {
   it("maps prep tasks and paired dishes onto each recommendation", () => {
     const dish = makeDish({

@@ -1,6 +1,12 @@
 "use client";
 
-import { CalendarDays, CalendarRange, ShoppingCart, Users } from "lucide-react";
+import {
+  CalendarDays,
+  CalendarRange,
+  ShoppingCart,
+  SlidersHorizontal,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -26,9 +32,15 @@ const LINKS = [
     icon: ShoppingCart,
   },
   {
+    href: "/preferences",
+    label: "Preferences",
+    description: "Your taste profile",
+    icon: SlidersHorizontal,
+  },
+  {
     href: "/household",
     label: "Household",
-    description: "People and taste",
+    description: "People & roles",
     icon: Users,
   },
 ] as const;
@@ -43,7 +55,7 @@ export function AppNav({
 
   if (variant === "mobile") {
     return (
-      <nav aria-label="Primary" className="grid grid-cols-4 gap-1">
+      <nav aria-label="Primary" className="grid grid-cols-5 gap-1">
         {LINKS.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || pathname.startsWith(`${href}/`);
           return (

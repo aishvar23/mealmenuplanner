@@ -337,7 +337,7 @@ export function buildCompletionPayload(draft: DraftData): CompletionPayload {
 }
 
 /** The preferred-dishes step (P10) is one slice of the draft; this is its shape. */
-interface PreferredDishesSlice {
+export interface PreferredDishesSlice {
   mode?: string;
   dishNames?: unknown;
   selectedCombinations?: unknown;
@@ -347,52 +347,61 @@ interface PreferredDishesSlice {
 }
 
 /**
+ * Resolve + validate just the preferred-dishes slice (Step 3) into the owner's
+ * liked dishes and the RPC's combination-prefs payload, throwing one
+ * `ValidationError` on a bad leaf. Shared by {@link buildCompletionPayload} (the
+ * create flow) and the post-onboarding dish-preferences edit endpoint, so both
+ * apply the identical additive + `system`-exclusive rules (BUG-026).
+ */
+export function buildPreferredDishesPayload(preferred: PreferredDishesSlice): {
+  likedDishes: string[];
+  combinationPrefs: CombinationPrefsPayload | null;
+} {
+  const issues: ValidationIssue[] = [];
+  const result = resolvePreferredDishes(preferred, issues);
+  if (issues.length > 0) {
+    throw new ValidationError("Your dish preferences are invalid.", issues);
+  }
+  return result;
+}
+
+/**
  * Resolve the preferred-dishes step into the owner's `liked_dishes` and the RPC's
- * combination-prefs slice, validating any bad leaf into `issues` (P10). See the
- * mode table at the call site.
+ * combination-prefs slice, validating any bad leaf into `issues` (P10 + BUG-026).
+ *
+ * The three slices are **additive**: a draft can carry both selected combinations
+ * and self-built dishes, so completion merges every populated slice regardless of
+ * which `mode` is the active picker (BUG-026 / ONB-042). The lone exception is
+ * `system` — explicitly delegating to the engine clears the explicit picks
+ * (ONB-043), so it short-circuits to nothing. `mode` is otherwise ignored here.
  */
 function resolvePreferredDishes(
   preferred: PreferredDishesSlice,
   issues: ValidationIssue[],
 ): { likedDishes: string[]; combinationPrefs: CombinationPrefsPayload | null } {
-  switch (preferred.mode) {
-    case "system":
-      return { likedDishes: [], combinationPrefs: null };
-
-    case "combinations": {
-      const selectedCombinations = normalizeSelectedCombinations(
-        preferred,
-        issues,
-      );
-      return {
-        likedDishes: [],
-        combinationPrefs:
-          selectedCombinations.length > 0
-            ? { selectedCombinations, builtDishes: [] }
-            : null,
-      };
-    }
-
-    case "build": {
-      const builtDishes = normalizeBuiltDishes(preferred.builtDishes, issues);
-      // The built mains also become liked_dishes so the engine's +10 bonus fires.
-      const likedDishes = [...new Set(builtDishes.map((b) => b.dishName))];
-      return {
-        likedDishes,
-        combinationPrefs:
-          builtDishes.length > 0
-            ? { selectedCombinations: [], builtDishes }
-            : null,
-      };
-    }
-
-    default:
-      // Legacy `manual` (or unset): hand-picked dish names.
-      return {
-        likedDishes: cleanStringArray(preferred.dishNames),
-        combinationPrefs: null,
-      };
+  if (preferred.mode === "system") {
+    return { likedDishes: [], combinationPrefs: null };
   }
+
+  const selectedCombinations = normalizeSelectedCombinations(preferred, issues);
+  const builtDishes = normalizeBuiltDishes(preferred.builtDishes, issues);
+
+  // Built mains + legacy hand-picked names both fold into liked_dishes so the
+  // engine's +10 bonus fires; selected combinations write household_dish_preferences
+  // via the RPC instead and contribute no liked dishes.
+  const likedDishes = [
+    ...new Set([
+      ...builtDishes.map((dish) => dish.dishName),
+      ...cleanStringArray(preferred.dishNames),
+    ]),
+  ];
+
+  const combinationPrefs: CombinationPrefsPayload | null =
+    selectedCombinations.length > 0 || builtDishes.length > 0
+      ? { selectedCombinations, builtDishes }
+      : null;
+
+  return { likedDishes, combinationPrefs };
 }
 
 /**

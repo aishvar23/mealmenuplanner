@@ -20,7 +20,7 @@ import type { Database } from "@/lib/db/database.types";
 // `dto` module's pure mappers are never pulled in.
 import type { PreferencesDto } from "@/lib/services/household/dto";
 
-import type { DraftData } from "./draft";
+import type { DraftData, SelfBuiltDish } from "./draft";
 import type { StepId } from "./steps";
 
 type MealSlot = Database["public"]["Enums"]["meal_slot"];
@@ -69,15 +69,20 @@ export interface PreferencesPatch {
  * for the same reason. The `null` cooking-time columns become `undefined` to
  * match the optional draft shape.
  *
- * `likedDishes` (the caller's current `user_food_preferences.liked_dishes`, read
- * separately from the household preferences) seeds the preferred-dishes step:
- * any saved favourites open it in `manual` mode with them pre-selected;
- * otherwise it opens in `system` mode (BUG-006).
+ * The preferred-dishes step is seeded so it is editable post-onboarding:
+ *   • `dishPreferences` (the household's `household_dish_preferences`, the dishes
+ *     a combination / build pick expanded into) → `build` mode, pre-populated with
+ *     each dish's frequency + suitable slots + accompaniments, so the household can
+ *     retune or remove them. This is the primary source.
+ *   • else `likedDishes` (legacy `user_food_preferences.liked_dishes`) → `manual`
+ *     mode with them pre-selected (BUG-006).
+ *   • else `system` mode (let the planner choose).
  */
 export function preferencesToDraftData(
   name: string,
   prefs: PreferencesDto,
   likedDishes: string[] = [],
+  dishPreferences: SelfBuiltDish[] = [],
 ): DraftData {
   return {
     householdBasics: {
@@ -92,9 +97,11 @@ export function preferencesToDraftData(
       spiceLevel: prefs.spiceLevel,
     },
     preferredDishes:
-      likedDishes.length > 0
-        ? { mode: "manual", dishNames: likedDishes }
-        : { mode: "system", dishNames: [] },
+      dishPreferences.length > 0
+        ? { mode: "build", builtDishes: dishPreferences }
+        : likedDishes.length > 0
+          ? { mode: "manual", dishNames: likedDishes }
+          : { mode: "system", dishNames: [] },
     mealSchedule: {
       mealsToPlan: prefs.mealsToPlan as MealSlot[],
       weekdayCookingTimeMinutes: prefs.weekdayCookingTimeMinutes ?? undefined,
@@ -158,25 +165,26 @@ export function draftDataToPreferencesPatch(data: DraftData): PreferencesPatch {
 
 /**
  * The preferred-dish picks to send to `PATCH .../food-preferences` (BUG-006 +
- * P10). Mirrors the completion mapping (`validate-completion.ts`):
- *   • `system` / `combinations` → no favourites (`[]`); combos aren't edited here
- *     (no edit endpoint — a follow-up).
- *   • `build` → the built mains become the favourites.
- *   • `manual` / unset → the hand-picked dish names.
+ * P10 + BUG-026). Mirrors the completion mapping (`validate-completion.ts`):
+ *   • `system` → no favourites (`[]`), explicitly delegating to the engine.
+ *   • otherwise → the additive union of the built mains **and** the hand-picked
+ *     dish names (the two `liked_dishes` sources merge regardless of the active
+ *     picker). Selected combinations aren't edited here (no edit endpoint yet —
+ *     a follow-up), so they contribute nothing.
  * Names are trimmed and de-duplicated. The food-preferences PATCH is a separate
  * call from {@link draftDataToPreferencesPatch} because liked dishes live in the
  * member's `user_food_preferences`, not the household's `household_preferences`.
  */
 export function draftDataToLikedDishes(data: DraftData): string[] {
   const preferred = data.preferredDishes ?? {};
-  if (preferred.mode === "system" || preferred.mode === "combinations") {
+  if (preferred.mode === "system") {
     return [];
   }
 
-  const names =
-    preferred.mode === "build"
-      ? (preferred.builtDishes ?? []).map((dish) => dish.dishName)
-      : (preferred.dishNames ?? []);
+  const names = [
+    ...(preferred.builtDishes ?? []).map((dish) => dish.dishName),
+    ...(preferred.dishNames ?? []),
+  ];
 
   const seen = new Set<string>();
   const out: string[] = [];

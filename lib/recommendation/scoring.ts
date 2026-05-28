@@ -244,6 +244,23 @@ export function scoreDish(
   // ranking without ever excluding. Gated by the combinations flag so the doc-04
   // baseline is reproducible.
   if (ctx.config.combinations.enabled) {
+    // BUG-015: a dish *this household* explicitly chose gets a strong positive
+    // factor so its own picks rank above unchosen catalog dishes — sized to
+    // overcome a cuisine match (+30) and the `frequencyOnceInAWhile` penalty
+    // below, so a preferred dish no longer loses to an unpreferred one. "Chosen"
+    // spans both storage paths: a build/combination pick (`chosenDishIds`,
+    // household_dish_preferences) AND a hand-picked favourite (`liked_dishes`,
+    // matched by name) — both are dishes the household asked for, so both rank.
+    const isHouseholdChosen =
+      ctx.household.chosenDishIds.has(dish.id) ||
+      ctx.memberAggregate.likedDishNames.has(normalizeTerm(dish.name));
+    if (isHouseholdChosen) {
+      factors.push({
+        label: "householdChosenDish",
+        weight: w.householdChosenDish,
+      });
+    }
+
     const popular =
       dish.popularityCount >= ctx.config.combinations.popularityThreshold ||
       ctx.popularCombinationDishIds.has(dish.id);

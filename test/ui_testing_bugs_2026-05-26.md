@@ -35,12 +35,17 @@ Companion docs:
 | #11      | BUG-025 | Step 3 combination images smaller; dish name shown twice                     |
 | #12      | BUG-026 | Step 3 options aren't additive across the three modes                        |
 
-## Status this session
+## Status
 
-- ✅ Fixed (quick wins): **BUG-019, BUG-021, BUG-025**, and **BUG-018** (code path
-  and send-status UI; final delivery verification awaits a `RESEND_API_KEY`).
-- 📄 Deferred (planned, in the tracker): **BUG-015, BUG-016, BUG-017, BUG-020,
-  BUG-022, BUG-023, BUG-024, BUG-026**.
+- ✅ Fixed (quick wins, session 1): **BUG-019, BUG-021, BUG-025**, and **BUG-018**
+  (code path + send-status UI; final delivery verification awaits a
+  `RESEND_API_KEY`).
+- ✅ Fixed (session 2, 2026-05-27): **BUG-015, BUG-017, BUG-020, BUG-022, BUG-023,
+  BUG-024, BUG-026** — landed with unit/integration tests; E2E/UI criteria pending
+  a browser pass. See `test/BUG-015-026_IMPLEMENTATION_TRACKER.md` § "Session 2".
+- 🟡 Partially fixed: **BUG-016** — `next.config` image optimization, the
+  day-suggestion N+1 fix, and React `cache()` on the auth path landed; re-encoding
+  the source photos (PERF-002) remains.
 
 ---
 

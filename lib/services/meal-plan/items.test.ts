@@ -13,6 +13,7 @@ vi.mock("./access", () => ({
 }));
 vi.mock("./suggest", () => ({
   suggestForSlot: vi.fn(),
+  listSlotCandidates: vi.fn(),
   // toAlternatives is pure — reproduce its mapping so reject/replace stay realistic.
   toAlternatives: (
     recs: { dishId: string; score: number; reason: string }[],
@@ -38,8 +39,14 @@ vi.mock("./suggest", () => ({
 }));
 vi.mock("./generate", () => ({ generateToday: vi.fn() }));
 vi.mock("./propose-combination", () => ({ safeProposeCombination: vi.fn() }));
+vi.mock("@/lib/events", () => ({
+  safeEmitHouseholdEvent: vi.fn(),
+  actorDisplayName: () => "Tester",
+  formatSlotLabel: (slot: string) => `the ${slot}`,
+}));
 
 import { requireAuthUser } from "@/lib/auth";
+import { safeEmitHouseholdEvent } from "@/lib/events";
 
 import { loadItemForAction } from "./access";
 import { generateToday } from "./generate";
@@ -52,7 +59,7 @@ import {
   replaceItem,
   suggestAnotherItem,
 } from "./items";
-import { suggestForSlot } from "./suggest";
+import { listSlotCandidates, suggestForSlot } from "./suggest";
 
 const USER = { id: "user-1" };
 const ITEM_ID = "33333333-3333-3333-3333-333333333333";
@@ -166,6 +173,20 @@ function recommend(dishIds: string[]) {
   };
 }
 
+/** The `listSlotCandidates` shape (`AlternativeDto[]`) the replace path validates against. */
+function candidates(dishIds: string[]) {
+  return dishIds.map((dishId, i) => ({
+    dishId,
+    dishName: `Name ${dishId}`,
+    dishImageUrl: null,
+    dishImageAltText: null,
+    dishImageStatus: "placeholder",
+    score: 100 - i,
+    reason: `Reason ${dishId}`,
+    pairedDishes: [],
+  }));
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(requireAuthUser).mockResolvedValue(USER as never);
@@ -200,6 +221,25 @@ describe("acceptItem", () => {
     expect(result.status).toBe("accepted");
     // Accepting fires the daily-approval promotion hook (P10-5).
     expect(vi.mocked(safeProposeCombination)).toHaveBeenCalledTimes(1);
+  });
+
+  it("notifies the household when a meal is approved (BUG-017 / COLLAB-004)", async () => {
+    const stub = makeClient();
+    vi.mocked(loadItemForAction).mockResolvedValue({
+      supabase: stub.client,
+      item: makeItem({ dishes: { name: "Chole Rice" } }),
+    } as never);
+
+    await acceptItem(ITEM_ID);
+
+    expect(vi.mocked(safeEmitHouseholdEvent)).toHaveBeenCalledWith(
+      stub.client,
+      expect.objectContaining({
+        eventType: "meal_accepted",
+        householdId: "hh-1",
+        vars: expect.objectContaining({ dish: "Chole Rice" }),
+      }),
+    );
   });
 });
 
@@ -277,7 +317,9 @@ describe("replaceItem", () => {
       supabase: stub.client,
       item: makeItem(),
     } as never);
-    vi.mocked(suggestForSlot).mockResolvedValue(recommend(["alt-1"]) as never);
+    vi.mocked(listSlotCandidates).mockResolvedValue(
+      candidates(["alt-1"]) as never,
+    );
 
     await expect(
       replaceItem(ITEM_ID, {
@@ -288,14 +330,40 @@ describe("replaceItem", () => {
     ).rejects.toBeInstanceOf(ValidationError);
   });
 
+  it("accepts a chosen dish beyond the tuned top-N (the full picker list)", async () => {
+    // Six eligible candidates; the chosen dish is the 6th — past the old top-5
+    // `suggestForSlot` cap that used to wrongly reject it (BUG report).
+    const stub = makeClient();
+    vi.mocked(loadItemForAction).mockResolvedValue({
+      supabase: stub.client,
+      item: makeItem(),
+    } as never);
+    vi.mocked(listSlotCandidates).mockResolvedValue(
+      candidates(["a", "b", "c", "d", "e", "f"]) as never,
+    );
+
+    const result = await replaceItem(ITEM_ID, {
+      replacementDishId: "f",
+      reason: null,
+      feedbackType: null,
+    });
+
+    const update = stub.calls.find((c) => c.op === "update")?.payload as Record<
+      string,
+      unknown
+    >;
+    expect(update.dish_id).toBe("f");
+    expect(result.groceryListUpdated).toBe(true);
+  });
+
   it("applies an eligible chosen dish and accepts the cell", async () => {
     const stub = makeClient();
     vi.mocked(loadItemForAction).mockResolvedValue({
       supabase: stub.client,
       item: makeItem(),
     } as never);
-    vi.mocked(suggestForSlot).mockResolvedValue(
-      recommend(["alt-1", "alt-2"]) as never,
+    vi.mocked(listSlotCandidates).mockResolvedValue(
+      candidates(["alt-1", "alt-2"]) as never,
     );
 
     const result = await replaceItem(ITEM_ID, {
@@ -319,8 +387,8 @@ describe("replaceItem", () => {
       supabase: stub.client,
       item: makeItem(),
     } as never);
-    vi.mocked(suggestForSlot).mockResolvedValue(
-      recommend(["alt-1", "alt-2"]) as never,
+    vi.mocked(listSlotCandidates).mockResolvedValue(
+      candidates(["alt-1", "alt-2"]) as never,
     );
 
     await replaceItem(ITEM_ID, {
@@ -417,5 +485,46 @@ describe("suggestAnotherItem", () => {
         excludeDishIds: ["dish-old"],
       },
     );
+  });
+
+  it("notifies on overwrite of an approved meal (BUG-017 / COLLAB-005, SLOTPICK-007)", async () => {
+    const { client } = makeClient();
+    vi.mocked(loadItemForAction).mockResolvedValue({
+      supabase: client,
+      item: makeItem({ status: "accepted", dish_id: "dish-old" }),
+    } as never);
+    vi.mocked(generateToday).mockResolvedValue({
+      mealPlanId: "plan-1",
+      mealPlanItem: { dishId: "dish-new", dishName: "New Dish" },
+      alternatives: [],
+    } as never);
+
+    await suggestAnotherItem(ITEM_ID);
+
+    expect(vi.mocked(safeEmitHouseholdEvent)).toHaveBeenCalledWith(
+      client,
+      expect.objectContaining({
+        eventType: "meal_changed",
+        oldValue: { dishId: "dish-old" },
+        newValue: { dishId: "dish-new" },
+      }),
+    );
+  });
+
+  it("stays silent when re-suggesting a not-yet-approved meal", async () => {
+    const { client } = makeClient();
+    vi.mocked(loadItemForAction).mockResolvedValue({
+      supabase: client,
+      item: makeItem({ status: "suggested", dish_id: "dish-old" }),
+    } as never);
+    vi.mocked(generateToday).mockResolvedValue({
+      mealPlanId: "plan-1",
+      mealPlanItem: { dishId: "dish-new", dishName: "New Dish" },
+      alternatives: [],
+    } as never);
+
+    await suggestAnotherItem(ITEM_ID);
+
+    expect(vi.mocked(safeEmitHouseholdEvent)).not.toHaveBeenCalled();
   });
 });

@@ -38,6 +38,7 @@ export interface ReasonContext {
  */
 const POSITIVE_FACTOR_ORDER = [
   "dietMatch",
+  "householdChosenDish",
   "mealSlotMatch",
   "frequencyDaily",
   "notRepeatedRecently",
@@ -53,6 +54,7 @@ type PositiveFactorLabel = (typeof POSITIVE_FACTOR_ORDER)[number];
 
 const PHRASES: Record<PositiveFactorLabel, (ctx: ReasonContext) => string> = {
   dietMatch: (ctx) => `it is ${formatDiet(ctx.dish.dietType)}`,
+  householdChosenDish: () => "it is one your household chose",
   mealSlotMatch: (ctx) => `works well for ${ctx.mealSlot}`,
   notRepeatedRecently: (ctx) =>
     `has not been repeated ${varietyPhrase(ctx.household.varietyGapDays)}`,

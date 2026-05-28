@@ -23,6 +23,10 @@ const TEMPLATES: Record<EventType, (v: EventVars) => RenderedNotification> = {
     title: `${slotTitle(v.slot)} changed`,
     message: `${v.actorName} changed ${v.slotLabel} from ${v.fromDish} to ${v.toDish}.`,
   }),
+  meal_accepted: (v) => ({
+    title: `${slotTitle(v.slot)} approved`,
+    message: `${v.actorName} approved ${v.dish} for ${v.slotLabel}.`,
+  }),
   meal_rejected: (v) => ({
     title: "Meal rejected",
     message: `${v.actorName} rejected ${v.dish} for ${v.slotLabel}.`,

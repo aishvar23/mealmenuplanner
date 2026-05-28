@@ -11,6 +11,7 @@
  */
 
 import type {
+  AlternativeDto,
   MealPlanItemDto,
   RejectResult,
   ReplaceResult,
@@ -30,9 +31,13 @@ export class MealPlanRequestError extends Error {
   }
 }
 
-async function postJson<T>(url: string, body?: unknown): Promise<T> {
+async function request<T>(
+  url: string,
+  method: "GET" | "POST",
+  body?: unknown,
+): Promise<T> {
   const res = await fetch(url, {
-    method: "POST",
+    method,
     headers: body === undefined ? {} : { "content-type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
     cache: "no-store",
@@ -54,6 +59,10 @@ async function postJson<T>(url: string, body?: unknown): Promise<T> {
   }
 
   return (await res.json()) as T;
+}
+
+function postJson<T>(url: string, body?: unknown): Promise<T> {
+  return request<T>(url, "POST", body);
 }
 
 export function generateToday(
@@ -87,6 +96,13 @@ export function acceptItem(id: string): Promise<MealPlanItemDto> {
 
 export function suggestAnother(id: string): Promise<TodayGenerateResult> {
   return postJson(itemUrl(id, "suggest-another"));
+}
+
+/** The eligible replacement dishes for a cell, for the single-select picker (BUG-022/023). */
+export function slotCandidates(id: string): Promise<{
+  candidates: AlternativeDto[];
+}> {
+  return request(itemUrl(id, "candidates"), "GET");
 }
 
 export function rejectItem(

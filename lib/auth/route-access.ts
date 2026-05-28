@@ -21,6 +21,7 @@ export const PROTECTED_PREFIXES = [
   "/today",
   "/plan",
   "/grocery",
+  "/preferences",
   "/household",
   "/notifications",
   "/onboarding",

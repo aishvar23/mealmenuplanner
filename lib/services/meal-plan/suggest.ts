@@ -2,6 +2,7 @@ import "server-only";
 
 import {
   recommendSlot,
+  RECOMMENDATION_CONFIG,
   type CandidateDish,
   type ImageStatus,
   type Recommendation,
@@ -45,6 +46,41 @@ export async function suggestForSlot(
   const imageById = new Map(inputs.dishes.map((d) => [d.id, toImageMeta(d)]));
 
   return { recommendations, nameById, imageById };
+}
+
+/**
+ * The full set of dishes a household can pick for a slot (BUG-022/023) — every
+ * candidate that survives the recommender's hard filters (diet / slot / role /
+ * prep feasibility / do-not-suggest), ranked best-first, **uncapped** (unlike
+ * {@link suggestForSlot}, which returns only the tuned top N). Powers the
+ * single-select replacement picker, so the offered list stays consistent with
+ * what the engine would itself suggest (SLOTPICK-005). The current dish is passed
+ * via `excludeDishIds` so the picker never offers a no-op replacement.
+ */
+export async function listSlotCandidates(
+  householdId: string,
+  date: string,
+  mealSlot: MealSlot,
+  options: { excludeDishIds?: readonly string[]; now?: Date } = {},
+): Promise<AlternativeDto[]> {
+  const inputs = await loadSlotInputs(householdId, date, mealSlot);
+  const excluded = new Set(options.excludeDishIds ?? []);
+  const candidates = inputs.dishes.filter((d) => !excluded.has(d.id));
+
+  const recommendations = recommendSlot({
+    ...inputs,
+    dishes: candidates,
+    now: options.now ?? new Date(),
+    // Lift the tuned top-N cap so the picker lists *all* eligible dishes.
+    config: {
+      ...RECOMMENDATION_CONFIG,
+      topN: Math.max(candidates.length, 1),
+    },
+  });
+
+  const nameById = new Map(inputs.dishes.map((d) => [d.id, d.name]));
+  const imageById = new Map(inputs.dishes.map((d) => [d.id, toImageMeta(d)]));
+  return toAlternatives(recommendations, nameById, imageById);
 }
 
 /**

@@ -2,9 +2,12 @@
 
 import { Button } from "@/components/ui/button";
 import {
+  builtDishNames,
   BUDGET_OPTIONS,
+  combinationDisplayNames,
   DIET_TYPE_OPTIONS,
   HEALTH_TAG_OPTIONS,
+  manualDishNames,
   MEAL_SLOT_OPTIONS,
   optionLabel,
   SPICE_LEVEL_OPTIONS,
@@ -194,40 +197,36 @@ function Section({
   );
 }
 
-/** The review rows for the preferred-dishes step, per mode (P10). */
+/**
+ * The review rows for the preferred-dishes step (P10 + BUG-024 + BUG-026). The
+ * three slices are additive, so every populated source is listed by name — chosen
+ * combinations (resolved via the name captured at pick time), self-built dishes,
+ * and legacy hand-picked favourites — not a bare count or "Not set". With nothing
+ * picked (or an explicit "system"), it shows the accurate "system chooses" state.
+ */
 function preferredDishesRows(
   preferred: NonNullable<DraftData["preferredDishes"]>,
 ): Row[] {
-  switch (preferred.mode) {
-    case "combinations": {
-      // P10-9 stores the richer `selectedCombinations`; fall back to the legacy
-      // id-only shape for a resumed pre-P10-9 draft.
-      const count =
-        preferred.selectedCombinations?.length ??
-        preferred.selectedCombinationIds?.length ??
-        0;
-      return [
-        ["Selection", "Meal combinations"],
-        ["Combinations", count > 0 ? `${count} selected` : undefined],
-      ];
-    }
-    case "build": {
-      const built = preferred.builtDishes ?? [];
-      return [
-        ["Selection", "Built your own"],
-        ["Dishes", joinList(built.map((dish) => dish.dishName))],
-      ];
-    }
-    case "system":
-      return [["Selection", "System chooses"]];
-    case "manual":
-      return [
-        ["Selection", "Hand-picked"],
-        ["Dishes", joinList(preferred.dishNames)],
-      ];
-    default:
-      return [["Selection", undefined]];
+  if (preferred.mode === "system") {
+    return [["Selection", "System chooses"]];
   }
+
+  const combinations = combinationDisplayNames(preferred);
+  const built = builtDishNames(preferred);
+  const manual = manualDishNames(preferred);
+
+  const rows: Row[] = [];
+  if (combinations.length > 0) {
+    rows.push(["Meal combinations", combinations.join(", ")]);
+  }
+  if (built.length > 0) {
+    rows.push(["Built dishes", built.join(", ")]);
+  }
+  if (manual.length > 0) {
+    rows.push(["Favourite dishes", manual.join(", ")]);
+  }
+
+  return rows.length > 0 ? rows : [["Selection", "System chooses"]];
 }
 
 function joinList(values: readonly string[] | undefined): string | undefined {

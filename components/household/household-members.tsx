@@ -295,6 +295,10 @@ function MemberRow({
   // The owner can't be managed via these controls (transfer instead), and you
   // can't manage yourself here (use Leave).
   const manageable = canManage && !isSelf && member.role !== "owner";
+  // Per-member meal-change grants are an owner-only call (BUG-017): the role
+  // defaults leave members at `false`, so the owner opts a member in here.
+  const canGrantPermissions =
+    callerIsOwner && !isSelf && member.role !== "owner";
 
   async function run(fn: () => Promise<unknown>) {
     setPending(true);
@@ -309,85 +313,147 @@ function MemberRow({
   }
 
   return (
-    <li className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-      <div>
-        <p className="font-semibold">
-          {member.displayName ?? (isSelf ? "You" : "Member")}
-          {isSelf && member.displayName && (
-            <span className="ml-1 text-xs text-muted-foreground">(You)</span>
-          )}
-        </p>
-        <p className="text-xs text-muted-foreground">
-          {memberRoleLabel(member.role)} ·{" "}
-          {membershipTypeLabel(member.membershipType)} ·{" "}
-          {memberStatusLabel(member.status)}
-          {member.expiresAt ? ` · expires ${formatDate(member.expiresAt)}` : ""}
-        </p>
-        {error && <p className="mt-1 text-sm text-destructive">{error}</p>}
-      </div>
+    <li className="flex flex-col gap-3 px-4 py-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="font-semibold">
+            {member.displayName ?? (isSelf ? "You" : "Member")}
+            {isSelf && member.displayName && (
+              <span className="ml-1 text-xs text-muted-foreground">(You)</span>
+            )}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {memberRoleLabel(member.role)} ·{" "}
+            {membershipTypeLabel(member.membershipType)} ·{" "}
+            {memberStatusLabel(member.status)}
+            {member.expiresAt
+              ? ` · expires ${formatDate(member.expiresAt)}`
+              : ""}
+          </p>
+          {error && <p className="mt-1 text-sm text-destructive">{error}</p>}
+        </div>
 
-      {manageable && (
-        <div className="flex flex-wrap items-center gap-2">
-          <Select
-            aria-label="Change role"
-            className="h-8 w-auto"
-            value={member.role}
-            disabled={pending}
-            onChange={(e) =>
-              run(() =>
-                api.updateMember(householdId, member.memberId, {
-                  role: e.target.value,
-                }),
-              )
-            }
-          >
-            {ASSIGNABLE_ROLES.map((r) => (
-              <option key={r} value={r}>
-                {memberRoleLabel(r)}
-              </option>
-            ))}
-          </Select>
-          {callerIsOwner && (
+        {manageable && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Select
+              aria-label="Change role"
+              className="h-8 w-auto"
+              value={member.role}
+              disabled={pending}
+              onChange={(e) =>
+                run(() =>
+                  api.updateMember(householdId, member.memberId, {
+                    role: e.target.value,
+                  }),
+                )
+              }
+            >
+              {ASSIGNABLE_ROLES.map((r) => (
+                <option key={r} value={r}>
+                  {memberRoleLabel(r)}
+                </option>
+              ))}
+            </Select>
+            {callerIsOwner && (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={pending}
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      `Make ${member.displayName ?? "this member"} the owner? You'll become an admin.`,
+                    )
+                  ) {
+                    run(() =>
+                      api.updateMember(householdId, member.memberId, {
+                        role: "owner",
+                      }),
+                    );
+                  }
+                }}
+              >
+                Make owner
+              </Button>
+            )}
             <Button
               size="sm"
-              variant="outline"
+              variant="ghost"
               disabled={pending}
               onClick={() => {
                 if (
                   window.confirm(
-                    `Make ${member.displayName ?? "this member"} the owner? You'll become an admin.`,
+                    `Remove ${member.displayName ?? "this member"} from the household?`,
                   )
                 ) {
-                  run(() =>
-                    api.updateMember(householdId, member.memberId, {
-                      role: "owner",
-                    }),
-                  );
+                  run(() => api.removeMember(householdId, member.memberId));
                 }
               }}
             >
-              Make owner
+              Remove
             </Button>
-          )}
-          <Button
-            size="sm"
-            variant="ghost"
+          </div>
+        )}
+      </div>
+
+      {canGrantPermissions && (
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-md bg-muted/40 px-3 py-2">
+          <span className="text-xs font-medium text-muted-foreground">
+            Can change meals
+          </span>
+          <PermissionCheckbox
+            label="Today's menu"
+            checked={member.permissions.canChangeTodayMenu}
             disabled={pending}
-            onClick={() => {
-              if (
-                window.confirm(
-                  `Remove ${member.displayName ?? "this member"} from the household?`,
-                )
-              ) {
-                run(() => api.removeMember(householdId, member.memberId));
-              }
-            }}
-          >
-            Remove
-          </Button>
+            onChange={(next) =>
+              run(() =>
+                api.updateMember(householdId, member.memberId, {
+                  canChangeTodayMenu: next,
+                }),
+              )
+            }
+          />
+          <PermissionCheckbox
+            label="Weekly plan"
+            checked={member.permissions.canChangeWeeklySchedule}
+            disabled={pending}
+            onChange={(next) =>
+              run(() =>
+                api.updateMember(householdId, member.memberId, {
+                  canChangeWeeklySchedule: next,
+                }),
+              )
+            }
+          />
         </div>
       )}
     </li>
+  );
+}
+
+/** A small labelled checkbox for an owner's per-member permission grant (BUG-017). */
+function PermissionCheckbox({
+  label,
+  checked,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  disabled: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <label className="inline-flex items-center gap-1.5 text-xs">
+      <input
+        type="checkbox"
+        className="size-4 rounded border-border accent-primary"
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      {label}
+    </label>
   );
 }
 

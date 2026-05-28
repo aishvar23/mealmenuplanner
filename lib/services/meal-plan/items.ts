@@ -19,6 +19,7 @@ import {
 } from "./access";
 import {
   toMealPlanItemDto,
+  type AlternativeDto,
   type MealPlanItemDto,
   type RejectResult,
   type ReplaceResult,
@@ -27,7 +28,7 @@ import {
 import { generateToday } from "./generate";
 import { attachPackages } from "./packaging";
 import { safeProposeCombination } from "./propose-combination";
-import { suggestForSlot, toAlternatives } from "./suggest";
+import { listSlotCandidates, suggestForSlot, toAlternatives } from "./suggest";
 import type { FeedbackType } from "./validate";
 
 /**
@@ -61,6 +62,23 @@ export async function acceptItem(itemId: string): Promise<MealPlanItemDto> {
   const dto = toMealPlanItemDto(updated);
   await attachPackages(supabase, [dto]);
 
+  // Approving a meal is a household decision — fan it out to the other members
+  // (BUG-017 / COLLAB-004). Best-effort: a notification glitch never fails the
+  // accept.
+  await safeEmitHouseholdEvent(supabase, {
+    householdId: item.household_id,
+    eventType: "meal_accepted",
+    entityType: "meal_plan_item",
+    entityId: item.id,
+    newValue: { status: "accepted", dishId: item.dish_id },
+    vars: {
+      actorName: actorDisplayName(user),
+      slot: item.meal_slot,
+      dish: item.dishes?.name ?? null,
+      slotLabel: formatSlotLabel(item.meal_slot, item.date),
+    },
+  });
+
   // Daily-approval promotion (design extension, P10-5): if this dish is a
   // self-built combo (the household configured "goes with" accompaniments for
   // it), submit the plate for admin review. Best-effort — never fails the accept.
@@ -73,14 +91,67 @@ export async function acceptItem(itemId: string): Promise<MealPlanItemDto> {
  * "Suggest another" (design/08 § 2, no reason recorded): re-run the recommender
  * excluding the current dish and overwrite the same cell, status stays
  * `suggested`. Delegates to {@link generateToday} (which gates + persists).
+ *
+ * When this overwrites a cell the household had already **accepted** or **cooked**,
+ * it emits `meal_changed` so the other members are notified (BUG-017 / COLLAB-005,
+ * SLOTPICK-007) — matching what `replaceItem` already does. A plain re-suggestion
+ * of a not-yet-approved cell stays silent (no decision was overwritten).
  */
 export async function suggestAnotherItem(
   itemId: string,
 ): Promise<TodayGenerateResult> {
-  const { item } = await loadItemForAction(itemId);
-  return generateToday(item.household_id, item.date, item.meal_slot, {
-    excludeDishIds: item.dish_id ? [item.dish_id] : [],
-  });
+  const user = await requireAuthUser();
+  const { supabase, item } = await loadItemForAction(itemId);
+  const result = await generateToday(
+    item.household_id,
+    item.date,
+    item.meal_slot,
+    { excludeDishIds: item.dish_id ? [item.dish_id] : [] },
+  );
+
+  const overwroteDecision =
+    item.status === "accepted" || item.status === "cooked";
+  const newDishId = result.mealPlanItem?.dishId ?? null;
+  if (overwroteDecision && newDishId && newDishId !== item.dish_id) {
+    await safeEmitHouseholdEvent(supabase, {
+      householdId: item.household_id,
+      eventType: "meal_changed",
+      entityType: "meal_plan_item",
+      entityId: item.id,
+      oldValue: { dishId: item.dish_id },
+      newValue: { dishId: newDishId },
+      vars: {
+        actorName: actorDisplayName(user),
+        slot: item.meal_slot,
+        slotLabel: formatSlotLabel(item.meal_slot, item.date),
+        fromDish: item.dishes?.name ?? null,
+        toDish: result.mealPlanItem?.dishName ?? null,
+      },
+    });
+  }
+
+  return result;
+}
+
+/**
+ * The eligible replacement dishes for a cell (BUG-022/023): authorize the caller
+ * for this item, then list every slot-eligible candidate (excluding the dish
+ * already in the cell) so the single-select picker can offer the full set. Each
+ * candidate gets its display package attached (BUG-009), matching the
+ * reject/replace alternatives.
+ */
+export async function listItemCandidates(
+  itemId: string,
+): Promise<AlternativeDto[]> {
+  const { supabase, item } = await loadItemForAction(itemId);
+  const candidates = await listSlotCandidates(
+    item.household_id,
+    item.date,
+    item.meal_slot,
+    { excludeDishIds: item.dish_id ? [item.dish_id] : [] },
+  );
+  await attachPackages(supabase, candidates);
+  return candidates;
 }
 
 /**
@@ -171,31 +242,32 @@ export async function replaceItem(
     );
   }
 
-  // Rank the slot once; use it to validate a chosen dish or pick a fresh one.
-  const { recommendations, nameById, imageById } = await suggestForSlot(
+  // The eligible set is the SAME full, slot-filtered candidate list the picker
+  // shows (`listSlotCandidates`) — not the tuned top-N. Validating against the
+  // top-N would reject any dish past the 5th that the picker still offered (the
+  // "not an eligible choice" error users hit picking further down the list).
+  const candidates = await listSlotCandidates(
     item.household_id,
     item.date,
     item.meal_slot,
     { excludeDishIds: item.dish_id ? [item.dish_id] : [] },
   );
-  const eligibleIds = new Set(recommendations.map((r) => r.dishId));
+  const candidateById = new Map(candidates.map((c) => [c.dishId, c]));
 
   let replacementDishId: string;
   let reason = input.reason;
   if (input.replacementDishId) {
-    if (!eligibleIds.has(input.replacementDishId)) {
+    const chosen = candidateById.get(input.replacementDishId);
+    if (!chosen) {
       throw new ValidationError(
         "That dish isn't an eligible choice for this slot.",
         [{ field: "replacementDishId", rule: "ineligible" }],
       );
     }
     replacementDishId = input.replacementDishId;
-    reason =
-      reason ??
-      recommendations.find((r) => r.dishId === replacementDishId)?.reason ??
-      null;
+    reason = reason ?? chosen.reason;
   } else {
-    const top = recommendations[0];
+    const top = candidates[0];
     if (!top) {
       throw new ValidationError("No eligible replacement dish for this slot.", [
         { field: "replacementDishId", rule: "no_candidate" },
@@ -243,15 +315,12 @@ export async function replaceItem(
       slot: item.meal_slot,
       slotLabel: formatSlotLabel(item.meal_slot, item.date),
       fromDish: item.dishes?.name ?? null,
-      toDish: nameById.get(replacementDishId) ?? null,
+      toDish: updated.dishes?.name ?? null,
     },
   });
 
-  const dto = toMealPlanItemDto(
-    updated,
-    nameById.get(replacementDishId) ?? null,
-    imageById.get(replacementDishId) ?? null,
-  );
+  // The re-selected row joins the *new* dish, so its name/image come from there.
+  const dto = toMealPlanItemDto(updated);
   await attachPackages(supabase, [dto]);
   return { mealPlanItem: dto, groceryListUpdated: true };
 }

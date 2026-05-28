@@ -3,7 +3,10 @@ import { describe, expect, it } from "vitest";
 import { ValidationError, type ValidationIssue } from "@/lib/errors";
 import type { DraftData } from "@/lib/onboarding";
 
-import { buildCompletionPayload } from "./validate-completion";
+import {
+  buildCompletionPayload,
+  buildPreferredDishesPayload,
+} from "./validate-completion";
 
 /** A draft with every required field present and valid. */
 function completeDraft(): DraftData {
@@ -273,6 +276,71 @@ describe("buildCompletionPayload", () => {
     ]);
   });
 
+  it("merges combinations + built dishes additively across modes (BUG-026 / ONB-042)", () => {
+    const id1 = "11111111-1111-1111-1111-111111111111";
+    const draft = completeDraft();
+    // Both slices populated; `mode` is just the last-active picker. Completion
+    // must persist *both* sources, not only the active mode's.
+    draft.preferredDishes = {
+      mode: "build",
+      selectedCombinations: [
+        {
+          combinationId: id1,
+          name: "Veg Thali",
+          frequency: "once_a_week",
+          suitableFor: ["lunch"],
+        },
+      ],
+      builtDishes: [
+        {
+          dishName: "Rajma Masala",
+          frequency: "daily",
+          suitableFor: [],
+          goesWith: ["Jeera Rice"],
+        },
+      ],
+    } as unknown as DraftData["preferredDishes"];
+
+    const payload = buildCompletionPayload(draft);
+    expect(payload.combinationPrefs).toEqual({
+      selectedCombinations: [
+        {
+          combinationId: id1,
+          frequency: "once_a_week",
+          suitableFor: ["lunch"],
+        },
+      ],
+      builtDishes: [
+        {
+          dishName: "Rajma Masala",
+          frequency: "daily",
+          suitableFor: [],
+          goesWith: ["Jeera Rice"],
+        },
+      ],
+    });
+    // The built main still folds into liked_dishes; the combo display name never
+    // leaks into the DB payload.
+    expect(payload.foodPreferences?.likedDishes).toEqual(["Rajma Masala"]);
+  });
+
+  it("system mode stays exclusive — explicit picks are dropped (BUG-026 / ONB-043)", () => {
+    const id1 = "11111111-1111-1111-1111-111111111111";
+    const draft = completeDraft();
+    draft.preferredDishes = {
+      mode: "system",
+      selectedCombinations: [
+        { combinationId: id1, frequency: "daily", suitableFor: [] },
+      ],
+      builtDishes: [
+        { dishName: "Dal", frequency: "daily", suitableFor: [], goesWith: [] },
+      ],
+    } as unknown as DraftData["preferredDishes"];
+    const payload = buildCompletionPayload(draft);
+    expect(payload.combinationPrefs).toBeNull();
+    expect(payload.foodPreferences).toBeNull();
+  });
+
   it("rejects an invalid frequency tier in build mode (P10)", () => {
     const draft = completeDraft();
     // `weekly` is not a valid meal_frequency — cast past the type to exercise the
@@ -382,5 +450,57 @@ describe("buildCompletionPayload", () => {
     expect(issueFields(() => buildCompletionPayload(draft))).toContain(
       "budgetPreference",
     );
+  });
+});
+
+describe("buildPreferredDishesPayload (post-onboarding dish-prefs edit)", () => {
+  it("resolves the additive combinations + built dishes slice", () => {
+    const id1 = "11111111-1111-1111-1111-111111111111";
+    const { combinationPrefs, likedDishes } = buildPreferredDishesPayload({
+      mode: "build",
+      selectedCombinations: [
+        { combinationId: id1, frequency: "daily", suitableFor: ["dinner"] },
+      ],
+      builtDishes: [
+        {
+          dishName: "Rajma Masala",
+          frequency: "once_a_week",
+          suitableFor: [],
+          goesWith: ["Jeera Rice"],
+        },
+      ],
+    });
+    expect(combinationPrefs).toEqual({
+      selectedCombinations: [
+        { combinationId: id1, frequency: "daily", suitableFor: ["dinner"] },
+      ],
+      builtDishes: [
+        {
+          dishName: "Rajma Masala",
+          frequency: "once_a_week",
+          suitableFor: [],
+          goesWith: ["Jeera Rice"],
+        },
+      ],
+    });
+    expect(likedDishes).toEqual(["Rajma Masala"]);
+  });
+
+  it("returns null combinationPrefs for the system (cleared) slice", () => {
+    expect(buildPreferredDishesPayload({ mode: "system" })).toEqual({
+      likedDishes: [],
+      combinationPrefs: null,
+    });
+  });
+
+  it("throws ValidationError on a bad leaf", () => {
+    expect(() =>
+      buildPreferredDishesPayload({
+        mode: "combinations",
+        selectedCombinations: [
+          { combinationId: "not-a-uuid", frequency: "daily", suitableFor: [] },
+        ],
+      }),
+    ).toThrow(ValidationError);
   });
 });

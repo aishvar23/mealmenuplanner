@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cache } from "react";
+
 import { requireAuthUser } from "@/lib/auth";
 import {
   isMembershipActive,
@@ -36,38 +38,44 @@ export interface CurrentHousehold {
   currentUserPermissions: CurrentUserPermissionsDto;
 }
 
-/** The caller's default active household, or `null` if they have none. */
-export async function resolveCurrentHousehold(): Promise<CurrentHousehold | null> {
-  const user = await requireAuthUser();
-  const supabase = await createServerSupabaseClient();
+/**
+ * The caller's default active household, or `null` if they have none. Wrapped in
+ * React `cache()` (BUG-016 / PERF-004): the app-shell layout and the page both
+ * resolve it per render, so deduping collapses the two reads into one.
+ */
+export const resolveCurrentHousehold = cache(
+  async function resolveCurrentHousehold(): Promise<CurrentHousehold | null> {
+    const user = await requireAuthUser();
+    const supabase = await createServerSupabaseClient();
 
-  const { data, error } = await supabase
-    .from("household_members")
-    .select(SELECT)
-    .eq("user_id", user.id)
-    .eq("status", "active")
-    .order("joined_at", { ascending: true });
-  if (error) {
-    throw new InternalError("Failed to resolve your household.", {
-      cause: error,
-    });
-  }
+    const { data, error } = await supabase
+      .from("household_members")
+      .select(SELECT)
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .order("joined_at", { ascending: true });
+    if (error) {
+      throw new InternalError("Failed to resolve your household.", {
+        cause: error,
+      });
+    }
 
-  // Apply the real-time expiry backstop in JS (matches the guards), then take
-  // the first still-active membership.
-  const active = (data ?? []).find((row) => isMembershipActive(row));
-  if (!active) return null;
+    // Apply the real-time expiry backstop in JS (matches the guards), then take
+    // the first still-active membership.
+    const active = (data ?? []).find((row) => isMembershipActive(row));
+    if (!active) return null;
 
-  const context = toMembershipContext(
-    active.household_id,
-    user.id,
-    active as unknown as MembershipRow,
-  );
-  const household = active.households as { name: string } | null;
+    const context = toMembershipContext(
+      active.household_id,
+      user.id,
+      active as unknown as MembershipRow,
+    );
+    const household = active.households as { name: string } | null;
 
-  return {
-    householdId: active.household_id,
-    name: household?.name ?? "Your household",
-    currentUserPermissions: toCurrentUserPermissionsDto(context),
-  };
-}
+    return {
+      householdId: active.household_id,
+      name: household?.name ?? "Your household",
+      currentUserPermissions: toCurrentUserPermissionsDto(context),
+    };
+  },
+);

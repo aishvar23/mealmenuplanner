@@ -323,8 +323,47 @@ export async function ensureDaySuggestions(
   );
   const existing = await loadDayCells(supabase, plan.id, date);
 
+  // Only the still-empty slots need a pick; respect any real state already in a
+  // cell (a dish, a lock, or eating-out). Resolving this up front means we never
+  // load any recommendation inputs when there's nothing to fill.
+  const slotsToFill = slots.filter((slot) => {
+    const cell = existing.get(slot);
+    return !(cell?.locked || cell?.status === "eating_out" || cell?.dish_id);
+  });
+  if (slotsToFill.length === 0) return;
+
+  // Load the slot-independent inputs ONCE (BUG-016 / PERF-003): before this, each
+  // slot re-loaded the whole candidate universe (prefs, members, history, popular
+  // combos) via `suggestForSlot` — an N+1 on the Today hot path. Mirror
+  // `generateWeek`: load these once, load each slot's candidate dishes once, then
+  // run the pure engine in-memory per slot with the cross-slot exclusion.
+  const household = await loadHouseholdContext(supabase, householdId);
+  if (!household) throw NO_PREFERENCES();
+
+  const combinations = RECOMMENDATION_CONFIG.combinations;
+  const [members, history, popularCombinationDishIds] = await Promise.all([
+    loadActiveMembers(supabase, householdId),
+    loadMealHistory(supabase, householdId, date, household.varietyGapDays),
+    combinations.enabled
+      ? loadPopularCombinationDishIds(
+          supabase,
+          combinations.popularityThreshold,
+        )
+      : Promise.resolve(new Set<string>()),
+  ]);
+
+  const dishesBySlot = new Map(
+    await Promise.all(
+      slotsToFill.map(
+        async (slot) =>
+          [slot, await loadCandidateDishes(supabase, slot)] as const,
+      ),
+    ),
+  );
+
   // Seed the cross-slot exclusion with dishes already chosen for the day so a
   // pre-fill never duplicates one the user already sees in another slot.
+  const now = options.now ?? new Date();
   const usedThisRun = new Set<string>();
   for (const cell of existing.values()) {
     if (cell.dish_id) usedThisRun.add(cell.dish_id);
@@ -341,15 +380,19 @@ export async function ensureDaySuggestions(
   };
   const rows: FillRow[] = [];
 
-  for (const slot of slots) {
-    const cell = existing.get(slot);
-    // Respect any real state already in the cell.
-    if (cell?.locked || cell?.status === "eating_out" || cell?.dish_id)
-      continue;
-
-    const { recommendations } = await suggestForSlot(householdId, date, slot, {
-      excludeDishIds: [...usedThisRun],
-      now: options.now,
+  for (const slot of slotsToFill) {
+    const candidates = (dishesBySlot.get(slot) ?? []).filter(
+      (d) => !usedThisRun.has(d.id),
+    );
+    const recommendations = recommendSlot({
+      household,
+      members,
+      dishes: candidates,
+      history,
+      date,
+      mealSlot: slot,
+      now,
+      popularCombinationDishIds,
     });
     const top = recommendations[0];
     if (!top) continue; // no eligible dish — leave the slot blank

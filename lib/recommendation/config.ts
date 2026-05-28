@@ -38,6 +38,18 @@ export interface RecommendationConfig {
     popularDish: number;
     frequencyDaily: number;
     frequencyOnceInAWhile: number;
+    /**
+     * BUG-015 fix (gated by {@link combinations}). Any dish this household chose
+     * during onboarding (a `build`-mode dish or a member dish of a selected
+     * combination → `household_dish_preferences`) earns this positive factor,
+     * **regardless of its frequency tier**. It is sized to clear the generic
+     * factors and to outweigh the `frequencyOnceInAWhile` penalty, so the
+     * household's own picks rank above unchosen catalog dishes (the chosen-combo
+     * bug) while the frequency tiers still order the chosen set among themselves.
+     * Distinct from the global `popularDish` signal, which is gated on global
+     * popularity; this fires on the household's own picks alone.
+     */
+    householdChosenDish: number;
   };
   /** How many ranked suggestions the per-slot recommender returns. */
   topN: number;
@@ -100,6 +112,9 @@ export const RECOMMENDATION_CONFIG: RecommendationConfig = {
     popularDish: 15,
     frequencyDaily: 35,
     frequencyOnceInAWhile: -20,
+    // BUG-015: clears cuisine (30) / cooking-time (30) / variety (40) swings and
+    // overcomes the −20 once-in-a-while penalty, so chosen dishes rank first.
+    householdChosenDish: 60,
   },
   topN: 5,
   mealtimes: {

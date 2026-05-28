@@ -60,10 +60,8 @@ export async function loadHouseholdContext(
   }
   if (!data) return null;
 
-  const { dishFrequencies, dishSuitableSlots } = await loadDishPreferences(
-    supabase,
-    householdId,
-  );
+  const { dishFrequencies, dishSuitableSlots, chosenDishIds } =
+    await loadDishPreferences(supabase, householdId);
 
   return {
     dietType: data.diet_type,
@@ -74,6 +72,7 @@ export async function loadHouseholdContext(
     kidsCount: data.kids_count,
     dishFrequencies,
     dishSuitableSlots,
+    chosenDishIds,
   };
 }
 
@@ -91,6 +90,7 @@ async function loadDishPreferences(
 ): Promise<{
   dishFrequencies: Map<string, MealFrequency>;
   dishSuitableSlots: Map<string, StoredMealSlot[]>;
+  chosenDishIds: Set<string>;
 }> {
   const { data, error } = await supabase
     .from("household_dish_preferences")
@@ -105,14 +105,18 @@ async function loadDishPreferences(
 
   const dishFrequencies = new Map<string, MealFrequency>();
   const dishSuitableSlots = new Map<string, StoredMealSlot[]>();
+  // Every household_dish_preferences row is a dish the household chose (BUG-015) —
+  // build-mode dishes and the member dishes of selected combinations alike.
+  const chosenDishIds = new Set<string>();
   for (const row of data ?? []) {
     dishFrequencies.set(row.dish_id, row.frequency);
+    chosenDishIds.add(row.dish_id);
     const slots = (row.suitable_meal_slots ?? []) as StoredMealSlot[];
     if (slots.length > 0) {
       dishSuitableSlots.set(row.dish_id, slots);
     }
   }
-  return { dishFrequencies, dishSuitableSlots };
+  return { dishFrequencies, dishSuitableSlots, chosenDishIds };
 }
 
 /**

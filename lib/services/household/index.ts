@@ -6,6 +6,7 @@ export * from "./get-household";
 export * from "./update-preferences";
 export * from "./validate-preferences";
 export * from "./food-preferences";
+export * from "./dish-preferences";
 export * from "./list-members";
 export * from "./current-household";
 // Member management (P6-5/6/7/8): update role/permissions (+ ownership transfer),

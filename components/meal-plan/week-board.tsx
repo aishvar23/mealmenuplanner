@@ -23,6 +23,7 @@ import type { MealPlanItemDto } from "@/lib/services/meal-plan/dto";
 import { cn } from "@/lib/utils";
 
 import * as api from "./meal-plan-client";
+import { SlotReplacementPicker } from "./slot-replacement-picker";
 
 /**
  * Weekly Plan board (P5-3/P5-4/P5-5/P5-6, design/08 section 3). A
@@ -47,6 +48,8 @@ export function WeekBoard({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  // The cell whose replacement picker is open, if any (BUG-022).
+  const [pickerItem, setPickerItem] = useState<MealPlanItemDto | null>(null);
 
   const byCell = new Map(
     items.map((item) => [`${item.date}|${item.mealSlot}`, item]),
@@ -142,10 +145,8 @@ export function WeekBoard({
                     slot={slot}
                     pending={pending}
                     canChange={canChange}
-                    onSuggestAnother={() =>
-                      item
-                        ? act(() => api.suggestAnother(item.mealPlanItemId))
-                        : undefined
+                    onChangeMeal={() =>
+                      item ? setPickerItem(item) : undefined
                     }
                     onEatingOut={() =>
                       item
@@ -168,6 +169,21 @@ export function WeekBoard({
           </section>
         ))}
       </div>
+
+      {pickerItem ? (
+        <SlotReplacementPicker
+          itemId={pickerItem.mealPlanItemId}
+          slotLabel={`${formatWeekday(pickerItem.date)} ${mealSlotLabel(
+            pickerItem.mealSlot,
+          ).toLowerCase()}`}
+          currentDishName={pickerItem.dishName}
+          onCancel={() => setPickerItem(null)}
+          onReplaced={() => {
+            setPickerItem(null);
+            router.refresh();
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -177,7 +193,7 @@ function MealCell({
   slot,
   pending,
   canChange,
-  onSuggestAnother,
+  onChangeMeal,
   onEatingOut,
   onToggleLock,
 }: {
@@ -185,7 +201,7 @@ function MealCell({
   slot: string;
   pending: boolean;
   canChange: boolean;
-  onSuggestAnother: () => void | undefined;
+  onChangeMeal: () => void | undefined;
   onEatingOut: () => void | undefined;
   onToggleLock: () => void | undefined;
 }) {
@@ -249,10 +265,10 @@ function MealCell({
               size="xs"
               variant="outline"
               disabled={pending}
-              onClick={onSuggestAnother}
+              onClick={onChangeMeal}
             >
               <RefreshCw data-icon="inline-start" />
-              Swap
+              Change
             </Button>
           ) : null}
           <Button

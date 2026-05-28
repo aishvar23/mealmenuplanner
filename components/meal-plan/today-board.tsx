@@ -27,6 +27,7 @@ import type {
 import { cn } from "@/lib/utils";
 
 import * as api from "./meal-plan-client";
+import { SlotReplacementPicker } from "./slot-replacement-picker";
 
 /**
  * Whether a slot still needs the user's attention — no item yet, an empty
@@ -118,6 +119,7 @@ function SlotCard({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rejecting, setRejecting] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   async function run<T>(
     fn: () => Promise<T>,
@@ -137,15 +139,6 @@ function SlotCard({
   const onGenerate = () =>
     run(
       () => api.generateToday(householdId, date, slot),
-      (r) => {
-        setItem(r.mealPlanItem);
-        setAlternatives(r.alternatives);
-      },
-    );
-
-  const onSuggestAnother = (id: string) =>
-    run(
-      () => api.suggestAnother(id),
       (r) => {
         setItem(r.mealPlanItem);
         setAlternatives(r.alternatives);
@@ -320,10 +313,24 @@ function SlotCard({
               pending={pending}
               onGenerate={onGenerate}
               onAccept={onAccept}
-              onSuggestAnother={onSuggestAnother}
+              onChangeMeal={() => setPickerOpen(true)}
               onEatingOut={onEatingOut}
               onToggleLock={onToggleLock}
               onToggleReject={() => setRejecting((v) => !v)}
+            />
+          ) : null}
+
+          {pickerOpen && item ? (
+            <SlotReplacementPicker
+              itemId={item.mealPlanItemId}
+              slotLabel={mealSlotLabel(slot)}
+              currentDishName={item.dishName}
+              onCancel={() => setPickerOpen(false)}
+              onReplaced={(result) => {
+                setItem(result.mealPlanItem);
+                setAlternatives([]);
+                setPickerOpen(false);
+              }}
             />
           ) : null}
 
@@ -405,7 +412,7 @@ function ActionRow({
   pending,
   onGenerate,
   onAccept,
-  onSuggestAnother,
+  onChangeMeal,
   onEatingOut,
   onToggleLock,
   onToggleReject,
@@ -414,7 +421,7 @@ function ActionRow({
   pending: boolean;
   onGenerate: () => void;
   onAccept: (id: string) => void;
-  onSuggestAnother: (id: string) => void;
+  onChangeMeal: () => void;
   onEatingOut: (id: string) => void;
   onToggleLock: (item: MealPlanItemDto) => void;
   onToggleReject: () => void;
@@ -449,11 +456,7 @@ function ActionRow({
           Approve
         </Button>
       ) : null}
-      <Button
-        variant="outline"
-        disabled={pending}
-        onClick={() => onSuggestAnother(item.mealPlanItemId)}
-      >
+      <Button variant="outline" disabled={pending} onClick={onChangeMeal}>
         <RefreshCw data-icon="inline-start" />
         Try another
       </Button>

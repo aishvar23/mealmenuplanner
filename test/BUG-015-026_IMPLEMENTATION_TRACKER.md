@@ -18,23 +18,26 @@ product build) — that file is not touched by this work.
 
 ## Summary
 
-| Bug     | Area                                    | Status                | Notes                                                                       |
-| ------- | --------------------------------------- | --------------------- | --------------------------------------------------------------------------- |
-| BUG-015 | Recommendation ignores picks            | 📄 Deferred (planned) | Add a household-chosen positive factor; default tier must not net-penalize. |
-| BUG-016 | Performance                             | 📄 Deferred (planned) | Image config + re-encode; day-suggestion N+1; React `cache()` on auth.      |
-| BUG-017 | Member edits + approve/overwrite notify | 📄 Deferred (planned) | Owner-toggle per member; add `meal_accepted`; notify on every overwrite.    |
-| BUG-018 | Invite email                            | 🟡 Partially fixed    | Code path + send-status UI landed; real delivery pending `RESEND_API_KEY`.  |
-| BUG-019 | Finish leave-dialog                     | ✅ Fixed              | Coalesce branch clears the dirty flag so `beforeunload` won't fire.         |
-| BUG-020 | Onboarding location fields              | 📄 Deferred (planned) | Country `<select>` + city text, seeded from timezone; pre-fill name.        |
-| BUG-021 | Today nav subtitle                      | ✅ Fixed              | "Approve tonight" → "Today's meals" (status-neutral).                       |
-| BUG-022 | Week "Generate" picker                  | 📄 Deferred (planned) | "Change" → single-select picker via existing `replaceItem`.                 |
-| BUG-023 | Today "Try another" picker              | 📄 Deferred (planned) | Same single-select picker as BUG-022.                                       |
-| BUG-024 | Review missing Step-3 picks             | 📄 Deferred (planned) | Resolve combination ids → names; list real selections.                      |
-| BUG-025 | Step-3 image size + dup name            | ✅ Fixed              | 3-up `w-full` thumbnails; removed duplicate per-dish captions.              |
-| BUG-026 | Step-3 not additive                     | 📄 Deferred (planned) | Track three slices independently; merge in Review + completion.             |
+| Bug     | Area                                    | Status             | Notes                                                                                                                    |
+| ------- | --------------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| BUG-015 | Recommendation ignores picks            | ✅ Fixed           | `householdChosenDish +60` factor + `chosenDishIds`; reason names the pick.                                               |
+| BUG-016 | Performance                             | 🟡 Partially fixed | `next.config` images + day-suggestion N+1 fix + React `cache()` on auth done; source-photo re-encode (PERF-002) remains. |
+| BUG-017 | Member edits + approve/overwrite notify | ✅ Fixed           | Owner per-member toggles; `meal_accepted` event; overwrite-notify in suggest-another.                                    |
+| BUG-018 | Invite email                            | 🟡 Partially fixed | Code path + send-status UI landed; real delivery pending `RESEND_API_KEY`.                                               |
+| BUG-019 | Finish leave-dialog                     | ✅ Fixed           | Coalesce branch clears the dirty flag so `beforeunload` won't fire.                                                      |
+| BUG-020 | Onboarding location fields              | ✅ Fixed           | Country `<select>` + city text, seeded from timezone; pre-filled name.                                                   |
+| BUG-021 | Today nav subtitle                      | ✅ Fixed           | "Approve tonight" → "Today's meals" (status-neutral).                                                                    |
+| BUG-022 | Week "Generate" picker                  | ✅ Fixed           | "Swap" → "Change" opens a single-select picker; commits via `replaceItem`.                                               |
+| BUG-023 | Today "Try another" picker              | ✅ Fixed           | "Try another" opens the same single-select picker.                                                                       |
+| BUG-024 | Review missing Step-3 picks             | ✅ Fixed           | Combo names captured at pick time; Review lists all populated sources.                                                   |
+| BUG-025 | Step-3 image size + dup name            | ✅ Fixed           | 3-up `w-full` thumbnails; removed duplicate per-dish captions.                                                           |
+| BUG-026 | Step-3 not additive                     | ✅ Fixed           | Three slices tracked independently; merged in Review + completion.                                                       |
 
-> ✅/🟡 items landed this session and pass `typecheck` + their unit tests (see
-> Verification). 📄 items are scoped below for follow-up sessions.
+> ✅/🟡 items landed and pass `typecheck`, `lint`, `format:check`, the full Vitest
+> suite (842), and `next build` (see Verification). The remaining work is the
+> BUG-016 source-photo re-encode (PERF-002 — `next/image` already optimizes served
+> bytes) and the **E2E/UI** acceptance criteria, which need a browser pass on a
+> running app (the closing unit/integration criteria are covered by new tests).
 
 ## Recommended sequencing
 
@@ -106,7 +109,7 @@ product build) — that file is not touched by this work.
 - **Closes:** INVITE-001, INVITE-003 (done); INVITE-004/006 (verify); INVITE-002
   (phone arm) + INVITE-005 (delivery) pending.
 
-### BUG-015 — Recommendation honours chosen combinations — 📄 Deferred (planned)
+### BUG-015 — Recommendation honours chosen combinations — ✅ Fixed
 
 - **Root cause:** chosen combos default to `once_in_a_while` (= `-20`); fresh
   household never reaches `popularityThreshold: 5`; no household-chosen positive
@@ -127,7 +130,7 @@ product build) — that file is not touched by this work.
   `household_dish_preferences`), but is independently testable with seeded prefs.
 - **Closes:** REC-001 … REC-008.
 
-### BUG-016 — Performance — 📄 Deferred (planned)
+### BUG-016 — Performance — 🟡 Partially fixed
 
 - **Phase 1 — Images (Med, highest impact):** add an `images` block to
   `next.config.ts` (AVIF/WebP, `deviceSizes`/`imageSizes`, a default `quality`);
@@ -144,7 +147,7 @@ product build) — that file is not touched by this work.
 - **Risk:** Phase 1 touches seed/content if filenames change — prefer in-place
   re-encode to keep `image_url`s.
 
-### BUG-017 — Member edits + approve/overwrite notifications — 📄 Deferred (planned)
+### BUG-017 — Member edits + approve/overwrite notifications — ✅ Fixed
 
 - **Decision:** owner toggles the change-permission **per member** (member-role
   defaults stay `false`).
@@ -163,7 +166,7 @@ product build) — that file is not touched by this work.
 - **Phase 4 — Tests (Small/Med):** COLLAB-001 … COLLAB-008.
 - **Closes:** COLLAB-001 … COLLAB-008, and SLOTPICK-007 (overwrite-notify).
 
-### BUG-020 — Onboarding location fields — 📄 Deferred (planned)
+### BUG-020 — Onboarding location fields — ✅ Fixed
 
 - **Decision:** country `<select>` + pre-filled city text, seeded from timezone.
 - **Phase 1 — Mapping (Small):** a small `timezone → { countryCode, countryName,
@@ -177,7 +180,7 @@ city }` lookup (no large dataset), with a graceful fallback for unknown zones.
 - **Phase 3 — Tests (Small):** ONB-010 … ONB-014.
 - **Closes:** ONB-010 … ONB-014.
 
-### BUG-022 + BUG-023 — Single-select replacement picker — 📄 Deferred (planned)
+### BUG-022 + BUG-023 — Single-select replacement picker — ✅ Fixed
 
 - **Shared approach:** one reusable single-select "choose a dish for this slot"
   component, styled like the onboarding picker but enforcing a single choice;
@@ -193,7 +196,7 @@ city }` lookup (no large dataset), with a graceful fallback for unknown zones.
 - **Tests:** SLOTPICK-001 … SLOTPICK-007.
 - **Closes:** SLOTPICK-001 … 006 (007 via BUG-017 Phase 3).
 
-### BUG-024 — Review shows Step-3 choices — 📄 Deferred (planned)
+### BUG-024 — Review shows Step-3 choices — ✅ Fixed
 
 - **Root cause:** Review renders combinations as a count / "Not set"; no catalog to
   resolve ids → names.
@@ -204,7 +207,7 @@ city }` lookup (no large dataset), with a graceful fallback for unknown zones.
   sources).
 - **Closes:** ONB-020 … ONB-022.
 
-### BUG-026 — Step-3 additive across modes — 📄 Deferred (planned)
+### BUG-026 — Step-3 additive across modes — ✅ Fixed
 
 - **Root cause:** single `mode` field; each `ModeCard.onSelect` clears sibling
   arrays; only the active mode renders.
@@ -255,3 +258,85 @@ Code changes on `fix/app-bug-sweep`:
   (`C:\personal\mealmenuplanner`) without these fixes; verification was done
   against a fresh server started from this working tree
   (`C:\personal\mmtUI\mealmenuplanner`).
+
+---
+
+## Session 2 — deferred bugs implemented (2026-05-27)
+
+The seven 📄 items above (BUG-015, 016, 017, 020, 022, 023, 024, 026) were
+implemented in the recommended sequence. Each closing **unit/integration**
+criterion is covered by a new test; the **E2E/UI** criteria still want a browser
+pass.
+
+### Code changes (`fix/app-bug-sweep`)
+
+- **BUG-026 / BUG-024 (Step-3 additive + Review):**
+  `lib/onboarding/draft.ts` (`SelectedCombination.name`),
+  `lib/onboarding/preferred-summary.ts` (new pure resolvers),
+  `components/onboarding/steps/preferred-dishes-step.tsx` (no sibling-wipe on mode
+  switch; `system` stays exclusive; cross-mode "Your picks so far" summary; combo
+  name captured at pick time), `components/onboarding/steps/review-step.tsx`
+  (lists all populated sources by name), `lib/services/onboarding/validate-completion.ts`
+  (mode-agnostic additive merge; `system` exclusive), `lib/onboarding/edit.ts`
+  (additive `draftDataToLikedDishes`).
+- **BUG-015 (recommendation honours picks):**
+  `lib/recommendation/config.ts` (`householdChosenDish: 60`),
+  `lib/recommendation/types.ts` (`HouseholdContext.chosenDishIds` + factor label),
+  `lib/recommendation/scoring.ts` (apply the factor to any chosen dish, gated by
+  `combinations.enabled`), `lib/recommendation/explanation.ts` (reason phrase
+  "it is one your household chose"),
+  `lib/services/recommendation/load-inputs.ts` (populate `chosenDishIds` from
+  `household_dish_preferences`).
+- **BUG-017 (collab permissions + notifications):**
+  `lib/events/types.ts` + `lib/events/templates.ts` (`meal_accepted` event),
+  `lib/services/meal-plan/items.ts` (emit `meal_accepted` on `acceptItem`; emit
+  `meal_changed` when `suggestAnotherItem` overwrites an accepted/cooked cell),
+  `components/household/household-members.tsx` (owner-only per-member
+  `can_change_today_menu` / `can_change_weekly_schedule` toggles, via the existing
+  member-update route). The accepted-status edit was already unguarded
+  (`loadItemForAction` gates on the flag only) — COLLAB-002/003 needed no change.
+- **BUG-022 + BUG-023 (replacement picker):**
+  `lib/services/meal-plan/suggest.ts` (`listSlotCandidates`, uncapped),
+  `lib/services/meal-plan/items.ts` (`listItemCandidates`),
+  `app/api/meal-plan-items/[mealPlanItemId]/candidates/route.ts` (new GET),
+  `components/meal-plan/slot-replacement-picker.tsx` (new reusable single-select
+  picker committing via `replaceItem`), wired into `today-board.tsx`
+  ("Try another") and `week-board.tsx` ("Swap" → "Change").
+- **BUG-020 (location fields):**
+  `lib/onboarding/locale.ts` (timezone → country/city map + country list),
+  `components/onboarding/steps/household-basics-step.tsx` (country `<select>`,
+  city text, name + location seeded once from the browser timezone).
+- **BUG-016 (performance):**
+  `next.config.ts` (AVIF/WebP `images` block + size ladder + cache TTL),
+  `lib/services/meal-plan/generate.ts` (`ensureDaySuggestions` now loads the
+  candidate universe once like `generateWeek`, killing the per-slot N+1),
+  `lib/auth/session.ts` / `lib/auth/guards.ts` /
+  `lib/services/household/current-household.ts` (React `cache()` on `getAuthUser`,
+  `getActiveMembership`, `resolveCurrentHousehold`).
+
+### Tests added/updated
+
+- `lib/onboarding/preferred-summary.test.ts` (ONB-021/022),
+  `lib/onboarding/locale.test.ts` (ONB-013),
+  `lib/services/onboarding/validate-completion.test.ts` (ONB-042/043),
+  `lib/recommendation/{scoring,explanation,engine}.test.ts` (REC-001…008),
+  `lib/services/recommendation/load-inputs.test.ts` (chosen-set load),
+  `lib/events/templates.test.ts` (COLLAB-006),
+  `lib/services/meal-plan/{items,access,suggest}.test.ts` (COLLAB-002/004/005,
+  SLOTPICK-005), `lib/services/meal-plan/generate.test.ts` (PERF-003 load-once).
+
+### Verification (session 2)
+
+- `npm run typecheck`, `npm run lint`, `npm run format:check` — all clean.
+- `npm run test` — full Vitest suite green: **842 tests, 133 files**.
+- `npm run build` — succeeds; the new `/api/meal-plan-items/[id]/candidates`
+  route is registered.
+
+### Remaining
+
+- **PERF-002** — re-encode the source dish photos / landing hero to ≤ ~300 KB.
+  Lower priority now that the `next.config` `images` block transcodes served bytes
+  to AVIF/WebP on the fly; it's a repo-size + optimizer-input win.
+- **E2E/UI pass** — REC-004 (live ranking), COLLAB-008 (granted-member Today),
+  ONB-010/011/012/040/043, SLOTPICK-001/002/004/006, PERF-005/006: verify on a
+  running app (browser). The closing unit/integration criteria are green above.

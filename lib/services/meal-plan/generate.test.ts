@@ -298,6 +298,7 @@ describe("generateWeek", () => {
       kidsCount: 0,
       dishFrequencies: new Map(),
       dishSuitableSlots: new Map(),
+      chosenDishIds: new Set(),
     });
     vi.mocked(loadActiveMembers).mockResolvedValue([]);
     vi.mocked(loadMealHistory).mockResolvedValue({
@@ -383,34 +384,37 @@ function dayClient(dayCells: unknown[]) {
   return { client, upserted };
 }
 
-function rec(dishId: string) {
-  return {
-    recommendations: [
-      {
-        dishId,
-        score: 1,
-        reason: "r",
-        missingConstraints: [],
-        prepTasks: [],
-        pairedDishes: [],
-      },
-    ],
-    nameById: new Map(),
-    imageById: new Map(),
-  };
-}
-
 describe("ensureDaySuggestions", () => {
+  beforeEach(() => {
+    vi.mocked(loadHouseholdContext).mockResolvedValue({
+      dietType: "vegetarian",
+      preferredCuisines: [],
+      weekdayCookingTimeMinutes: null,
+      weekendCookingTimeMinutes: null,
+      varietyGapDays: 7,
+      kidsCount: 0,
+      dishFrequencies: new Map(),
+      dishSuitableSlots: new Map(),
+      chosenDishIds: new Set(),
+    });
+    vi.mocked(loadActiveMembers).mockResolvedValue([]);
+    vi.mocked(loadMealHistory).mockResolvedValue({
+      recentlyCookedDishIds: new Set(),
+      recentlyRejectedDishIds: new Set(),
+      doNotSuggestAgainDishIds: new Set(),
+    });
+  });
+
   it("fills every empty slot with the engine's top pick and refreshes grocery once", async () => {
     const stub = dayClient([]);
     vi.mocked(createServerSupabaseClient).mockResolvedValue(stub.client);
-    vi.mocked(suggestForSlot)
-      .mockResolvedValueOnce(rec("b1"))
-      .mockResolvedValueOnce(rec("d1"));
+    // Candidate dishes are loaded per slot, in slot order (breakfast, dinner).
+    vi.mocked(loadCandidateDishes)
+      .mockResolvedValueOnce([{ id: "b1" } as never])
+      .mockResolvedValueOnce([{ id: "d1" } as never]);
 
     await ensureDaySuggestions(HH, "2026-05-25", ["breakfast", "dinner"]);
 
-    expect(stub.upserted).toHaveLength(2);
     expect(stub.upserted).toEqual([
       expect.objectContaining({
         meal_slot: "breakfast",
@@ -426,7 +430,24 @@ describe("ensureDaySuggestions", () => {
     expect(safeRegenerateGroceryListForPlan).toHaveBeenCalledTimes(1);
   });
 
-  it("leaves locked, eating-out, and already-filled slots untouched", async () => {
+  it("loads the slot-independent inputs once, not per slot (BUG-016 / PERF-003)", async () => {
+    const stub = dayClient([]);
+    vi.mocked(createServerSupabaseClient).mockResolvedValue(stub.client);
+    vi.mocked(loadCandidateDishes)
+      .mockResolvedValueOnce([{ id: "b1" } as never])
+      .mockResolvedValueOnce([{ id: "d1" } as never]);
+
+    await ensureDaySuggestions(HH, "2026-05-25", ["breakfast", "dinner"]);
+
+    // The candidate universe is loaded once for the day, not once per slot.
+    expect(loadHouseholdContext).toHaveBeenCalledTimes(1);
+    expect(loadActiveMembers).toHaveBeenCalledTimes(1);
+    expect(loadMealHistory).toHaveBeenCalledTimes(1);
+    // Candidate dishes are slot-specific, so one query per filled slot.
+    expect(loadCandidateDishes).toHaveBeenCalledTimes(2);
+  });
+
+  it("leaves locked, eating-out, and already-filled slots untouched without loading inputs", async () => {
     const stub = dayClient([
       {
         meal_slot: "breakfast",
@@ -450,7 +471,8 @@ describe("ensureDaySuggestions", () => {
       "dinner",
     ]);
 
-    expect(suggestForSlot).not.toHaveBeenCalled();
+    expect(loadHouseholdContext).not.toHaveBeenCalled();
+    expect(loadCandidateDishes).not.toHaveBeenCalled();
     expect(stub.upserted).toHaveLength(0);
     expect(safeRegenerateGroceryListForPlan).not.toHaveBeenCalled();
   });
@@ -458,18 +480,15 @@ describe("ensureDaySuggestions", () => {
   it("excludes a dish already chosen earlier in the run", async () => {
     const stub = dayClient([]);
     vi.mocked(createServerSupabaseClient).mockResolvedValue(stub.client);
-    vi.mocked(suggestForSlot)
-      .mockResolvedValueOnce(rec("b1"))
-      .mockResolvedValueOnce(rec("d1"));
+    // Both slots can pick "x"; breakfast takes it first, so dinner skips to "y".
+    vi.mocked(loadCandidateDishes)
+      .mockResolvedValueOnce([{ id: "x" } as never])
+      .mockResolvedValueOnce([{ id: "x" } as never, { id: "y" } as never]);
 
     await ensureDaySuggestions(HH, "2026-05-25", ["breakfast", "dinner"]);
 
-    expect(suggestForSlot).toHaveBeenNthCalledWith(
-      2,
-      HH,
-      "2026-05-25",
-      "dinner",
-      expect.objectContaining({ excludeDishIds: ["b1"] }),
-    );
+    expect(
+      stub.upserted.map((r) => (r as { dish_id: string }).dish_id),
+    ).toEqual(["x", "y"]);
   });
 });

@@ -6,9 +6,14 @@ import { redirect } from "next/navigation";
 import { OnboardingExperience } from "@/components/onboarding/onboarding-experience";
 import { OnboardingWizard } from "@/components/onboarding/onboarding-wizard";
 import { getAuthUser } from "@/lib/auth";
-import { preferencesToDraftData } from "@/lib/onboarding";
+import {
+  EDIT_STEP_IDS,
+  preferencesToDraftData,
+  type StepId,
+} from "@/lib/onboarding";
 import {
   getHousehold,
+  getHouseholdDishPreferences,
   getMyLikedDishes,
   resolveCurrentHousehold,
 } from "@/lib/services/household";
@@ -34,11 +39,23 @@ export const metadata = { title: "Set up your household" };
  *    preferences; saving PATCHes them instead of creating a household. Gated on
  *    `can_edit_household_preferences`.
  */
-export default async function OnboardingPage() {
+export default async function OnboardingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ step?: string }>;
+}) {
   const user = await getAuthUser();
   if (!user) {
     redirect("/sign-in");
   }
+
+  // A pencil on the Preferences page deep-links here with `?step=` to open the
+  // edit wizard at that section. Only honoured for steps the edit flow walks.
+  const { step } = await searchParams;
+  const initialStep: StepId | undefined =
+    step && (EDIT_STEP_IDS as readonly string[]).includes(step)
+      ? (step as StepId)
+      : undefined;
 
   const current = await resolveCurrentHousehold();
   if (current) {
@@ -46,15 +63,17 @@ export default async function OnboardingPage() {
     if (!current.currentUserPermissions.canEditHouseholdPreferences) {
       redirect("/today");
     }
-    const [household, likedDishes] = await Promise.all([
+    const [household, likedDishes, dishPreferences] = await Promise.all([
       getHousehold(current.householdId),
       getMyLikedDishes(current.householdId),
+      getHouseholdDishPreferences(current.householdId),
     ]);
     if (household.preferences) {
       const initialData = preferencesToDraftData(
         household.name,
         household.preferences,
         likedDishes,
+        dishPreferences,
       );
       return (
         <OnboardingShell
@@ -65,6 +84,7 @@ export default async function OnboardingPage() {
             mode="edit"
             householdId={current.householdId}
             initialData={initialData}
+            initialStep={initialStep}
           />
         </OnboardingShell>
       );

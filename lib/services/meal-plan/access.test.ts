@@ -44,7 +44,7 @@ function membership(flags: Record<string, boolean>) {
   };
 }
 
-function stubItem(date: string) {
+function stubItem(date: string, status = "suggested") {
   const stub = createSupabaseStub({
     tables: {
       meal_plan_items: {
@@ -55,7 +55,7 @@ function stubItem(date: string) {
           date,
           meal_slot: "dinner",
           dish_id: "dish-1",
-          status: "suggested",
+          status,
           locked: false,
           reason: null,
           changed_by_user_id: null,
@@ -137,6 +137,16 @@ describe("loadItemForAction — date-aware permission (design/08 § 5)", () => {
     );
     const { item } = await loadItemForAction(ITEM_ID, NOW);
     expect(item.id).toBe(ITEM_ID);
+  });
+
+  it("lets a permitted member act on an already-accepted meal — no status guard (BUG-017 / COLLAB-002)", async () => {
+    stubItem("2026-05-25", "accepted");
+    vi.mocked(getActiveMembership).mockResolvedValue(
+      membership({ can_change_today_menu: true }) as never,
+    );
+    const { item } = await loadItemForAction(ITEM_ID, NOW);
+    expect(item.id).toBe(ITEM_ID);
+    expect(item.status).toBe("accepted");
   });
 
   it("a future cell needs can_change_weekly_schedule", async () => {

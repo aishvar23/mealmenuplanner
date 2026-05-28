@@ -49,7 +49,7 @@ export default async function HouseholdPage() {
         </div>
         {canEditPreferences ? (
           <Link
-            href="/onboarding"
+            href="/preferences"
             className={buttonVariants({
               variant: "outline",
               size: "sm",
@@ -57,7 +57,7 @@ export default async function HouseholdPage() {
             })}
           >
             <Settings2 data-icon="inline-start" />
-            Edit preferences
+            Preferences
           </Link>
         ) : null}
       </header>

@@ -10,10 +10,13 @@ import { DishCard } from "@/components/onboarding/cards/dish-card";
 import { ModeCard } from "@/components/onboarding/mode-card";
 import { Input } from "@/components/ui/input";
 import type { Database } from "@/lib/db/database.types";
-import type {
-  PreferredDishes,
-  SelectedCombination,
-  SelfBuiltDish,
+import {
+  builtDishNames,
+  combinationDisplayNames,
+  manualDishNames,
+  type PreferredDishes,
+  type SelectedCombination,
+  type SelfBuiltDish,
 } from "@/lib/onboarding";
 import type { CombinationCatalogItem } from "@/lib/services/onboarding/list-combination-catalog";
 import type { DishCatalogItem } from "@/lib/services/onboarding/list-dish-catalog";
@@ -61,28 +64,25 @@ export function PreferredDishesStep({
   return (
     <div className="flex flex-col gap-5">
       <div className="grid gap-3 sm:grid-cols-3">
+        {/*
+          BUG-026: the three modes are additive — selecting one only opens its
+          picker (no longer wipes the other slices), so combinations + built
+          dishes accumulate. "Let the system decide" stays exclusive: it clears
+          the explicit picks because it means delegating to the engine (ONB-043).
+        */}
         <ModeCard
           icon={LayoutGrid}
           title="Select meal combinations"
           description="Pick ready-made plates like dal, sabzi, roti and rice."
           selected={mode === "combinations"}
-          onSelect={() =>
-            onChange({ mode: "combinations", dishNames: [], builtDishes: [] })
-          }
+          onSelect={() => onChange({ mode: "combinations" })}
         />
         <ModeCard
           icon={UtensilsCrossed}
           title="Build your own combination"
           description="Choose dishes and how often you'd like each one."
           selected={mode === "build"}
-          onSelect={() =>
-            onChange({
-              mode: "build",
-              dishNames: [],
-              selectedCombinations: [],
-              selectedCombinationIds: [],
-            })
-          }
+          onSelect={() => onChange({ mode: "build" })}
         />
         <ModeCard
           icon={Sparkles}
@@ -100,6 +100,8 @@ export function PreferredDishesStep({
           }
         />
       </div>
+
+      <PicksSummary value={value} />
 
       {mode === "combinations" ? (
         <CombinationsMode
@@ -168,18 +170,22 @@ function CombinationsMode({
   }
 
   function toggle(id: string) {
-    setSelected(
-      selectedById.has(id)
-        ? selected.filter((s) => s.combinationId !== id)
-        : [
-            ...selected,
-            {
-              combinationId: id,
-              frequency: "once_in_a_while",
-              suitableFor: [],
-            },
-          ],
-    );
+    if (selectedById.has(id)) {
+      setSelected(selected.filter((s) => s.combinationId !== id));
+      return;
+    }
+    // Capture the display name at pick time so Review can list the chosen
+    // combinations by name without re-fetching the catalog (BUG-024).
+    const name = (catalog.data ?? []).find((combo) => combo.id === id)?.name;
+    setSelected([
+      ...selected,
+      {
+        combinationId: id,
+        name,
+        frequency: "once_in_a_while",
+        suitableFor: [],
+      },
+    ]);
   }
 
   function setFrequency(id: string, frequency: MealFrequency) {
@@ -454,6 +460,48 @@ function ManualMode({
           ))}
         </ul>
       </CatalogState>
+    </div>
+  );
+}
+
+// ──────────────────────────── cross-mode summary ────────────────────────────
+
+/**
+ * A read-only roll-up of everything picked across the additive modes (BUG-026),
+ * shown regardless of which picker is currently open so combinations + built
+ * dishes stay visible together (and a mode switch visibly never wipes them). The
+ * active picker remains the place to add/remove; this just confirms the running
+ * tally. Renders nothing until there is at least one pick.
+ */
+function PicksSummary({ value }: { value: PreferredDishes }) {
+  const groups: { label: string; items: string[] }[] = [
+    { label: "Meal combinations", items: combinationDisplayNames(value) },
+    { label: "Built dishes", items: builtDishNames(value) },
+    { label: "Favourite dishes", items: manualDishNames(value) },
+  ].filter((group) => group.items.length > 0);
+
+  if (groups.length === 0) return null;
+
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border border-border bg-muted/30 p-3">
+      <p className="text-xs font-medium text-muted-foreground">
+        Your picks so far
+      </p>
+      {groups.map((group) => (
+        <div key={group.label} className="flex flex-col gap-1.5">
+          <p className="text-xs text-muted-foreground">{group.label}</p>
+          <ul className="flex flex-wrap gap-1.5">
+            {group.items.map((item, index) => (
+              <li
+                key={`${item}-${index}`}
+                className="rounded-full border border-border bg-card px-2.5 py-0.5 text-xs font-medium"
+              >
+                {item}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
     </div>
   );
 }

@@ -13,6 +13,7 @@ import type { Json } from "@/lib/db/database.types";
 export const EVENT_TYPES = [
   // Meal / schedule events
   "meal_changed",
+  "meal_accepted",
   "meal_rejected",
   "meal_marked_eating_out",
   "meal_locked",

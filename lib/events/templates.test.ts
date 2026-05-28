@@ -27,6 +27,12 @@ describe("renderNotification", () => {
     );
   });
 
+  it("renders the meal_accepted approval notification (BUG-017 / COLLAB-006)", () => {
+    const { title, message } = renderNotification("meal_accepted", FULL_VARS);
+    expect(title).toBe("Dinner approved");
+    expect(message).toBe("Aishvarya approved Chole Rice for tonight's dinner.");
+  });
+
   it("renders the verbatim spec example for meal_marked_eating_out", () => {
     const { title, message } = renderNotification("meal_marked_eating_out", {
       actorName: "Riya",

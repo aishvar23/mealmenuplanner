@@ -53,6 +53,16 @@ export interface HouseholdContext {
    */
   dishFrequencies: ReadonlyMap<string, MealFrequency>;
   /**
+   * Dish ids the household explicitly chose during onboarding (BUG-015) — the keys
+   * of `household_dish_preferences`: every `build`-mode dish plus every member
+   * dish of a selected combination. Earns the positive `householdChosenDish`
+   * factor regardless of frequency tier, so the household's own picks rank above
+   * unchosen catalog dishes. **Distinct from the global popularity signal**
+   * (`popularCombinationDishIds` / `popularityCount`): this is "*this* household
+   * picked it", not "popular across all households". Empty when unused.
+   */
+  chosenDishIds: ReadonlySet<string>;
+  /**
    * Per-dish meal-slot restrictions the household set in `build` mode (P10-8),
    * dishId → the slots the dish may be suggested in. A dish present here is
    * hard-filtered out of any slot NOT in its list (§4). Only dishes the household
@@ -168,6 +178,8 @@ export const FACTOR_LABELS = [
   "popularDish",
   "frequencyDaily",
   "frequencyOnceInAWhile",
+  // BUG-015 — "this household chose this dish" positive factor.
+  "householdChosenDish",
 ] as const;
 
 export type FactorLabel = (typeof FACTOR_LABELS)[number];

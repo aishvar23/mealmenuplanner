@@ -68,6 +68,13 @@ export interface SelfBuiltDish {
 export interface SelectedCombination {
   /** The admin-curated combination's id. */
   combinationId: string;
+  /**
+   * The combination's display name, captured at pick time (BUG-024). Lets the
+   * Review step list chosen combinations by name without re-fetching the
+   * catalog; resumed pre-BUG-024 drafts may omit it (resolved from the catalog
+   * or shown generically). Display-only — never written to the DB.
+   */
+  name?: string;
   /** How often the household wants this combination in rotation. */
   frequency: MealFrequency;
   /**
@@ -78,8 +85,11 @@ export interface SelectedCombination {
 }
 
 /**
- * Step 3 — preferred dishes (BUG-006 + P10). Four modes, all reaching the same
- * step but persisting differently at completion:
+ * Step 3 — preferred dishes (BUG-006 + P10 + BUG-026). The three slices below are
+ * **additive**: a household can both pick combinations and build its own dishes,
+ * and switching `mode` no longer wipes the other slices (BUG-026). `mode` is just
+ * the picker currently open for editing; completion and Review merge **every**
+ * populated slice.
  *   • `combinations` — pick admin-curated meal combinations (popularity-ranked),
  *     each tagged with a frequency tier + the slots it's "suitable for" (P10-9).
  *     Selecting bumps each combo's popularity and writes those plate-level prefs
@@ -87,7 +97,8 @@ export interface SelectedCombination {
  *   • `build` — pick main dishes and tag each with a frequency tier + the
  *     accompaniments it goes with (`builtDishes` → `household_dish_preferences` /
  *     `household_dish_accompaniments`; the mains also become `liked_dishes`).
- *   • `system` — delegate everything to the recommendation engine.
+ *   • `system` — delegate everything to the recommendation engine. Exclusive:
+ *     choosing it clears the explicit picks (ONB-043).
  *   • `manual` — legacy hand-pick (retained for resumed/edit drafts); the picks
  *     are dish **names** the engine's liked-dish bonus matches on
  *     (`lib/recommendation/scoring.ts`) → the owner's `liked_dishes`.

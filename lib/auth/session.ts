@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cache } from "react";
+
 import type { User } from "@supabase/supabase-js";
 
 import { createServerSupabaseClient } from "@/lib/db/server";
@@ -18,14 +20,20 @@ import { UnauthenticatedError } from "@/lib/errors";
  *
  * Returns the verified user, or `null` when there is no valid session. (On an
  * auth error the SDK leaves `user` null, so the null contract already covers it.)
+ *
+ * Wrapped in React `cache()` (BUG-016 / PERF-004): the layout, page, proxy, and
+ * service guards all resolve the user, and `auth.getUser()` is a network
+ * revalidation, so deduping it to once per server render removes the repeated
+ * round-trips. `cache()` is request-scoped and a no-op outside a render, so the
+ * contract is unchanged.
  */
-export async function getAuthUser(): Promise<User | null> {
+export const getAuthUser = cache(async (): Promise<User | null> => {
   const supabase = await createServerSupabaseClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   return user;
-}
+});
 
 /**
  * Like {@link getAuthUser}, but throws `UnauthenticatedError` when there is no

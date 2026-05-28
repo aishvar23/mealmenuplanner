@@ -84,6 +84,47 @@ describe("preferencesToDraftData", () => {
     });
   });
 
+  it("seeds build mode from stored dish preferences so combinations are editable post-onboarding", () => {
+    const draft = preferencesToDraftData(
+      "Home",
+      PREFS,
+      ["Rajma Masala"],
+      [
+        {
+          dishName: "Rajma Masala",
+          frequency: "daily",
+          suitableFor: ["dinner"],
+          goesWith: ["Jeera Rice"],
+        },
+        {
+          dishName: "Idli",
+          frequency: "once_a_week",
+          suitableFor: [],
+          goesWith: ["Sambar"],
+        },
+      ],
+    );
+    // Per-dish prefs win over the legacy liked-dish names — they carry the richer
+    // frequency / suitable-slot / accompaniment data the build picker edits.
+    expect(draft.preferredDishes).toEqual({
+      mode: "build",
+      builtDishes: [
+        {
+          dishName: "Rajma Masala",
+          frequency: "daily",
+          suitableFor: ["dinner"],
+          goesWith: ["Jeera Rice"],
+        },
+        {
+          dishName: "Idli",
+          frequency: "once_a_week",
+          suitableFor: [],
+          goesWith: ["Sambar"],
+        },
+      ],
+    });
+  });
+
   it("does not seed household-row fields the PATCH can't update (location)", () => {
     const draft = preferencesToDraftData("Home", PREFS);
     expect(draft.householdBasics).not.toHaveProperty("locationCountry");

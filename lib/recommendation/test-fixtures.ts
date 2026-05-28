@@ -25,6 +25,7 @@ export function makeHousehold(
     kidsCount: 0,
     dishFrequencies: new Map(),
     dishSuitableSlots: new Map(),
+    chosenDishIds: new Set(),
     ...overrides,
   };
 }

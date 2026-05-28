@@ -9,7 +9,12 @@
  * these are plain same-origin requests — no Authorization header to manage.
  */
 
-import type { DraftData, PreferencesPatch, StepId } from "@/lib/onboarding";
+import type {
+  DraftData,
+  PreferencesPatch,
+  PreferredDishes,
+  StepId,
+} from "@/lib/onboarding";
 import type { DraftDto } from "@/lib/services/onboarding/dto";
 
 const DRAFT_URL = "/api/onboarding/draft";
@@ -116,5 +121,26 @@ export async function saveFoodPreferences(
   });
   if (!res.ok) {
     throw new Error(`Failed to save food preferences (${res.status})`);
+  }
+}
+
+/**
+ * `PATCH /api/households/{householdId}/dish-preferences` — rewrite the household's
+ * per-dish preferences (`household_dish_preferences`) from the edit-mode Step-3
+ * picks, so chosen combinations / built dishes are editable post-onboarding. The
+ * body is the preferred-dishes slice; the server validates + persists it. Throws
+ * on any non-2xx so the wizard can surface a retry affordance.
+ */
+export async function saveDishPreferences(
+  householdId: string,
+  preferred: PreferredDishes,
+): Promise<void> {
+  const res = await fetch(`/api/households/${householdId}/dish-preferences`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(preferred),
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to save dish preferences (${res.status})`);
   }
 }
