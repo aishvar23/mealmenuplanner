@@ -95,6 +95,18 @@ curl -X POST http://localhost:3000/api/dev/clear-users \
 The response reports `{ deletedUsers, deletedHouseholds }` (plus `notFoundEmails`
 for any email that didn't match, and `failures[]` if a delete errored).
 
+To keep only a few accounts and clear the rest (e.g. reset to just the test
+user), use the inverse `clear-users-except` script. It talks to Supabase
+directly via the service-role key (no dev server / flag needed), is **dry-run by
+default**, and aborts if a kept target can't be resolved (so a typo can't delete
+the account you meant to spare):
+
+```bash
+npm run users:clear-except -- dev@local.test            # dry run: shows keep/delete
+npm run users:clear-except -- dev@local.test --yes      # execute
+npm run users:clear-except -- --keep dev@local.test --keep <uuid> --yes
+```
+
 > Deleting a household's creator removes the **whole household** (and other
 > members' access) — `created_by_user_id` is NOT NULL, so a bare delete can't
 > reassign ownership. To hand a household to another member instead, use the
