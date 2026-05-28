@@ -55,9 +55,11 @@ function stubSelectListChain(result: QueryResult) {
 /** Stub `.from().upsert()` awaited directly. */
 function stubUpsertChain(result: { error: unknown }) {
   const builder = {
-    upsert: vi.fn((_rows: unknown, _options?: unknown) =>
-      Promise.resolve(result),
-    ),
+    upsert: vi.fn((rows: unknown, options?: unknown) => {
+      void rows;
+      void options;
+      return Promise.resolve(result);
+    }),
   };
   const from = vi.fn(() => builder);
   vi.mocked(createServerSupabaseClient).mockResolvedValue({ from } as never);
