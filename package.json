@@ -25,6 +25,7 @@
     "db:push": "supabase db push",
     "db:lint": "supabase db lint",
     "db:types": "supabase gen types typescript --local --schema public > lib/db/database.types.ts",
+    "users:clear": "node scripts/clear-users.mjs",
     "prepare": "husky"
   },
   "lint-staged": {

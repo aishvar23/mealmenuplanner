@@ -59,6 +59,47 @@ Local service URLs:
 Schema changes flow **dev → prod only through migrations** — never edit a remote
 schema by hand (design/02 § Environments).
 
+## Clearing users (dev reset)
+
+To wipe test accounts between manual runs without touching the shared content
+catalog (dishes, ingredients, combinations), use the dev-only
+`POST /api/dev/clear-users` route — or the `clear-users` script wrapping it.
+Both delete the users **and** the household-scoped data hanging off them
+(members, invites, drafts, preferences, meal plans, grocery lists, activity,
+notifications). The route handles the FK ordering: it deletes households first
+(so `households.created_by_user_id` and the `invited_by`/`accepted_by` RESTRICT
+refs stop blocking), then the auth users — whose `public.users` profile cascades
+from `auth.users ON DELETE CASCADE`.
+
+**Safety:** the route is hard-gated on `NODE_ENV !== "production"` **and**
+`DEV_LOGIN_ENABLED="true"` (same gate as the dev sign-in button), so it 404s in
+any production build. Set `DEV_LOGIN_ENABLED="true"` in `.env.local` to use it.
+It targets whatever project `.env.local` points at — currently **cloud dev**, a
+shared project, so coordinate before wiping everything.
+
+```bash
+# Script (needs `npm run dev` running). Args after -- are passed through:
+npm run users:clear -- alice@test.com bob@test.com   # delete specific users by email
+npm run users:clear -- --id <auth-user-uuid>         # ...or by auth user id
+npm run users:clear -- --all --yes                   # delete EVERY user
+
+# Or call the route directly:
+curl -X POST http://localhost:3000/api/dev/clear-users \
+  -H "content-type: application/json" \
+  -d '{"emails":["alice@test.com"]}'                 # specific
+curl -X POST http://localhost:3000/api/dev/clear-users \
+  -H "content-type: application/json" \
+  -d '{"confirm":"DELETE ALL USERS"}'                # everything
+```
+
+The response reports `{ deletedUsers, deletedHouseholds }` (plus `notFoundEmails`
+for any email that didn't match, and `failures[]` if a delete errored).
+
+> Deleting a household's creator removes the **whole household** (and other
+> members' access) — `created_by_user_id` is NOT NULL, so a bare delete can't
+> reassign ownership. To hand a household to another member instead, use the
+> `transfer_ownership` RPC (P6) before deleting.
+
 ## Auth providers locally
 
 - **Email / magic link** work out of the box; messages are captured by Inbucket
