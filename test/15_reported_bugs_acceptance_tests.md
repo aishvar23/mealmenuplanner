@@ -67,6 +67,13 @@ explicitly marked deferred in the tracker with a reason).
 - **REC-008** (Unit) — _`combinations.enabled = false` baseline._ Given the flag
   off; When scoring; Then no household-chosen / popularity / frequency factors
   apply (doc-04 baseline preserved) and existing baseline tests still pass.
+- **REC-009** (Unit/E2E, BUG-027) — _Built list is exclusive, not just boosted._
+  Given a household with a non-empty `household_dish_preferences`; When it lists
+  candidates for a slot ("Try another") or generates a suggestion; Then **only**
+  the household's chosen dishes that are eligible for that slot are offered — the
+  wider catalog is hard-excluded, not merely out-ranked. Given a household that
+  chose nothing; Then the full catalog stays eligible (rule inert). Gated on
+  `combinations.enabled` (flag off → doc-04 baseline, full catalog).
 
 ## PERF-\* — Performance (BUG-016)
 

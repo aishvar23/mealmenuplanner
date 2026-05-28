@@ -27,6 +27,7 @@ import {
 export type HardFilterReason =
   | "slot"
   | "householdSlot"
+  | "notHouseholdChosen"
   | "notStandalone"
   | "doNotSuggestAgain"
   | "diet"
@@ -45,6 +46,15 @@ export interface HardFilterContext {
    * unrestricted. From `HouseholdContext.dishSuitableSlots`.
    */
   dishSuitableSlots: ReadonlyMap<string, MealSlot[]>;
+  /**
+   * When true, only dishes the household explicitly chose ({@link chosenDishIds})
+   * are eligible — every other catalog dish is hard-excluded (BUG-027). The engine
+   * sets this when the household built its own dish list (and the combinations
+   * feature is on); a household that chose nothing keeps the full catalog.
+   */
+  restrictToChosen: boolean;
+  /** Dish ids the household chose (`HouseholdContext.chosenDishIds`); see {@link restrictToChosen}. */
+  chosenDishIds: ReadonlySet<string>;
   date: string;
   now: Date;
   history: MealHistory;
@@ -71,6 +81,15 @@ export function hardFilterExclusion(
     !householdSlots.includes(ctx.mealSlot)
   ) {
     return "householdSlot";
+  }
+  // The household built its own dish list, so only its chosen dishes are offered
+  // (BUG-027) — "try another" and every suggestion must stay within the picks the
+  // household made, filtered by slot, instead of leaking the whole catalog. This
+  // is a *hard* restriction, distinct from the soft `householdChosenDish` bonus
+  // (§5) that only re-ranks. Gated by the engine (`restrictToChosen`) so a
+  // household that chose nothing still sees the full catalog.
+  if (ctx.restrictToChosen && !ctx.chosenDishIds.has(dish.id)) {
+    return "notHouseholdChosen";
   }
   // A side / condiment / lone component is never a standalone meal — it can only
   // appear as a pairing of a main (design/05 § 4, BUG-008/009/010).

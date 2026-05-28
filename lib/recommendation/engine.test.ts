@@ -275,12 +275,13 @@ describe("recommendSlot — household-chosen dishes (BUG-015)", () => {
     const result = recommendSlot(
       input({ dishes: [other1, chosenB, other2, chosenA], household }),
     );
-    expect(
-      result
-        .slice(0, 2)
-        .map((r) => r.dishId)
-        .sort(),
-    ).toEqual(["chosen-a", "chosen-b"]);
+    // BUG-027 strengthened this from "ranked above" to "exclusively": once a
+    // household has built its own list, the unchosen catalog dishes are dropped
+    // entirely, not merely out-ranked.
+    expect(result.map((r) => r.dishId).sort()).toEqual([
+      "chosen-a",
+      "chosen-b",
+    ]);
   });
 
   it("excludes a chosen dish that violates a hard filter despite the bonus (REC-006)", () => {
@@ -294,6 +295,71 @@ describe("recommendSlot — household-chosen dishes (BUG-015)", () => {
     });
     const result = recommendSlot(input({ dishes: [chosenNonVeg], household }));
     expect(result).toEqual([]);
+  });
+});
+
+describe("recommendSlot — chosen-only restriction (BUG-027)", () => {
+  it("offers ONLY the household's chosen dishes, never the wider catalog", () => {
+    const chosen = makeDish({ id: "chosen", name: "Rajma" });
+    const catalogA = makeDish({ id: "catalog-a", name: "Bhindi" });
+    const catalogB = makeDish({ id: "catalog-b", name: "Aloo Gobi" });
+    const household = makeHousehold({ chosenDishIds: new Set(["chosen"]) });
+
+    const result = recommendSlot(
+      input({ dishes: [catalogA, chosen, catalogB], household }),
+    );
+
+    expect(result.map((r) => r.dishId)).toEqual(["chosen"]);
+  });
+
+  it("keeps the full catalog eligible when the household has chosen nothing", () => {
+    const a = makeDish({ id: "a", totalTimeMinutes: 30 });
+    const b = makeDish({ id: "b", totalTimeMinutes: 30 });
+    // Default household: chosenDishIds is empty → no restriction.
+    const result = recommendSlot(input({ dishes: [a, b] }));
+
+    expect(result.map((r) => r.dishId).sort()).toEqual(["a", "b"]);
+  });
+
+  it("filters chosen dishes by slot — a chosen dish the household limited to another slot is dropped", () => {
+    // Chosen for breakfast only; we recommend for dinner.
+    const breakfastOnly = makeDish({
+      id: "breakfast-only",
+      mealSlots: ["breakfast", "dinner"],
+    });
+    const dinnerChosen = makeDish({
+      id: "dinner-chosen",
+      mealSlots: ["lunch", "dinner"],
+    });
+    const household = makeHousehold({
+      chosenDishIds: new Set(["breakfast-only", "dinner-chosen"]),
+      dishSuitableSlots: new Map([["breakfast-only", ["breakfast"]]]),
+    });
+
+    const result = recommendSlot(
+      input({ dishes: [breakfastOnly, dinnerChosen], household }),
+    );
+
+    expect(result.map((r) => r.dishId)).toEqual(["dinner-chosen"]);
+  });
+
+  it("does not restrict to chosen dishes when combinations are disabled (doc-04 baseline)", () => {
+    const chosen = makeDish({ id: "chosen" });
+    const catalog = makeDish({ id: "catalog" });
+    const household = makeHousehold({ chosenDishIds: new Set(["chosen"]) });
+
+    const result = recommendSlot(
+      input({
+        dishes: [chosen, catalog],
+        household,
+        config: {
+          ...RECOMMENDATION_CONFIG,
+          combinations: { enabled: false, popularityThreshold: 5 },
+        },
+      }),
+    );
+
+    expect(result.map((r) => r.dishId).sort()).toEqual(["catalog", "chosen"]);
   });
 });
 

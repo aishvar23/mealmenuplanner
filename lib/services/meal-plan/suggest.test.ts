@@ -61,4 +61,27 @@ describe("listSlotCandidates (BUG-022/023, SLOTPICK-005)", () => {
     expect(candidates).toHaveLength(3);
     expect(candidates.map((c) => c.dishId)).not.toContain("dish-1");
   });
+
+  it("offers only the household's chosen dishes, not the wider catalog (BUG-027)", async () => {
+    // 6 eligible catalog dishes, but the household only chose two of them.
+    const inputs = slotInputs(6);
+    const chosen = makeHousehold({
+      chosenDishIds: new Set(["dish-0", "dish-3"]),
+    });
+    vi.mocked(loadSlotInputs).mockResolvedValue({
+      ...inputs,
+      household: chosen,
+    } as never);
+
+    const candidates = await listSlotCandidates(
+      HOUSEHOLD_ID,
+      "2026-05-25",
+      "dinner",
+    );
+
+    expect(candidates.map((c) => c.dishId).sort()).toEqual([
+      "dish-0",
+      "dish-3",
+    ]);
+  });
 });

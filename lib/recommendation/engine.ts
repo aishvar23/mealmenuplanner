@@ -48,6 +48,13 @@ export function recommendSlot(
 ): Recommendation[] {
   const config = input.config ?? RECOMMENDATION_CONFIG;
   const usedThisRun = input.usedThisRun ?? EMPTY_SET;
+  // BUG-027: a household that built its own dish list only ever gets its chosen
+  // dishes (filtered by slot) — not the full catalog. Gated on the combinations
+  // feature so the doc-04 baseline (combinations off) is unchanged, and on the
+  // household having chosen anything so "let the system decide" still uses the
+  // whole catalog.
+  const restrictToChosen =
+    config.combinations.enabled && input.household.chosenDishIds.size > 0;
   const weekend = isWeekend(input.date);
   const cookingTimeLimit = resolveCookingTimeLimit(input.household, weekend);
   const effectiveDiet = effectiveDietType(input.household, input.members);
@@ -62,6 +69,8 @@ export function recommendSlot(
       allergyTerms,
       mealSlot: input.mealSlot,
       dishSuitableSlots: input.household.dishSuitableSlots,
+      restrictToChosen,
+      chosenDishIds: input.household.chosenDishIds,
       date: input.date,
       now: input.now,
       history: input.history,
