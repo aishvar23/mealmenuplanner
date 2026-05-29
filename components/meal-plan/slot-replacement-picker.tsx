@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, X } from "lucide-react";
+import { Check, Clock, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -180,6 +180,12 @@ export function SlotReplacementPicker({
                         {suffix ? (
                           <span className="text-xs text-muted-foreground">
                             {suffix}
+                          </span>
+                        ) : null}
+                        {candidate.prepTasks.length > 0 ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700">
+                            <Clock className="size-3" />
+                            Needs advance prep
                           </span>
                         ) : null}
                       </div>

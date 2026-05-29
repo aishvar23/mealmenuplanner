@@ -71,6 +71,10 @@ export async function listSlotCandidates(
     ...inputs,
     dishes: candidates,
     now: options.now ?? new Date(),
+    // The picker is a deliberate user choice, so offer dishes whose advance prep
+    // can't be finished in time too (BUG-031) — surfaced with a prep note rather
+    // than hidden. Auto-suggestions still exclude them.
+    allowInfeasiblePrep: true,
     // Lift the tuned top-N cap so the picker lists *all* eligible dishes.
     config: {
       ...RECOMMENDATION_CONFIG,
@@ -102,6 +106,12 @@ export function toAlternatives(
     score: rec.score,
     reason: rec.reason,
     pairedDishes: [],
+    // Advance-prep tasks (e.g. soaking) so the picker can flag dishes that need
+    // prep ahead of time (BUG-031).
+    prepTasks: rec.prepTasks.map((task) => ({
+      taskName: task.taskName,
+      requiredBeforeMinutes: task.requiredBeforeMinutes,
+    })),
   }));
 }
 

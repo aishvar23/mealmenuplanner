@@ -127,6 +127,18 @@ export interface AlternativeDto {
   reason: string;
   /** Package accompaniments for this alternative; filled by `attachPackages`. */
   pairedDishes: PairedDishDto[];
+  /**
+   * Advance-prep tasks for this dish (BUG-031) — non-empty when the dish needs
+   * prep ahead of time (e.g. soaking). The slot picker shows a "needs advance
+   * prep" note so prep-heavy chosen dishes are offered, not silently dropped.
+   */
+  prepTasks: AlternativePrepTask[];
+}
+
+/** A prep task surfaced on a picker candidate (subset of the engine's task). */
+export interface AlternativePrepTask {
+  taskName: string;
+  requiredBeforeMinutes: number;
 }
 
 /** Response for `POST .../meal-plans/today/generate` (design/08 § 2). */

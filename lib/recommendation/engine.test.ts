@@ -196,6 +196,36 @@ describe("recommendSlot — hard filters (design/05 §4)", () => {
       "missingPrep",
     );
   });
+
+  it("offers a prep-impossible dish with a caveat when allowInfeasiblePrep is set (BUG-031)", () => {
+    const rajma = makeDish({
+      id: "rajma",
+      name: "Rajma",
+      totalTimeMinutes: 40,
+      prepTasks: [
+        {
+          taskName: "Soak rajma",
+          requiredBeforeMinutes: 480,
+          description: "Soak overnight",
+        },
+      ],
+    });
+    const sixPm = new Date("2026-05-25T18:00:00Z"); // same-day, soak can't finish
+
+    // Auto-suggestion (default): the dish is hard-excluded.
+    expect(recommendSlot(input({ dishes: [rajma], now: sixPm }))).toEqual([]);
+
+    // Manual picker opts in: the dish is offered, carrying its prep task + the
+    // missing-prep caveat so the UI can flag it.
+    const picker = recommendSlot(
+      input({ dishes: [rajma], now: sixPm, allowInfeasiblePrep: true }),
+    );
+    expect(picker.map((r) => r.dishId)).toEqual(["rajma"]);
+    expect(picker[0]?.prepTasks[0]?.taskName).toBe("Soak rajma");
+    expect(picker[0]?.missingConstraints.map((c) => c.type)).toContain(
+      "missingPrep",
+    );
+  });
 });
 
 describe("recommendSlot — deterministic ordering (design/05 §1, §5)", () => {

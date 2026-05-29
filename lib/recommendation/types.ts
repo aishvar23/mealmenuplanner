@@ -249,6 +249,14 @@ export interface SlotRecommendationInput {
    * config threshold. Empty/absent when the combinations feature is off.
    */
   popularCombinationDishIds?: ReadonlySet<string>;
+  /**
+   * Include dishes whose advance prep can no longer be finished in time instead of
+   * hard-excluding them (BUG-031). Off for auto-suggestions (a suggested dish must
+   * be cookable), ON for the manual "Plan a meal"/"Change" picker, where the user
+   * is deliberately choosing and the dish is surfaced with a prep caveat rather
+   * than silently dropped. The variety/diet/allergy rules still apply.
+   */
+  allowInfeasiblePrep?: boolean;
   /** Overrides the default tuned weights/thresholds (§11). */
   config?: RecommendationConfig;
 }

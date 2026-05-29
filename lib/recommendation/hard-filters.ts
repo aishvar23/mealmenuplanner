@@ -55,6 +55,12 @@ export interface HardFilterContext {
   restrictToChosen: boolean;
   /** Dish ids the household chose (`HouseholdContext.chosenDishIds`); see {@link restrictToChosen}. */
   chosenDishIds: ReadonlySet<string>;
+  /**
+   * When true, a dish whose advance prep can't be finished in time is NOT excluded
+   * (BUG-031) — it survives the filter so the manual picker can offer it with a
+   * prep caveat. From `SlotRecommendationInput.allowInfeasiblePrep`.
+   */
+  allowInfeasiblePrep: boolean;
   date: string;
   now: Date;
   history: MealHistory;
@@ -99,7 +105,11 @@ export function hardFilterExclusion(
   }
   if (!isDietCompatible(dish, ctx.effectiveDiet, ctx.config)) return "diet";
   if (containsAllergen(dish, ctx.allergyTerms)) return "allergen";
+  // Prep that can no longer be finished in time excludes a dish from
+  // auto-suggestions, but the manual picker (`allowInfeasiblePrep`) keeps it and
+  // surfaces a prep caveat instead of silently dropping the user's chosen dish.
   if (
+    !ctx.allowInfeasiblePrep &&
     prepFeasibility(dish, ctx.date, ctx.mealSlot, ctx.now, ctx.config)
       .outcome === "impossible"
   ) {

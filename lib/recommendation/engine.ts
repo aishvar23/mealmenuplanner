@@ -55,6 +55,7 @@ export function recommendSlot(
   // whole catalog.
   const restrictToChosen =
     config.combinations.enabled && input.household.chosenDishIds.size > 0;
+  const allowInfeasiblePrep = input.allowInfeasiblePrep ?? false;
   const weekend = isWeekend(input.date);
   const cookingTimeLimit = resolveCookingTimeLimit(input.household, weekend);
   const effectiveDiet = effectiveDietType(input.household, input.members);
@@ -71,6 +72,7 @@ export function recommendSlot(
       dishSuitableSlots: input.household.dishSuitableSlots,
       restrictToChosen,
       chosenDishIds: input.household.chosenDishIds,
+      allowInfeasiblePrep,
       date: input.date,
       now: input.now,
       history: input.history,
@@ -78,7 +80,10 @@ export function recommendSlot(
     });
     if (exclusion !== null) continue;
 
-    // Survived the filters → prep is `none` or `deferrable` (never impossible).
+    // Prep is `none`/`deferrable`, or `impossible` when the picker opted in
+    // (`allowInfeasiblePrep`). Treat an opted-in `impossible` as `deferrable` for
+    // scoring so the dish takes the missing-prep penalty + caveat instead of being
+    // dropped or scored as if no prep were needed (BUG-031).
     const prep = prepFeasibility(
       dish,
       input.date,
@@ -86,6 +91,10 @@ export function recommendSlot(
       input.now,
       config,
     );
+    const prepOutcome =
+      allowInfeasiblePrep && prep.outcome === "impossible"
+        ? "deferrable"
+        : prep.outcome;
 
     const factors = scoreDish(dish, {
       household: input.household,
@@ -95,7 +104,7 @@ export function recommendSlot(
       mealSlot: input.mealSlot,
       weekend,
       cookingTimeLimit,
-      prepOutcome: prep.outcome,
+      prepOutcome,
       recentPrimaryIngredientIds:
         input.history.recentPrimaryIngredientIds ?? EMPTY_SET,
       popularCombinationDishIds: input.popularCombinationDishIds ?? EMPTY_SET,
