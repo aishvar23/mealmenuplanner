@@ -274,19 +274,44 @@ function MealCell({
               Unlock to edit
             </Button>
           </div>
+        ) : item.status === "eating_out" ? (
+          // An eating-out cell holds no dish, but the user must still be able to
+          // switch it back to a cooked meal (BUG-029). The weekly board offered no
+          // way to — only "mark eating out" again — so the slot was stuck. "Plan a
+          // meal" opens the same picker; choosing a dish replaces the eating-out
+          // cell with it (mirrors the Today board's "Plan a meal instead").
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            <Button
+              size="xs"
+              variant="outline"
+              disabled={pending}
+              onClick={onChangeMeal}
+            >
+              <Utensils data-icon="inline-start" />
+              Plan a meal
+            </Button>
+            <Button
+              size="icon-xs"
+              variant="ghost"
+              disabled={pending}
+              onClick={onToggleLock}
+              aria-label="Lock meal"
+              title="Lock meal"
+            >
+              <LockOpen />
+            </Button>
+          </div>
         ) : (
           <div className="mt-3 flex flex-wrap gap-1.5">
-            {item.status !== "eating_out" ? (
-              <Button
-                size="xs"
-                variant="outline"
-                disabled={pending}
-                onClick={onChangeMeal}
-              >
-                <RefreshCw data-icon="inline-start" />
-                Change
-              </Button>
-            ) : null}
+            <Button
+              size="xs"
+              variant="outline"
+              disabled={pending}
+              onClick={onChangeMeal}
+            >
+              <RefreshCw data-icon="inline-start" />
+              Change
+            </Button>
             <Button
               size="icon-xs"
               variant="ghost"
