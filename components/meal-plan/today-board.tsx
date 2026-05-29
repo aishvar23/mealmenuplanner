@@ -459,8 +459,12 @@ function ActionRow({
   }
 
   if (item.status === "eating_out") {
+    // Open the dish picker (replace flow), NOT generateToday — the latter refuses
+    // to overwrite an eating-out slot and silently no-ops, so the button did
+    // nothing (BUG-030). Replacing swaps the eating-out cell for the chosen dish,
+    // matching the weekly board's "Plan a meal".
     return (
-      <Button variant="outline" disabled={pending} onClick={onGenerate}>
+      <Button variant="outline" disabled={pending} onClick={onChangeMeal}>
         <Utensils data-icon="inline-start" />
         Plan a meal instead
       </Button>
