@@ -17,7 +17,7 @@ export function makeHousehold(
   overrides: Partial<HouseholdContext> = {},
 ): HouseholdContext {
   return {
-    dietType: "vegetarian",
+    dietTypes: ["vegetarian"],
     preferredCuisines: ["North Indian"],
     weekdayCookingTimeMinutes: 45,
     weekendCookingTimeMinutes: 90,

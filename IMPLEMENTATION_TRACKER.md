@@ -497,6 +497,21 @@ content-table`app_role` write-RLS backstop to fire under a user JWT, add a
 - [ ] **P9-6** Accessibility & responsive pass
 - [ ] **P9-7** Beta with 10–20 households for 2 weeks + bug-fix buffer
 
+### Beta feedback (friends) — migration `20260601120000_p9_beta_feedback`
+
+- [x] **BETA-1** Multi-household switcher: `users.active_household_id` /
+      `preferred_household_id` + guarded `set_active_household` /
+      `set_preferred_household` RPCs; `resolveCurrentHousehold` picks active →
+      preferred → earliest-joined; `listUserHouseholds`; `/households` page + nav
+      row + `PUT /api/households/active|preferred`. _Applied to cloud dev._
+- [x] **BETA-2** Multiple diet preferences: `household_preferences.diet_types`
+      (`diet_type[]`, source of truth; scalar `diet_type` kept as mirror); the
+      recommender unions acceptable dishes across selected diets, still narrowed
+      by the strictest member; onboarding + preferences use a multi-select.
+- [x] **BETA-3** Eating-out place note: `meal_plan_items.eating_out_note`
+      (≤200 chars), optional body on the eating-out endpoint, inline-editable on
+      the Today + Week tiles; cleared when a dish refills the slot.
+
 ## P10 — Meal combinations & 3-mode preferred dishes
 
 > Design: extends [docs/04](docs/04_recommendation_engine.md),

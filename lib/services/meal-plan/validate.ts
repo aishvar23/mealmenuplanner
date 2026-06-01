@@ -55,6 +55,15 @@ export interface RejectRequest {
   reason: string | null;
 }
 
+/** Max length of an eating-out place note — mirrors the `eating_out_note` CHECK. */
+export const EATING_OUT_NOTE_MAX_LENGTH = 200;
+
+/** A validated eating-out request (BETA). The optional place note is the only field. */
+export interface EatingOutRequest {
+  /** Trimmed place note, or null to clear it. */
+  note: string | null;
+}
+
 /** Validate `{ date, mealSlot }` for today's generation — reuses the slot validator. */
 export function validateTodayRequest(body: JsonObject): SlotRequest {
   return validateSlotRequest(body.date, body.mealSlot);
@@ -161,6 +170,27 @@ export function validateRejectRequest(body: JsonObject): RejectRequest {
     throw new ValidationError("Invalid reject request.", issues);
   }
   return { feedbackType: feedbackType as FeedbackType, reason };
+}
+
+/**
+ * Validate the optional eating-out body (BETA). The body may be absent/empty (a
+ * bare "eating out" with no place); `note` when present must be a string at most
+ * {@link EATING_OUT_NOTE_MAX_LENGTH} chars. A blank/whitespace note becomes null.
+ */
+export function validateEatingOutRequest(body: JsonObject): EatingOutRequest {
+  if (body.note == null) return { note: null };
+  if (typeof body.note !== "string") {
+    throw new ValidationError("Invalid eating-out note.", [
+      { field: "note", rule: "type" },
+    ]);
+  }
+  const trimmed = body.note.trim();
+  if (trimmed.length > EATING_OUT_NOTE_MAX_LENGTH) {
+    throw new ValidationError("Invalid eating-out note.", [
+      { field: "note", rule: "maxLength", max: EATING_OUT_NOTE_MAX_LENGTH },
+    ]);
+  }
+  return { note: trimmed.length > 0 ? trimmed : null };
 }
 
 /** Every `YYYY-MM-DD` from `startDate` to `endDate` inclusive (UTC, ordered). */

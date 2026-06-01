@@ -32,7 +32,8 @@ export interface HouseholdBasics {
 
 /** Step 2 — `household_preferences` diet/cuisine/spice. */
 export interface FoodPreferences {
-  dietType?: DietType;
+  /** The household's diet(s); multi-select (BETA). At least one required to finish. */
+  dietTypes?: DietType[];
   preferredCuisines?: string[];
   spiceLevel?: SpiceLevel;
 }

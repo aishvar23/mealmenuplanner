@@ -14,6 +14,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { FoodImage } from "@/components/ui/food-image";
+import { Input } from "@/components/ui/input";
 import { mealSlotLabel } from "@/lib/admin/options";
 import {
   mealItemStatusLabel,
@@ -194,6 +195,12 @@ function SlotCard({
       (updated) => setItem(updated),
     );
 
+  const onSaveEatingOutNote = (id: string, note: string) =>
+    run(
+      () => api.markEatingOut(id, note),
+      (updated) => setItem(updated),
+    );
+
   const hasDish = Boolean(item?.dishId);
   const isEatingOut = item?.status === "eating_out";
   // The "+ Steamed Rice" package line, when the chosen main has accompaniments.
@@ -300,6 +307,17 @@ function SlotCard({
           </p>
         ) : null}
 
+        {isEatingOut ? (
+          <EatingOutNote
+            note={item?.eatingOutNote ?? null}
+            disabled={pending || !canChange}
+            editable={canChange}
+            onSave={(note) =>
+              item ? onSaveEatingOutNote(item.mealPlanItemId, note) : undefined
+            }
+          />
+        ) : null}
+
         {error ? (
           <p className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
             {error}
@@ -404,6 +422,73 @@ function SlotCard({
         </div>
       </div>
     </section>
+  );
+}
+
+/**
+ * Inline place note for an eating-out slot (BETA). Members who can change the menu
+ * get an editable input (saved on Enter or the Save button, which only appears
+ * when the draft differs from the saved note); everyone else sees the note as
+ * read-only text. Empty saves clear the note.
+ */
+function EatingOutNote({
+  note,
+  disabled,
+  editable,
+  onSave,
+}: {
+  note: string | null;
+  disabled: boolean;
+  editable: boolean;
+  onSave: (note: string) => void;
+}) {
+  const [draft, setDraft] = useState(note ?? "");
+  // Re-sync when the saved note changes underneath us (e.g. another member edits).
+  const [lastNote, setLastNote] = useState(note ?? "");
+  if ((note ?? "") !== lastNote) {
+    setLastNote(note ?? "");
+    setDraft(note ?? "");
+  }
+
+  if (!editable) {
+    return note ? (
+      <p className="text-sm text-muted-foreground">
+        <span className="font-semibold text-foreground">Where:</span> {note}
+      </p>
+    ) : null;
+  }
+
+  const dirty = draft.trim() !== (note ?? "");
+  return (
+    <div className="flex items-center gap-2">
+      <Input
+        value={draft}
+        disabled={disabled}
+        maxLength={200}
+        placeholder="Add a place (optional)"
+        aria-label="Eating-out place"
+        onChange={(event) => setDraft(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" && dirty) {
+            event.preventDefault();
+            onSave(draft);
+          }
+        }}
+        onBlur={() => {
+          if (dirty) onSave(draft);
+        }}
+      />
+      {dirty ? (
+        <Button
+          size="xs"
+          variant="outline"
+          disabled={disabled}
+          onClick={() => onSave(draft)}
+        >
+          Save
+        </Button>
+      ) : null}
+    </div>
   );
 }
 

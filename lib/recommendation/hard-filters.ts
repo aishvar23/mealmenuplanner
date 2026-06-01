@@ -13,7 +13,7 @@
 
 import { containsAllergen } from "./allergens";
 import type { RecommendationConfig } from "./config";
-import { isDietCompatible } from "./diet";
+import { isDietCompatibleWithHousehold } from "./diet";
 import { prepFeasibility } from "./prep";
 import {
   STANDALONE_MEAL_ROLES,
@@ -36,7 +36,13 @@ export type HardFilterReason =
 
 /** Inputs the hard filters share, resolved once per generate call. */
 export interface HardFilterContext {
-  effectiveDiet: DietType;
+  /** The household's selected diet(s); a dish matching ANY of them passes (union). */
+  householdDiets: readonly DietType[];
+  /**
+   * The strictest active member diet override (or null) — applied as an extra AND
+   * filter on top of the household match so a member's restriction narrows the set.
+   */
+  strictestMemberDiet: DietType | null;
   /** Normalized union of active members' allergies. */
   allergyTerms: readonly string[];
   mealSlot: MealSlot;
@@ -103,7 +109,16 @@ export function hardFilterExclusion(
   if (ctx.history.doNotSuggestAgainDishIds.has(dish.id)) {
     return "doNotSuggestAgain";
   }
-  if (!isDietCompatible(dish, ctx.effectiveDiet, ctx.config)) return "diet";
+  if (
+    !isDietCompatibleWithHousehold(
+      dish,
+      ctx.householdDiets,
+      ctx.strictestMemberDiet,
+      ctx.config,
+    )
+  ) {
+    return "diet";
+  }
   if (containsAllergen(dish, ctx.allergyTerms)) return "allergen";
   // Prep that can no longer be finished in time excludes a dish from
   // auto-suggestions, but the manual picker (`allowInfeasiblePrep`) keeps it and

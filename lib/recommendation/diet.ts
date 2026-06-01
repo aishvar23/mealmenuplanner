@@ -19,7 +19,6 @@ import type {
   CandidateDish,
   CandidateIngredient,
   DietType,
-  HouseholdContext,
   MemberContext,
 } from "./types";
 
@@ -62,22 +61,26 @@ const DIET_STRICTNESS: Record<DietType, number> = {
 };
 
 /**
- * The effective household diet: the household's, tightened by any strictly
- * stricter active member override. Ties (including vegan-vs-jain) keep the
- * household's diet.
+ * The strictest active member diet override, or `null` when no member overrides
+ * the household. Used to tighten — never widen — the household's diet set: a dish
+ * must satisfy this member on top of the household match (see
+ * {@link isDietCompatibleWithHousehold}). Ties (including vegan-vs-jain) resolve
+ * to the first-seen, which is immaterial since both narrow by ingredient anyway.
  */
-export function effectiveDietType(
-  household: HouseholdContext,
+export function strictestMemberDiet(
   members: readonly MemberContext[],
-): DietType {
-  let effective = household.dietType;
+): DietType | null {
+  let strictest: DietType | null = null;
   for (const member of members) {
     if (member.dietType === null) continue;
-    if (DIET_STRICTNESS[member.dietType] > DIET_STRICTNESS[effective]) {
-      effective = member.dietType;
+    if (
+      strictest === null ||
+      DIET_STRICTNESS[member.dietType] > DIET_STRICTNESS[strictest]
+    ) {
+      strictest = member.dietType;
     }
   }
-  return effective;
+  return strictest;
 }
 
 /** True when any dish ingredient (required OR optional) is non-vegan. */
@@ -126,6 +129,35 @@ export function isDietCompatible(
     hasJainExcludedIngredient(dish.ingredients, config)
   ) {
     return false;
+  }
+  return true;
+}
+
+/**
+ * Is `dish` compatible with a household that selected **one or more** diets
+ * (BETA — multi-diet households)? A household eating both vegetarian and
+ * non-vegetarian, say, should see dishes for *either*, so the rule is a **union**:
+ * the dish passes if it is compatible with **some** selected household diet.
+ *
+ * A `strictestMember` override (if any) is then applied as an additional AND
+ * filter so a member's dietary restriction still narrows — never widens — the
+ * result: e.g. a vegan member in a veg+non-veg household keeps only vegan-safe
+ * dishes. When the strictest member is *less* strict than the household's diets,
+ * the extra check is a no-op (their allowed set is a superset), so it can be
+ * applied unconditionally. `householdDiets` is assumed non-empty (DB CHECK).
+ */
+export function isDietCompatibleWithHousehold(
+  dish: CandidateDish,
+  householdDiets: readonly DietType[],
+  strictestMember: DietType | null,
+  config: RecommendationConfig,
+): boolean {
+  const matchesHousehold = householdDiets.some((diet) =>
+    isDietCompatible(dish, diet, config),
+  );
+  if (!matchesHousehold) return false;
+  if (strictestMember !== null) {
+    return isDietCompatible(dish, strictestMember, config);
   }
   return true;
 }

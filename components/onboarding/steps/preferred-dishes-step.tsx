@@ -38,15 +38,22 @@ type MealSlot = Database["public"]["Enums"]["meal_slot"];
 export function PreferredDishesStep({
   value,
   onChange,
-  diet,
+  diets,
 }: {
   value: PreferredDishes;
   onChange: (patch: Partial<PreferredDishes>) => void;
-  /** The household's chosen diet (from the previous step), used to filter. */
-  diet?: string;
+  /**
+   * The household's chosen diet(s) (from the previous step), used to filter the
+   * catalog. Multi-select (BETA): passed to the catalog as a comma-separated list
+   * and unioned server-side, so dishes for any chosen diet are offered.
+   */
+  diets?: string[];
 }) {
   const mode = value.mode;
-  const dietQuery = diet ? `?diet=${encodeURIComponent(diet)}` : "";
+  const dietQuery =
+    diets && diets.length > 0
+      ? `?diet=${encodeURIComponent(diets.join(","))}`
+      : "";
 
   const combinations = useLazyCatalog<CombinationCatalogItem>(
     mode === "combinations",

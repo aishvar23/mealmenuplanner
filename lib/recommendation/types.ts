@@ -40,7 +40,13 @@ export const STANDALONE_MEAL_ROLES: readonly MealRole[] = [
  * per household; the applicable cooking-time limit is chosen by weekday/weekend.
  */
 export interface HouseholdContext {
-  dietType: DietType;
+  /**
+   * The diet(s) the household eats (BETA — multi-diet households). Non-empty; a
+   * household that eats both vegetarian and non-vegetarian lists both, and the
+   * hard filter unions the acceptable dishes across them
+   * (see {@link isDietCompatibleWithHousehold}).
+   */
+  dietTypes: DietType[];
   preferredCuisines: string[];
   weekdayCookingTimeMinutes: number | null;
   weekendCookingTimeMinutes: number | null;

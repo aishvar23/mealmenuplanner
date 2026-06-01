@@ -51,7 +51,7 @@ export interface PreferencesPatch {
   familySize?: number;
   adultsCount?: number;
   kidsCount?: number;
-  dietType?: string;
+  dietTypes?: string[];
   preferredCuisines?: string[];
   spiceLevel?: string;
   weekdayCookingTimeMinutes?: number | null;
@@ -92,7 +92,7 @@ export function preferencesToDraftData(
       kidsCount: prefs.kidsCount,
     },
     foodPreferences: {
-      dietType: prefs.dietType,
+      dietTypes: prefs.dietTypes,
       preferredCuisines: prefs.preferredCuisines,
       spiceLevel: prefs.spiceLevel,
     },
@@ -134,7 +134,7 @@ export function draftDataToPreferencesPatch(data: DraftData): PreferencesPatch {
   if (basics.adultsCount !== undefined) patch.adultsCount = basics.adultsCount;
   if (basics.kidsCount !== undefined) patch.kidsCount = basics.kidsCount;
 
-  if (food.dietType !== undefined) patch.dietType = food.dietType;
+  if (food.dietTypes !== undefined) patch.dietTypes = food.dietTypes;
   if (food.preferredCuisines !== undefined) {
     patch.preferredCuisines = food.preferredCuisines;
   }

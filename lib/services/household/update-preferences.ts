@@ -28,7 +28,7 @@ import { buildPreferencesUpdate } from "./validate-preferences";
 // Single string literal so supabase-js can infer the returned row shape; matches
 // the GET projection so PATCH and GET return an identical preferences object.
 const PREFERENCES_SELECT =
-  "family_size, adults_count, kids_count, diet_type, preferred_cuisines, spice_level, weekday_cooking_time_minutes, weekend_cooking_time_minutes, meals_to_plan, variety_gap_days, allow_leftovers, budget_preference";
+  "family_size, adults_count, kids_count, diet_type, diet_types, preferred_cuisines, spice_level, weekday_cooking_time_minutes, weekend_cooking_time_minutes, meals_to_plan, variety_gap_days, allow_leftovers, budget_preference";
 
 /**
  * Apply a partial preferences update. Throws `UnauthenticatedError` (no session,

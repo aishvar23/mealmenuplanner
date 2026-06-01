@@ -27,7 +27,7 @@ import {
 // Single string literals so supabase-js can statically infer the row shapes.
 const HOUSEHOLD_SELECT = "id, name, created_by_user_id";
 const PREFERENCES_SELECT =
-  "family_size, adults_count, kids_count, diet_type, preferred_cuisines, spice_level, weekday_cooking_time_minutes, weekend_cooking_time_minutes, meals_to_plan, variety_gap_days, allow_leftovers, budget_preference";
+  "family_size, adults_count, kids_count, diet_type, diet_types, preferred_cuisines, spice_level, weekday_cooking_time_minutes, weekend_cooking_time_minutes, meals_to_plan, variety_gap_days, allow_leftovers, budget_preference";
 
 /**
  * Load a household the caller can see. Throws `UnauthenticatedError` (no

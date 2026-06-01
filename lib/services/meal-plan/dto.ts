@@ -39,6 +39,7 @@ export interface MealPlanItemRow {
   status: MealItemStatus;
   locked: boolean;
   reason: string | null;
+  eating_out_note: string | null;
   changed_by_user_id: string | null;
   /** Present when the query joins `dishes(...)`; the dish may be archived/absent. */
   dishes?: {
@@ -64,6 +65,11 @@ export interface MealPlanItemDto {
   status: MealItemStatus;
   locked: boolean;
   reason: string | null;
+  /**
+   * Optional free-text place for an eating-out slot (BETA) — e.g. the restaurant
+   * the household has in mind. Null unless the slot is eating-out with a note.
+   */
+  eatingOutNote: string | null;
   changedByUserId: string | null;
   /**
    * Accompaniments that make this a complete package (BUG-008/009/010). Empty by
@@ -111,6 +117,7 @@ export function toMealPlanItemDto(
     status: row.status,
     locked: row.locked,
     reason: row.reason,
+    eatingOutNote: row.eating_out_note,
     changedByUserId: row.changed_by_user_id,
     pairedDishes: [],
   };

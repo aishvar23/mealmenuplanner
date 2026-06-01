@@ -13,9 +13,10 @@ import {
 } from "@/lib/onboarding";
 
 /**
- * Step 2 — food preferences (design/06 § 2). `dietType` and at least one
- * `preferredCuisines` entry are required; `spiceLevel` is optional (defaults to
- * `medium` at completion).
+ * Step 2 — food preferences (design/06 § 2). At least one `dietTypes` entry and
+ * at least one `preferredCuisines` entry are required; `spiceLevel` is optional
+ * (defaults to `medium` at completion). Diet is multi-select (BETA) so a
+ * household that eats both vegetarian and non-vegetarian can pick both.
  */
 export function FoodPreferencesStep({
   value,
@@ -29,12 +30,17 @@ export function FoodPreferencesStep({
 }) {
   return (
     <div className="flex flex-col gap-5">
-      <Field label="Diet type" required error={errors?.dietType}>
-        <OptionGroup
+      <Field
+        label="Diet type"
+        required
+        error={errors?.dietType}
+        hint="Pick all that apply — e.g. both vegetarian and non-vegetarian."
+      >
+        <OptionChips
           ariaLabel="Diet type"
           options={DIET_TYPE_OPTIONS}
-          value={value.dietType}
-          onChange={(dietType) => onChange({ dietType })}
+          value={value.dietTypes ?? []}
+          onChange={(dietTypes) => onChange({ dietTypes })}
         />
       </Field>
 

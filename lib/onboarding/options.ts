@@ -57,7 +57,7 @@ const MEAL_SLOT_LABELS: Record<MealSlot, string> = {
   snack: "Snack",
 };
 
-/** Diet types (single-select), value set from the `diet_type` enum. */
+/** Diet types (multi-select; BETA), value set from the `diet_type` enum. */
 export const DIET_TYPE_OPTIONS: readonly Option<DietType>[] =
   Constants.public.Enums.diet_type.map((value) => ({
     value,

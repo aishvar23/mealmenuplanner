@@ -681,6 +681,7 @@ export type Database = {
           budget_preference: Database["public"]["Enums"]["budget_preference"];
           created_at: string;
           diet_type: Database["public"]["Enums"]["diet_type"];
+          diet_types: Database["public"]["Enums"]["diet_type"][];
           family_size: number;
           household_id: string;
           id: string;
@@ -699,6 +700,7 @@ export type Database = {
           budget_preference?: Database["public"]["Enums"]["budget_preference"];
           created_at?: string;
           diet_type: Database["public"]["Enums"]["diet_type"];
+          diet_types?: Database["public"]["Enums"]["diet_type"][];
           family_size: number;
           household_id: string;
           id?: string;
@@ -717,6 +719,7 @@ export type Database = {
           budget_preference?: Database["public"]["Enums"]["budget_preference"];
           created_at?: string;
           diet_type?: Database["public"]["Enums"]["diet_type"];
+          diet_types?: Database["public"]["Enums"]["diet_type"][];
           family_size?: number;
           household_id?: string;
           id?: string;
@@ -1042,6 +1045,7 @@ export type Database = {
           created_at: string;
           date: string;
           dish_id: string | null;
+          eating_out_note: string | null;
           household_id: string;
           id: string;
           locked: boolean;
@@ -1056,6 +1060,7 @@ export type Database = {
           created_at?: string;
           date: string;
           dish_id?: string | null;
+          eating_out_note?: string | null;
           household_id: string;
           id?: string;
           locked?: boolean;
@@ -1070,6 +1075,7 @@ export type Database = {
           created_at?: string;
           date?: string;
           dish_id?: string | null;
+          eating_out_note?: string | null;
           household_id?: string;
           id?: string;
           locked?: boolean;
@@ -1320,6 +1326,7 @@ export type Database = {
       };
       users: {
         Row: {
+          active_household_id: string | null;
           auth_provider: Database["public"]["Enums"]["auth_provider"];
           avatar_url: string | null;
           created_at: string;
@@ -1327,9 +1334,11 @@ export type Database = {
           email: string;
           id: string;
           phone: string | null;
+          preferred_household_id: string | null;
           updated_at: string;
         };
         Insert: {
+          active_household_id?: string | null;
           auth_provider?: Database["public"]["Enums"]["auth_provider"];
           avatar_url?: string | null;
           created_at?: string;
@@ -1337,9 +1346,11 @@ export type Database = {
           email: string;
           id: string;
           phone?: string | null;
+          preferred_household_id?: string | null;
           updated_at?: string;
         };
         Update: {
+          active_household_id?: string | null;
           auth_provider?: Database["public"]["Enums"]["auth_provider"];
           avatar_url?: string | null;
           created_at?: string;
@@ -1347,9 +1358,25 @@ export type Database = {
           email?: string;
           id?: string;
           phone?: string | null;
+          preferred_household_id?: string | null;
           updated_at?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "users_active_household_id_fkey";
+            columns: ["active_household_id"];
+            isOneToOne: false;
+            referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "users_preferred_household_id_fkey";
+            columns: ["preferred_household_id"];
+            isOneToOne: false;
+            referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+        ];
       };
     };
     Views: {
@@ -1473,6 +1500,8 @@ export type Database = {
         Args: { p_items: Json; p_meal_plan_id: string };
         Returns: string;
       };
+      set_active_household: { Args: { h: string }; Returns: undefined };
+      set_preferred_household: { Args: { h: string }; Returns: undefined };
       transfer_ownership: {
         Args: { p_household_id: string; p_target_member_id: string };
         Returns: Json;

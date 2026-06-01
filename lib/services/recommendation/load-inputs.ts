@@ -37,7 +37,7 @@ type StoredMealSlot = Database["public"]["Enums"]["meal_slot"];
 type ServerClient = SupabaseClient<Database>;
 
 const HOUSEHOLD_PREFERENCES_SELECT =
-  "diet_type, preferred_cuisines, weekday_cooking_time_minutes, weekend_cooking_time_minutes, variety_gap_days, kids_count";
+  "diet_type, diet_types, preferred_cuisines, weekday_cooking_time_minutes, weekend_cooking_time_minutes, variety_gap_days, kids_count";
 
 const DISH_SELECT =
   "id, name, diet_type, cuisine, meal_slots, meal_role, total_time_minutes, popularity_count, difficulty, kid_friendly, lunchbox_friendly, image_url, image_alt_text, image_status";
@@ -63,8 +63,17 @@ export async function loadHouseholdContext(
   const { dishFrequencies, dishSuitableSlots, chosenDishIds } =
     await loadDishPreferences(supabase, householdId);
 
+  // `diet_types` is the source of truth (multi-diet households); fall back to the
+  // legacy scalar mirror for any row written before the column existed.
+  const dietTypes =
+    data.diet_types && data.diet_types.length > 0
+      ? data.diet_types
+      : data.diet_type
+        ? [data.diet_type]
+        : [];
+
   return {
-    dietType: data.diet_type,
+    dietTypes,
     preferredCuisines: data.preferred_cuisines,
     weekdayCookingTimeMinutes: data.weekday_cooking_time_minutes,
     weekendCookingTimeMinutes: data.weekend_cooking_time_minutes,

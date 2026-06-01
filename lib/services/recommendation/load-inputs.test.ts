@@ -34,6 +34,7 @@ describe("loadHouseholdContext", () => {
         household_preferences: {
           data: {
             diet_type: "vegetarian",
+            diet_types: ["vegetarian", "non_vegetarian"],
             preferred_cuisines: ["North Indian"],
             weekday_cooking_time_minutes: 45,
             weekend_cooking_time_minutes: 90,
@@ -45,7 +46,7 @@ describe("loadHouseholdContext", () => {
       },
     });
     expect(await loadHouseholdContext(supabase, HOUSEHOLD_ID)).toEqual({
-      dietType: "vegetarian",
+      dietTypes: ["vegetarian", "non_vegetarian"],
       preferredCuisines: ["North Indian"],
       weekdayCookingTimeMinutes: 45,
       weekendCookingTimeMinutes: 90,

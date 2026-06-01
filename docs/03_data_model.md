@@ -12,6 +12,8 @@ Fields:
 - display_name
 - avatar_url
 - auth_provider
+- active_household_id nullable (BETA — the household the user is currently viewing)
+- preferred_household_id nullable (BETA — default household on login)
 - created_at
 - updated_at
 
@@ -143,7 +145,8 @@ Fields:
 - family_size
 - adults_count
 - kids_count
-- diet_type
+- diet_types diet_type[] (BETA — multi-select; source of truth, non-empty)
+- diet_type (legacy scalar mirror = diet_types[0]; nullable)
 - preferred_cuisines text[]
 - spice_level
 - weekday_cooking_time_minutes
@@ -312,6 +315,7 @@ Fields:
 - status
 - locked
 - reason
+- eating_out_note nullable (BETA — optional place for an eating-out slot, ≤200 chars)
 - changed_by_user_id nullable
 - created_at
 - updated_at

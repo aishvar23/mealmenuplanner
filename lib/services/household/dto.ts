@@ -32,6 +32,7 @@ export type PreferencesRow = Pick<
   | "adults_count"
   | "kids_count"
   | "diet_type"
+  | "diet_types"
   | "preferred_cuisines"
   | "spice_level"
   | "weekday_cooking_time_minutes"
@@ -47,6 +48,9 @@ export interface PreferencesDto {
   familySize: number;
   adultsCount: number;
   kidsCount: number;
+  /** The household's diet(s); multi-select (BETA). Always non-empty. */
+  dietTypes: DietType[];
+  /** @deprecated Legacy single diet, kept as a mirror = `dietTypes[0]`. */
   dietType: DietType;
   preferredCuisines: string[];
   spiceLevel: SpiceLevel;
@@ -60,11 +64,20 @@ export interface PreferencesDto {
 
 /** Map a `household_preferences` row to its camelCase DTO. */
 export function toPreferencesDto(row: PreferencesRow): PreferencesDto {
+  // `diet_types` is authoritative; the scalar `diet_type` is a kept-in-sync
+  // mirror (and a fallback for any row written before the array existed).
+  const dietTypes =
+    row.diet_types.length > 0
+      ? row.diet_types
+      : row.diet_type
+        ? [row.diet_type]
+        : [];
   return {
     familySize: row.family_size,
     adultsCount: row.adults_count,
     kidsCount: row.kids_count,
-    dietType: row.diet_type,
+    dietTypes,
+    dietType: dietTypes[0] ?? row.diet_type ?? "vegetarian",
     preferredCuisines: row.preferred_cuisines,
     spiceLevel: row.spice_level,
     weekdayCookingTimeMinutes: row.weekday_cooking_time_minutes,

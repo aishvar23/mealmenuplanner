@@ -174,6 +174,11 @@ create table users (
   display_name  text,
   avatar_url    text,
   auth_provider auth_provider not null default 'email',
+  -- Household switcher (BETA): the household the user is currently viewing and
+  -- their default-on-login household. Both nullable; set via the guarded
+  -- `set_active_household` / `set_preferred_household` RPCs (membership-checked).
+  active_household_id    uuid references households(id) on delete set null,
+  preferred_household_id uuid references households(id) on delete set null,
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
 );
@@ -207,7 +212,13 @@ create table household_preferences (
   family_size                 int  not null check (family_size between 1 and 50),
   adults_count                int  not null default 0 check (adults_count >= 0),
   kids_count                  int  not null default 0 check (kids_count >= 0),
-  diet_type                   diet_type not null,
+  -- Multi-diet households (BETA): `diet_types` is the source of truth — a
+  -- household that eats both vegetarian and non-vegetarian lists both, and the
+  -- recommender unions the acceptable dishes. The scalar `diet_type` is kept as a
+  -- nullable mirror (= diet_types[1]) for legacy readers.
+  diet_type                   diet_type,
+  diet_types                  diet_type[] not null default '{}'
+                                check (cardinality(diet_types) >= 1),
   preferred_cuisines          text[] not null default '{}',
   spice_level                 spice_level not null default 'medium',
   weekday_cooking_time_minutes int check (weekday_cooking_time_minutes > 0),
@@ -484,6 +495,9 @@ create table meal_plan_items (
   status            meal_item_status not null default 'suggested',
   locked            boolean not null default false,
   reason            text,                    -- recommendation explanation
+  eating_out_note   text check (eating_out_note is null
+                                 or char_length(eating_out_note) <= 200),
+                                              -- BETA: optional place for an eating-out slot
   changed_by_user_id uuid references users(id),
   created_at        timestamptz not null default now(),
   updated_at        timestamptz not null default now(),

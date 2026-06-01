@@ -11,6 +11,7 @@ const ROW: MealPlanItemRow = {
   status: "suggested",
   locked: false,
   reason: "Vegetarian, fits your window.",
+  eating_out_note: null,
   changed_by_user_id: null,
   dishes: {
     name: "Palak Paneer",
@@ -35,6 +36,7 @@ describe("toMealPlanItemDto", () => {
       status: "suggested",
       locked: false,
       reason: "Vegetarian, fits your window.",
+      eatingOutNote: null,
       changedByUserId: null,
       pairedDishes: [],
     });

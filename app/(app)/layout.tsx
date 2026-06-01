@@ -62,6 +62,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             <AccountMenu
               email={user.email ?? null}
               initial={accountInitial(user)}
+              name={accountName(user)}
             />
           </div>
         </div>
@@ -101,6 +102,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             <AccountMenu
               email={user.email ?? null}
               initial={accountInitial(user)}
+              name={accountName(user)}
             />
           </header>
           <main className="flex-1 pb-24 lg:pb-0">{children}</main>
@@ -116,10 +118,15 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
 
 /** First letter of the member's name (or email) for the avatar placeholder. */
 function accountInitial(user: User): string {
+  return accountName(user).charAt(0).toUpperCase() || "?";
+}
+
+/** The member's full name for the header — falls back to the email when unset. */
+function accountName(user: User): string {
   const meta = user.user_metadata as {
     full_name?: string;
     name?: string;
   };
   const source = meta.full_name ?? meta.name ?? user.email ?? "";
-  return source.trim().charAt(0).toUpperCase() || "?";
+  return source.trim() || "Your account";
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { Menu } from "@base-ui/react/menu";
-import { Bell, LogOut, SlidersHorizontal, Users } from "lucide-react";
+import { Bell, Home, LogOut, SlidersHorizontal, Users } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -18,9 +18,12 @@ import { useState } from "react";
 export function AccountMenu({
   email,
   initial,
+  name,
 }: {
   email: string | null;
   initial: string;
+  /** The member's full name (or email) shown beside the avatar in the header. */
+  name: string;
 }) {
   const [pending, setPending] = useState(false);
 
@@ -38,9 +41,14 @@ export function AccountMenu({
     <Menu.Root>
       <Menu.Trigger
         aria-label={email ? `Account menu for ${email}` : "Account menu"}
-        className="flex size-10 items-center justify-center rounded-lg border border-border bg-card text-sm font-bold text-primary shadow-xs transition-colors outline-none hover:border-primary/30 hover:bg-primary/5 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 aria-expanded:border-primary/30 aria-expanded:bg-primary/5"
+        className="flex h-10 items-center gap-2 rounded-lg border border-border bg-card pr-3 pl-1.5 shadow-xs transition-colors outline-none hover:border-primary/30 hover:bg-primary/5 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 aria-expanded:border-primary/30 aria-expanded:bg-primary/5"
       >
-        {initial}
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-sm font-bold text-primary">
+          {initial}
+        </span>
+        <span className="max-w-[12rem] truncate text-sm font-semibold text-foreground">
+          {name}
+        </span>
       </Menu.Trigger>
       <Menu.Portal>
         <Menu.Positioner
@@ -75,6 +83,13 @@ export function AccountMenu({
             >
               <Users className="size-4" />
               Household
+            </Menu.Item>
+            <Menu.Item
+              render={<Link href="/households" />}
+              className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm font-medium text-foreground outline-none select-none data-highlighted:bg-primary/10 data-highlighted:text-primary"
+            >
+              <Home className="size-4" />
+              Manage households
             </Menu.Item>
             <Menu.Item
               render={<Link href="/notifications/settings" />}

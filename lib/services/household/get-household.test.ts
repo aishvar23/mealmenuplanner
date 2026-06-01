@@ -52,6 +52,7 @@ const PREFERENCES_ROW = {
   adults_count: 2,
   kids_count: 2,
   diet_type: "vegetarian",
+  diet_types: ["vegetarian"],
   preferred_cuisines: ["North Indian"],
   spice_level: "medium",
   weekday_cooking_time_minutes: 30,

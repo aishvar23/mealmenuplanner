@@ -61,7 +61,8 @@ export interface PreferencesPayload {
   familySize: number;
   adultsCount: number;
   kidsCount: number;
-  dietType: DietType;
+  /** The household's diet(s); multi-select (BETA). The SQL fn reads `dietTypes`. */
+  dietTypes: DietType[];
   preferredCuisines: string[];
   spiceLevel: SpiceLevel;
   weekdayCookingTimeMinutes: number;
@@ -182,9 +183,16 @@ export function buildCompletionPayload(draft: DraftData): CompletionPayload {
   const adultsCount = normalizeCount(basics.adultsCount, "adultsCount", issues);
   const kidsCount = normalizeCount(basics.kidsCount, "kidsCount", issues);
 
-  // ── diet_type (required enum) ──────────────────────────────────────────────
-  const dietType = food.dietType;
-  if (!isEnumValue(dietType, DIET_TYPES)) {
+  // ── diet_types (required, >= 1 valid enum) ─────────────────────────────────
+  const dietTypes = Array.isArray(food.dietTypes)
+    ? food.dietTypes.filter((d): d is DietType => isEnumValue(d, DIET_TYPES))
+    : [];
+  // Invalid when every selection is unknown OR a non-enum entry slipped in.
+  if (
+    dietTypes.length === 0 ||
+    (Array.isArray(food.dietTypes) &&
+      dietTypes.length !== food.dietTypes.length)
+  ) {
     issues.push({ field: "dietType", rule: "enum", allowed: DIET_TYPES });
   }
 
@@ -300,7 +308,7 @@ export function buildCompletionPayload(draft: DraftData): CompletionPayload {
     familySize: familySize as number,
     adultsCount,
     kidsCount,
-    dietType: dietType as DietType,
+    dietTypes,
     preferredCuisines,
     spiceLevel,
     weekdayCookingTimeMinutes: weekdayCookingTimeMinutes as number,

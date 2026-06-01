@@ -13,7 +13,7 @@
 
 import { unionAllergies } from "./allergens";
 import { RECOMMENDATION_CONFIG } from "./config";
-import { effectiveDietType } from "./diet";
+import { strictestMemberDiet } from "./diet";
 import { buildReason } from "./explanation";
 import { hardFilterExclusion } from "./hard-filters";
 import { isWeekend } from "./mealtimes";
@@ -58,7 +58,7 @@ export function recommendSlot(
   const allowInfeasiblePrep = input.allowInfeasiblePrep ?? false;
   const weekend = isWeekend(input.date);
   const cookingTimeLimit = resolveCookingTimeLimit(input.household, weekend);
-  const effectiveDiet = effectiveDietType(input.household, input.members);
+  const memberDiet = strictestMemberDiet(input.members);
   const allergyTerms = unionAllergies(input.members);
   const memberAggregate = aggregateMemberPreferences(input.members);
 
@@ -66,7 +66,8 @@ export function recommendSlot(
 
   for (const dish of input.dishes) {
     const exclusion = hardFilterExclusion(dish, {
-      effectiveDiet,
+      householdDiets: input.household.dietTypes,
+      strictestMemberDiet: memberDiet,
       allergyTerms,
       mealSlot: input.mealSlot,
       dishSuitableSlots: input.household.dishSuitableSlots,

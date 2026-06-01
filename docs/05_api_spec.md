@@ -50,11 +50,16 @@ Request:
 ```json
 {
   "familySize": 4,
-  "dietType": "vegetarian",
+  "dietTypes": ["vegetarian", "non_vegetarian"],
   "preferredCuisines": ["North Indian", "South Indian"],
   "varietyGapDays": 7
 }
 ```
+
+`dietTypes` is a non-empty array (BETA — multi-diet households): a household that
+eats both vegetarian and non-vegetarian lists both, and recommendations include
+dishes matching any of them. The onboarding draft/complete payloads carry the same
+`dietTypes` array.
 
 ## Onboarding draft APIs
 
@@ -245,6 +250,25 @@ Request:
 ### Mark eating out
 
 POST /api/meal-plan-items/{mealPlanItemId}/eating-out
+
+Optional body (BETA) — a place the household has in mind, shown on the slot tile.
+The body may be omitted for a bare "eating out"; re-posting with a new `note` on an
+already eating-out slot just edits the note (`note: null` clears it; max 200 chars):
+
+```json
+{ "note": "Trishna, Fort" }
+```
+
+### Switch / set preferred household
+
+```text
+PUT /api/households/active      { "householdId": "<uuid>" }   # switch current view
+PUT /api/households/preferred   { "householdId": "<uuid>" }   # set default on login
+```
+
+Both return `{ "households": [...] }` (the caller's active memberships, each tagged
+`isActive` / `isPreferred`) and reject a household the caller is not an active
+member of (403).
 
 ### Lock meal
 

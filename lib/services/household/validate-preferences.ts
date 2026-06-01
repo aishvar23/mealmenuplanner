@@ -90,12 +90,25 @@ export function buildPreferencesUpdate(body: JsonObject): EditablePreferences {
     }
   }
 
-  if (has("dietType")) {
-    const value = body.dietType;
-    if (isEnumValue(value, DIET_TYPES)) {
-      update.diet_type = value;
+  // Multi-diet households (BETA): the PATCH carries `dietTypes` (a non-empty array
+  // of valid enums). We write `diet_types` as the source of truth and mirror the
+  // first element into the legacy scalar `diet_type`.
+  if (has("dietTypes")) {
+    const value = body.dietTypes;
+    if (
+      Array.isArray(value) &&
+      value.length > 0 &&
+      value.every((item) => isEnumValue(item, DIET_TYPES))
+    ) {
+      const dietTypes = value as (typeof DIET_TYPES)[number][];
+      update.diet_types = dietTypes;
+      update.diet_type = dietTypes[0];
     } else {
-      issues.push({ field: "dietType", rule: "enum", allowed: DIET_TYPES });
+      issues.push({
+        field: "dietTypes",
+        rule: "enumArray",
+        allowed: DIET_TYPES,
+      });
     }
   }
 

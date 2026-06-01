@@ -65,7 +65,7 @@ const REQUIRED_FIELD_PREDICATES: Record<
 > = {
   name: (draft) => isNonEmptyString(draft.householdBasics?.name),
   familySize: (draft) => isPositiveNumber(draft.householdBasics?.familySize),
-  dietType: (draft) => isNonEmptyString(draft.foodPreferences?.dietType),
+  dietType: (draft) => isNonEmptyArray(draft.foodPreferences?.dietTypes),
   preferredCuisines: (draft) =>
     isNonEmptyArray(draft.foodPreferences?.preferredCuisines),
   mealsToPlan: (draft) => isNonEmptyArray(draft.mealSchedule?.mealsToPlan),

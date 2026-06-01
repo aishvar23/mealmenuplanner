@@ -43,13 +43,13 @@ households
               └── grocery_list_items  (one row per merged ingredient line)
 ```
 
-| Entity               | Grain                                                           | Key columns (doc 01)                                                                                 | Notes                                                                                                    |
-| -------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `meal_plans`         | A date range for a household                                    | `household_id`, `start_date`, `end_date`, `status` (`meal_plan_status`: `draft`/`active`/`archived`) | "Today" generation creates/extends a single-day-or-current plan; weekly generation creates a 7-day plan. |
-| `meal_plan_items`    | One `(meal_plan_id, date, meal_slot)` cell — `unique` in doc 01 | `dish_id` (nullable), `status` (`meal_item_status`), `locked`, `reason`, `changed_by_user_id`        | `dish_id` is null for an `eating_out` slot. `reason` holds the recommender explanation.                  |
-| `grocery_lists`      | One per meal plan — `unique(meal_plan_id)`                      | `meal_plan_id`, `status` (`grocery_list_status`)                                                     | Regeneration replaces items in place; never creates a second list.                                       |
-| `grocery_list_items` | One merged ingredient line                                      | `ingredient_id` (nullable), snapshotted `name`/`category`/`unit`, `quantity`, `checked`              | Snapshot fields survive catalog edits.                                                                   |
-| Prep tasks           | Derived, not stored per plan                                    | sourced from `dish_prep_tasks`                                                                       | Computed on read from the planned dishes; no `meal_plan_prep_tasks` table in MVP.                        |
+| Entity               | Grain                                                           | Key columns (doc 01)                                                                                             | Notes                                                                                                                                                      |
+| -------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `meal_plans`         | A date range for a household                                    | `household_id`, `start_date`, `end_date`, `status` (`meal_plan_status`: `draft`/`active`/`archived`)             | "Today" generation creates/extends a single-day-or-current plan; weekly generation creates a 7-day plan.                                                   |
+| `meal_plan_items`    | One `(meal_plan_id, date, meal_slot)` cell — `unique` in doc 01 | `dish_id` (nullable), `status` (`meal_item_status`), `locked`, `reason`, `eating_out_note`, `changed_by_user_id` | `dish_id` is null for an `eating_out` slot. `reason` holds the recommender explanation; `eating_out_note` (BETA) an optional place for an eating-out slot. |
+| `grocery_lists`      | One per meal plan — `unique(meal_plan_id)`                      | `meal_plan_id`, `status` (`grocery_list_status`)                                                                 | Regeneration replaces items in place; never creates a second list.                                                                                         |
+| `grocery_list_items` | One merged ingredient line                                      | `ingredient_id` (nullable), snapshotted `name`/`category`/`unit`, `quantity`, `checked`                          | Snapshot fields survive catalog edits.                                                                                                                     |
+| Prep tasks           | Derived, not stored per plan                                    | sourced from `dish_prep_tasks`                                                                                   | Computed on read from the planned dishes; no `meal_plan_prep_tasks` table in MVP.                                                                          |
 
 The relationships above mirror the ERD in
 [`01_database_design.md`](01_database_design.md#entity-relationship-diagram):
@@ -290,16 +290,24 @@ Response returns the updated `mealPlanItem` and a `groceryListUpdated: true` fla
 Endpoint: `POST /api/meal-plan-items/{mealPlanItemId}/eating-out`.
 Implements **Flow 5 (Mark eating out)**.
 
+Optional JSON body `{ note }` (BETA) — a place the household has in mind (e.g. a
+restaurant), persisted to `meal_plan_items.eating_out_note` (≤200 chars) and shown
+on the slot tile. The body may be omitted for a bare "eating out".
+
 Handler steps:
 
 1. Permission gate (`can_change_today_menu` / `can_change_weekly_schedule`).
 2. Capture the prior `dish_id` for the notification message.
 3. `update meal_plan_items set status = 'eating_out', dish_id = null,
-changed_by_user_id = auth.uid()`. Setting `dish_id` null is allowed by doc 01
-   (the column is nullable precisely for this case).
+eating_out_note = $note, changed_by_user_id = auth.uid()`. Setting `dish_id` null
+   is allowed by doc 01 (the column is nullable precisely for this case).
 4. Emit a `meal_marked_eating_out` notification (doc 09) and log the activity.
 5. **Trigger grocery recalculation** (Section 10) so the dish's ingredients drop
    off the list (Flow 5 step 7).
+
+When the slot is **already** `eating_out`, a re-POST is treated as a note-only
+edit: it updates `eating_out_note` and skips steps 4–5 (nothing about the meal
+changed). Filling the slot with a dish again (replace flow) clears the note.
 
 ### Rotation fairness rule (Flow 5 steps 5–6 — important)
 

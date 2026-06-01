@@ -23,7 +23,7 @@ const HOUSEHOLD_ID = "c3c3c3c3-0000-0000-0000-0000000000c3";
 const COMPLETE_DRAFT_DATA = {
   householdBasics: { name: "Suhane Household", familySize: 4 },
   foodPreferences: {
-    dietType: "vegetarian",
+    dietTypes: ["vegetarian"],
     preferredCuisines: ["North Indian"],
   },
   mealSchedule: { mealsToPlan: ["dinner"], weekdayCookingTimeMinutes: 30 },

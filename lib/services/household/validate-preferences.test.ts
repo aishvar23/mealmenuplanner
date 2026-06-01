@@ -23,7 +23,7 @@ describe("buildPreferencesUpdate", () => {
         familySize: 4,
         adultsCount: 2,
         kidsCount: 2,
-        dietType: "vegetarian",
+        dietTypes: ["vegetarian", "non_vegetarian"],
         preferredCuisines: ["North Indian", "South Indian"],
         spiceLevel: "medium",
         weekdayCookingTimeMinutes: 30,
@@ -37,6 +37,8 @@ describe("buildPreferencesUpdate", () => {
       family_size: 4,
       adults_count: 2,
       kids_count: 2,
+      // multi-diet: the array is authoritative; the scalar mirrors the first.
+      diet_types: ["vegetarian", "non_vegetarian"],
       diet_type: "vegetarian",
       preferred_cuisines: ["North Indian", "South Indian"],
       spice_level: "medium",
@@ -51,8 +53,14 @@ describe("buildPreferencesUpdate", () => {
 
   it("includes only the provided fields (partial update)", () => {
     expect(
-      buildPreferencesUpdate({ familySize: 5, dietType: "vegan" }),
-    ).toEqual({ family_size: 5, diet_type: "vegan" });
+      buildPreferencesUpdate({ familySize: 5, dietTypes: ["vegan"] }),
+    ).toEqual({ family_size: 5, diet_types: ["vegan"], diet_type: "vegan" });
+  });
+
+  it("rejects an empty dietTypes array", () => {
+    expect(
+      issueFields(() => buildPreferencesUpdate({ dietTypes: [] })),
+    ).toEqual(["dietTypes"]);
   });
 
   it("ignores unknown keys", () => {
@@ -96,10 +104,10 @@ describe("buildPreferencesUpdate", () => {
     ).toEqual(["kidsCount"]);
   });
 
-  it("rejects an unknown dietType / spiceLevel / budgetPreference enum value", () => {
+  it("rejects an unknown dietTypes / spiceLevel / budgetPreference enum value", () => {
     expect(
-      issueFields(() => buildPreferencesUpdate({ dietType: "carnivore" })),
-    ).toEqual(["dietType"]);
+      issueFields(() => buildPreferencesUpdate({ dietTypes: ["carnivore"] })),
+    ).toEqual(["dietTypes"]);
     expect(
       issueFields(() => buildPreferencesUpdate({ spiceLevel: "nuclear" })),
     ).toEqual(["spiceLevel"]);
@@ -153,8 +161,8 @@ describe("buildPreferencesUpdate", () => {
   it("collects every field issue into one error", () => {
     expect(
       issueFields(() =>
-        buildPreferencesUpdate({ familySize: 0, dietType: "carnivore" }),
+        buildPreferencesUpdate({ familySize: 0, dietTypes: ["carnivore"] }),
       ),
-    ).toEqual(["familySize", "dietType"]);
+    ).toEqual(["familySize", "dietTypes"]);
   });
 });

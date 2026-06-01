@@ -119,7 +119,12 @@ export default async function PreferencesPage() {
             title="Food"
             editHref={editHref("food_preferences")}
             rows={[
-              ["Diet type", optionLabel(DIET_TYPE_OPTIONS, prefs.dietType)],
+              [
+                "Diet type",
+                prefs.dietTypes
+                  .map((diet) => optionLabel(DIET_TYPE_OPTIONS, diet))
+                  .join(", "),
+              ],
               ["Cuisines", joinList(prefs.preferredCuisines)],
               [
                 "Spice level",

@@ -13,7 +13,7 @@ function completeDraft(): DraftData {
   return {
     householdBasics: { name: "Suhane Household", familySize: 4 },
     foodPreferences: {
-      dietType: "vegetarian",
+      dietTypes: ["vegetarian"],
       preferredCuisines: ["North Indian", "South Indian"],
     },
     mealSchedule: {
@@ -44,7 +44,7 @@ describe("buildCompletionPayload", () => {
       familySize: 4,
       adultsCount: 0,
       kidsCount: 0,
-      dietType: "vegetarian",
+      dietTypes: ["vegetarian"],
       preferredCuisines: ["North Indian", "South Indian"],
       spiceLevel: "medium",
       weekdayCookingTimeMinutes: 45,

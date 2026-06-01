@@ -63,8 +63,10 @@ export function ReviewStep({
         rows={[
           [
             "Diet type",
-            food.dietType
-              ? optionLabel(DIET_TYPE_OPTIONS, food.dietType)
+            food.dietTypes && food.dietTypes.length > 0
+              ? food.dietTypes
+                  .map((diet) => optionLabel(DIET_TYPE_OPTIONS, diet))
+                  .join(", ")
               : undefined,
           ],
           ["Cuisines", joinList(food.preferredCuisines)],

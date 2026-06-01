@@ -47,6 +47,7 @@ vi.mock("@/lib/events", () => ({
 
 import { requireAuthUser } from "@/lib/auth";
 import { safeEmitHouseholdEvent } from "@/lib/events";
+import { safeRegenerateGroceryListForPlan } from "@/lib/services/grocery";
 
 import { loadItemForAction } from "./access";
 import { generateToday } from "./generate";
@@ -378,6 +379,8 @@ describe("replaceItem", () => {
     >;
     expect(update.dish_id).toBe("alt-2");
     expect(update.status).toBe("accepted");
+    // Filling the slot with a dish clears any stale eating-out place note.
+    expect(update.eating_out_note).toBeNull();
     expect(result.groceryListUpdated).toBe(true);
   });
 
@@ -430,6 +433,45 @@ describe("markEatingOut", () => {
     >;
     expect(update.status).toBe("eating_out");
     expect(update.dish_id).toBeNull();
+  });
+
+  it("persists an optional place note (BETA)", async () => {
+    const stub = makeClient();
+    vi.mocked(loadItemForAction).mockResolvedValue({
+      supabase: stub.client,
+      item: makeItem(),
+    } as never);
+
+    await markEatingOut(ITEM_ID, "Trishna, Fort");
+
+    const update = stub.calls.find((c) => c.op === "update")?.payload as Record<
+      string,
+      unknown
+    >;
+    expect(update.eating_out_note).toBe("Trishna, Fort");
+    // A fresh eating-out mark recalculates grocery + notifies the household.
+    expect(vi.mocked(safeRegenerateGroceryListForPlan)).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(vi.mocked(safeEmitHouseholdEvent)).toHaveBeenCalledTimes(1);
+  });
+
+  it("treats a note edit on an already eating-out slot as note-only (no grocery/notify)", async () => {
+    const stub = makeClient();
+    vi.mocked(loadItemForAction).mockResolvedValue({
+      supabase: stub.client,
+      item: makeItem({ status: "eating_out", dish_id: null }),
+    } as never);
+
+    await markEatingOut(ITEM_ID, "New place");
+
+    const update = stub.calls.find((c) => c.op === "update")?.payload as Record<
+      string,
+      unknown
+    >;
+    expect(update.eating_out_note).toBe("New place");
+    expect(vi.mocked(safeRegenerateGroceryListForPlan)).not.toHaveBeenCalled();
+    expect(vi.mocked(safeEmitHouseholdEvent)).not.toHaveBeenCalled();
   });
 });
 

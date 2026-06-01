@@ -290,7 +290,7 @@ function weekClient(opts: {
 describe("generateWeek", () => {
   beforeEach(() => {
     vi.mocked(loadHouseholdContext).mockResolvedValue({
-      dietType: "vegetarian",
+      dietTypes: ["vegetarian"],
       preferredCuisines: [],
       weekdayCookingTimeMinutes: null,
       weekendCookingTimeMinutes: null,
@@ -387,7 +387,7 @@ function dayClient(dayCells: unknown[]) {
 describe("ensureDaySuggestions", () => {
   beforeEach(() => {
     vi.mocked(loadHouseholdContext).mockResolvedValue({
-      dietType: "vegetarian",
+      dietTypes: ["vegetarian"],
       preferredCuisines: [],
       weekdayCookingTimeMinutes: null,
       weekendCookingTimeMinutes: null,

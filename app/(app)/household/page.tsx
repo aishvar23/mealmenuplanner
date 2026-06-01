@@ -46,6 +46,12 @@ export default async function HouseholdPage() {
             Invite members, manage roles, and keep the household meal plan
             shared.
           </p>
+          <Link
+            href="/households"
+            className="mt-2 inline-block text-sm font-semibold text-primary underline-offset-4 hover:underline"
+          >
+            Switch or manage your households
+          </Link>
         </div>
         {canEditPreferences ? (
           <Link

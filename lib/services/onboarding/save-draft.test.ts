@@ -27,7 +27,7 @@ const COMPLETE_BODY = {
   draftData: {
     householdBasics: { name: "Suhane Household", familySize: 4 },
     foodPreferences: {
-      dietType: "vegetarian",
+      dietTypes: ["vegetarian"],
       preferredCuisines: ["North Indian"],
     },
     mealSchedule: { mealsToPlan: ["dinner"], weekdayCookingTimeMinutes: 30 },

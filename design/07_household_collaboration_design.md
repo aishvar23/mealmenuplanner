@@ -317,6 +317,24 @@ exposed on it differ by permission. The client reads `currentUserPermissions`
 render, and the server re-checks every mutating call. A `viewer` sees the full
 plan but no edit affordances; a guest sees it only within its window (§7).
 
+### 8.1 Household switcher (BETA)
+
+A user can be an active member of several households at once. They choose **which
+one they're viewing** via the switcher (the `/households` page, surfaced from the
+nav). Two pointers persist on the `users` row so the choice follows the user
+across devices:
+
+- `active_household_id` — the household currently being viewed. Set by
+  `PUT /api/households/active` → the `set_active_household` RPC.
+- `preferred_household_id` — the default loaded on login. Set by
+  `PUT /api/households/preferred` → the `set_preferred_household` RPC.
+
+`resolveCurrentHousehold` picks **active → preferred → earliest-joined** (the last
+being the historical default, so a single-household user is unaffected). Both RPCs
+are `security definer` and verify `is_active_member` before writing, so a user can
+only point at a household they actively belong to. Everything downstream still
+takes an explicit `householdId`, so no other surface changes.
+
 ---
 
 ## 9. Conflict handling

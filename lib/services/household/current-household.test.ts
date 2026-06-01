@@ -31,9 +31,24 @@ function memberRow(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function withMemberships(rows: unknown[]) {
+function withMemberships(
+  rows: unknown[],
+  user: {
+    active_household_id?: string | null;
+    preferred_household_id?: string | null;
+  } = {},
+) {
   const stub = createSupabaseStub({
-    tables: { household_members: { data: rows, error: null } },
+    tables: {
+      household_members: { data: rows, error: null },
+      users: {
+        data: {
+          active_household_id: user.active_household_id ?? null,
+          preferred_household_id: user.preferred_household_id ?? null,
+        },
+        error: null,
+      },
+    },
   });
   vi.mocked(createServerSupabaseClient).mockResolvedValue(stub.client as never);
 }
@@ -67,5 +82,37 @@ describe("resolveCurrentHousehold", () => {
       }),
     ]);
     expect(await resolveCurrentHousehold()).toBeNull();
+  });
+
+  // Multi-household selection (BETA): active pointer → preferred → earliest-joined.
+  const HH_A = memberRow({
+    household_id: "hh-a",
+    joined_at: "2026-05-01T00:00:00Z",
+    households: { name: "House A" },
+  });
+  const HH_B = memberRow({
+    household_id: "hh-b",
+    joined_at: "2026-05-10T00:00:00Z",
+    households: { name: "House B" },
+  });
+
+  it("defaults to the earliest-joined household when no pointers are set", async () => {
+    withMemberships([HH_A, HH_B]);
+    expect((await resolveCurrentHousehold())?.householdId).toBe("hh-a");
+  });
+
+  it("honours the active_household_id pointer", async () => {
+    withMemberships([HH_A, HH_B], { active_household_id: "hh-b" });
+    expect((await resolveCurrentHousehold())?.householdId).toBe("hh-b");
+  });
+
+  it("falls back to preferred_household_id when no active pointer", async () => {
+    withMemberships([HH_A, HH_B], { preferred_household_id: "hh-b" });
+    expect((await resolveCurrentHousehold())?.householdId).toBe("hh-b");
+  });
+
+  it("ignores a pointer to a household the caller no longer belongs to", async () => {
+    withMemberships([HH_A, HH_B], { active_household_id: "hh-gone" });
+    expect((await resolveCurrentHousehold())?.householdId).toBe("hh-a");
   });
 });

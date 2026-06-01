@@ -37,6 +37,7 @@ describe("PATCH /api/households/{householdId}/preferences", () => {
       familySize: 5,
       adultsCount: 2,
       kidsCount: 3,
+      dietTypes: ["vegetarian" as const],
       dietType: "vegetarian" as const,
       preferredCuisines: ["North Indian"],
       spiceLevel: "medium" as const,

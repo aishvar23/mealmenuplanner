@@ -399,7 +399,7 @@ export function OnboardingWizard({
           <PreferredDishesStep
             value={data.preferredDishes ?? {}}
             onChange={(patch) => updateSection("preferredDishes", patch)}
-            diet={data.foodPreferences?.dietType}
+            diets={data.foodPreferences?.dietTypes}
           />
         );
       case "meal_schedule":

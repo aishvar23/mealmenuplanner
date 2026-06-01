@@ -27,11 +27,24 @@ export const DIET_COMPATIBILITY: Record<DietType, DietType[]> = {
 };
 
 /**
- * The diet types compatible with `diet`, or `null` when `diet` is missing or not
- * a known diet type (so the caller offers the full active catalog).
+ * The diet types compatible with `diet`, or `null` when `diet` is missing or
+ * names no known diet type (so the caller offers the full active catalog).
+ *
+ * `diet` may be a single diet or a comma-separated list (multi-diet households,
+ * BETA) — the result is the **union** of each known diet's compatible set, so a
+ * "vegetarian,non_vegetarian" household sees dishes for either.
  */
 export function allowedDietsFor(diet?: string | null): DietType[] | null {
-  return diet && diet in DIET_COMPATIBILITY
-    ? DIET_COMPATIBILITY[diet as DietType]
-    : null;
+  if (!diet) return null;
+  const known = diet
+    .split(",")
+    .map((d) => d.trim())
+    .filter((d): d is DietType => d in DIET_COMPATIBILITY);
+  if (known.length === 0) return null;
+
+  const union = new Set<DietType>();
+  for (const d of known) {
+    for (const allowed of DIET_COMPATIBILITY[d]) union.add(allowed);
+  }
+  return [...union];
 }

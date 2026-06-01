@@ -14,6 +14,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { FoodImage } from "@/components/ui/food-image";
+import { Input } from "@/components/ui/input";
 import { mealSlotLabel } from "@/lib/admin/options";
 import {
   mealItemStatusLabel,
@@ -153,6 +154,13 @@ export function WeekBoard({
                         ? act(() => api.markEatingOut(item.mealPlanItemId))
                         : undefined
                     }
+                    onSaveNote={(note) =>
+                      item
+                        ? act(() =>
+                            api.markEatingOut(item.mealPlanItemId, note),
+                          )
+                        : undefined
+                    }
                     onToggleLock={() =>
                       item
                         ? act(() =>
@@ -195,6 +203,7 @@ function MealCell({
   canChange,
   onChangeMeal,
   onEatingOut,
+  onSaveNote,
   onToggleLock,
 }: {
   item: MealPlanItemDto | null;
@@ -203,6 +212,7 @@ function MealCell({
   canChange: boolean;
   onChangeMeal: () => void | undefined;
   onEatingOut: () => void | undefined;
+  onSaveNote: (note: string) => void | undefined;
   onToggleLock: () => void | undefined;
 }) {
   const hasDish = Boolean(item?.dishId);
@@ -258,6 +268,15 @@ function MealCell({
         </span>
       </p>
 
+      {item?.status === "eating_out" &&
+      item.eatingOutNote &&
+      (!canChange || item.locked) ? (
+        <p className="mt-1 text-xs text-muted-foreground">
+          <span className="font-semibold text-foreground">Where:</span>{" "}
+          {item.eatingOutNote}
+        </p>
+      ) : null}
+
       {canChange && item ? (
         item.locked ? (
           // Locked = frozen until unlocked (design/08 §7; the server rejects
@@ -279,27 +298,35 @@ function MealCell({
           // switch it back to a cooked meal (BUG-029). The weekly board offered no
           // way to — only "mark eating out" again — so the slot was stuck. "Plan a
           // meal" opens the same picker; choosing a dish replaces the eating-out
-          // cell with it (mirrors the Today board's "Plan a meal instead").
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            <Button
-              size="xs"
-              variant="outline"
+          // cell with it (mirrors the Today board's "Plan a meal instead"). The
+          // place note (BETA) is editable inline above the actions.
+          <div className="mt-3 flex flex-col gap-2">
+            <WeekEatingOutNote
+              note={item.eatingOutNote}
               disabled={pending}
-              onClick={onChangeMeal}
-            >
-              <Utensils data-icon="inline-start" />
-              Plan a meal
-            </Button>
-            <Button
-              size="icon-xs"
-              variant="ghost"
-              disabled={pending}
-              onClick={onToggleLock}
-              aria-label="Lock meal"
-              title="Lock meal"
-            >
-              <LockOpen />
-            </Button>
+              onSave={onSaveNote}
+            />
+            <div className="flex flex-wrap gap-1.5">
+              <Button
+                size="xs"
+                variant="outline"
+                disabled={pending}
+                onClick={onChangeMeal}
+              >
+                <Utensils data-icon="inline-start" />
+                Plan a meal
+              </Button>
+              <Button
+                size="icon-xs"
+                variant="ghost"
+                disabled={pending}
+                onClick={onToggleLock}
+                aria-label="Lock meal"
+                title="Lock meal"
+              >
+                <LockOpen />
+              </Button>
+            </div>
           </div>
         ) : (
           <div className="mt-3 flex flex-wrap gap-1.5">
@@ -334,6 +361,62 @@ function MealCell({
             </Button>
           </div>
         )
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Compact inline place note for an eating-out cell (BETA). Saved on Enter or the
+ * Save button (shown only when the draft differs from the saved note); an empty
+ * save clears the note. After saving the board refreshes, re-seeding the input.
+ */
+function WeekEatingOutNote({
+  note,
+  disabled,
+  onSave,
+}: {
+  note: string | null;
+  disabled: boolean;
+  onSave: (note: string) => void;
+}) {
+  const [draft, setDraft] = useState(note ?? "");
+  const [lastNote, setLastNote] = useState(note ?? "");
+  if ((note ?? "") !== lastNote) {
+    setLastNote(note ?? "");
+    setDraft(note ?? "");
+  }
+
+  const dirty = draft.trim() !== (note ?? "");
+  return (
+    <div className="flex items-center gap-1.5">
+      <Input
+        value={draft}
+        disabled={disabled}
+        maxLength={200}
+        placeholder="Add a place (optional)"
+        aria-label="Eating-out place"
+        className="h-8 text-xs"
+        onChange={(event) => setDraft(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" && dirty) {
+            event.preventDefault();
+            onSave(draft);
+          }
+        }}
+        onBlur={() => {
+          if (dirty) onSave(draft);
+        }}
+      />
+      {dirty ? (
+        <Button
+          size="xs"
+          variant="outline"
+          disabled={disabled}
+          onClick={() => onSave(draft)}
+        >
+          Save
+        </Button>
       ) : null}
     </div>
   );

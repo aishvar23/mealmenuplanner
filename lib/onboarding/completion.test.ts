@@ -16,7 +16,7 @@ function completeDraft(): DraftData {
   return {
     householdBasics: { name: "Suhane Household", familySize: 4 },
     foodPreferences: {
-      dietType: "vegetarian",
+      dietTypes: ["vegetarian"],
       preferredCuisines: ["North Indian"],
     },
     mealSchedule: {
@@ -58,7 +58,7 @@ describe("required-field model", () => {
   it("rejects blank, zero, and empty-array values", () => {
     const draft: DraftData = {
       householdBasics: { name: "   ", familySize: 0 },
-      foodPreferences: { dietType: "vegetarian", preferredCuisines: [] },
+      foodPreferences: { dietTypes: ["vegetarian"], preferredCuisines: [] },
       mealSchedule: { mealsToPlan: [], weekdayCookingTimeMinutes: 0 },
     };
     // Only dietType is meaningfully present.
@@ -81,14 +81,14 @@ describe("computeCompletionPercentage", () => {
 
     const threeFields: DraftData = {
       householdBasics: { name: "Home", familySize: 2 },
-      foodPreferences: { dietType: "vegetarian" },
+      foodPreferences: { dietTypes: ["vegetarian"] },
     };
     expect(computeCompletionPercentage(threeFields)).toBe(50);
 
     const fiveFields: DraftData = {
       householdBasics: { name: "Home", familySize: 2 },
       foodPreferences: {
-        dietType: "vegetarian",
+        dietTypes: ["vegetarian"],
         preferredCuisines: ["North Indian"],
       },
       mealSchedule: { mealsToPlan: ["dinner"] },

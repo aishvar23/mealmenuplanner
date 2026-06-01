@@ -119,8 +119,16 @@ export function replaceItem(
   return postJson(itemUrl(id, "replace"), input);
 }
 
-export function markEatingOut(id: string): Promise<MealPlanItemDto> {
-  return postJson(itemUrl(id, "eating-out"));
+/**
+ * Mark a slot eating out, optionally with a place note (BETA). Re-calling with a
+ * new `note` on an already eating-out slot just edits the note; pass `null` (or
+ * omit) to clear it.
+ */
+export function markEatingOut(
+  id: string,
+  note?: string | null,
+): Promise<MealPlanItemDto> {
+  return postJson(itemUrl(id, "eating-out"), { note: note ?? null });
 }
 
 export function lockItem(id: string): Promise<MealPlanItemDto> {

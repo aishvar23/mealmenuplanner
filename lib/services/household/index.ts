@@ -9,6 +9,8 @@ export * from "./food-preferences";
 export * from "./dish-preferences";
 export * from "./list-members";
 export * from "./current-household";
+// Household switcher (BETA): set active / preferred household.
+export * from "./switch";
 // Member management (P6-5/6/7/8): update role/permissions (+ ownership transfer),
 // remove, leave. Pure request validation + shared member-row helpers alongside.
 export * from "./validate-member";

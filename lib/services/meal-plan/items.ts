@@ -291,6 +291,8 @@ export async function replaceItem(
     dish_id: replacementDishId,
     status: "accepted",
     reason,
+    // Filling the slot with a dish ends any eating-out plan — drop a stale place note.
+    eating_out_note: null,
     changed_by_user_id: user.id,
   });
 
@@ -329,8 +331,16 @@ export async function replaceItem(
  * Mark a slot as eating out (design/08 § 6, Flow 5): clears the dish and sets
  * `eating_out`, which is deliberately NOT counted in rotation (the dish keeps no
  * cooked footprint) and drops its ingredients from the grocery list (P7).
+ *
+ * `note` is an optional free-text place the household has in mind (BETA), shown on
+ * the tile; pass `null` to clear it. When the slot is *already* eating-out this
+ * call is a note-only edit: it skips the grocery regeneration and the
+ * `meal_marked_eating_out` notification (nothing about the meal itself changed).
  */
-export async function markEatingOut(itemId: string): Promise<MealPlanItemDto> {
+export async function markEatingOut(
+  itemId: string,
+  note: string | null = null,
+): Promise<MealPlanItemDto> {
   const user = await requireAuthUser();
   const { supabase, item } = await loadItemForAction(itemId);
   if (item.locked) {
@@ -339,11 +349,20 @@ export async function markEatingOut(itemId: string): Promise<MealPlanItemDto> {
     });
   }
 
+  const noteOnlyEdit = item.status === "eating_out";
+
   const updated = await applyItemUpdate(supabase, itemId, {
     status: "eating_out",
     dish_id: null,
+    eating_out_note: note,
     changed_by_user_id: user.id,
   });
+
+  // Editing only the note of an already eating-out slot changes nothing about the
+  // meal — no grocery recalculation, no household notification.
+  if (noteOnlyEdit) {
+    return toMealPlanItemDto(updated);
+  }
 
   // The dish's ingredients must drop off the grocery list (Flow 5 step 7,
   // design/08 § 6/§ 10, P7-3). Best-effort.

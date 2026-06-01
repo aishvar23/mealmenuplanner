@@ -14,6 +14,7 @@ const PREFS: PreferencesDto = {
   familySize: 4,
   adultsCount: 2,
   kidsCount: 2,
+  dietTypes: ["vegetarian"],
   dietType: "vegetarian",
   preferredCuisines: ["north_indian", "south_indian"],
   spiceLevel: "medium",
@@ -54,7 +55,7 @@ describe("preferencesToDraftData", () => {
         kidsCount: 2,
       },
       foodPreferences: {
-        dietType: "vegetarian",
+        dietTypes: ["vegetarian"],
         preferredCuisines: ["north_indian", "south_indian"],
         spiceLevel: "medium",
       },
@@ -152,7 +153,7 @@ describe("draftDataToPreferencesPatch", () => {
       familySize: 4,
       adultsCount: 2,
       kidsCount: 2,
-      dietType: "vegetarian",
+      dietTypes: ["vegetarian"],
       preferredCuisines: ["north_indian", "south_indian"],
       spiceLevel: "medium",
       mealsToPlan: ["lunch", "dinner"],
@@ -166,9 +167,9 @@ describe("draftDataToPreferencesPatch", () => {
 
   it("omits absent fields so the partial update only touches what changed", () => {
     const patch = draftDataToPreferencesPatch({
-      foodPreferences: { dietType: "vegan" },
+      foodPreferences: { dietTypes: ["vegan"] },
     });
-    expect(patch).toEqual({ dietType: "vegan" });
+    expect(patch).toEqual({ dietTypes: ["vegan"] });
   });
 
   it("never carries the household name or personal allergies into the patch", () => {
