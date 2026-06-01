@@ -16,7 +16,14 @@ import * as api from "./notification-client";
  * cursor pagination. Each item shows its title, message, and relative time;
  * unread items are visually distinguished and clear on click.
  */
-export function NotificationList({ initial }: { initial: NotificationInbox }) {
+export function NotificationList({
+  initial,
+  householdId,
+}: {
+  initial: NotificationInbox;
+  /** When set, the inbox is scoped to this household (load-more + mark-all). */
+  householdId?: string;
+}) {
   const [items, setItems] = useState<NotificationDto[]>(initial.items);
   const [nextCursor, setNextCursor] = useState<string | null>(
     initial.nextCursor,
@@ -52,7 +59,7 @@ export function NotificationList({ initial }: { initial: NotificationInbox }) {
 
   const onMarkAll = () =>
     guard(async () => {
-      await api.markAllRead();
+      await api.markAllRead(householdId);
       const now = new Date().toISOString();
       setItems((prev) => prev.map((n) => ({ ...n, readAt: n.readAt ?? now })));
       setUnreadCount(0);
@@ -61,7 +68,10 @@ export function NotificationList({ initial }: { initial: NotificationInbox }) {
 
   const onLoadMore = () =>
     guard(async () => {
-      const page = await api.fetchNotifications({ cursor: nextCursor });
+      const page = await api.fetchNotifications({
+        cursor: nextCursor,
+        householdId,
+      });
       setItems((prev) => [...prev, ...page.items]);
       setNextCursor(page.nextCursor);
       setUnreadCount(page.unreadCount);

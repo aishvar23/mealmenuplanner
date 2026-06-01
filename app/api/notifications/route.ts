@@ -15,10 +15,12 @@ export const dynamic = "force-dynamic";
 export const GET = withErrorBoundary(async (request: Request) => {
   const url = new URL(request.url);
   const limitParam = url.searchParams.get("limit");
+  const householdId = url.searchParams.get("householdId");
   const inbox = await listNotifications({
     unreadOnly: url.searchParams.get("unreadOnly") === "true",
     cursor: url.searchParams.get("cursor"),
     limit: limitParam === null ? undefined : Number(limitParam),
+    householdId: householdId ?? undefined,
   });
   return Response.json(inbox, { status: 200 });
 });

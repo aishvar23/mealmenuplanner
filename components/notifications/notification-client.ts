@@ -46,11 +46,13 @@ export function fetchNotifications(options?: {
   cursor?: string | null;
   unreadOnly?: boolean;
   limit?: number;
+  householdId?: string;
 }): Promise<NotificationInbox> {
   const params = new URLSearchParams();
   if (options?.cursor) params.set("cursor", options.cursor);
   if (options?.unreadOnly) params.set("unreadOnly", "true");
   if (options?.limit) params.set("limit", String(options.limit));
+  if (options?.householdId) params.set("householdId", options.householdId);
   const qs = params.toString();
   return request(`/api/notifications${qs ? `?${qs}` : ""}`, "GET");
 }
@@ -59,8 +61,13 @@ export function markRead(id: string): Promise<MarkReadResult> {
   return request(`/api/notifications/${id}/read`, "POST");
 }
 
-export function markAllRead(): Promise<{ updated: number }> {
-  return request(`/api/notifications/read-all`, "POST");
+export function markAllRead(
+  householdId?: string,
+): Promise<{ updated: number }> {
+  const qs = householdId
+    ? `?householdId=${encodeURIComponent(householdId)}`
+    : "";
+  return request(`/api/notifications/read-all${qs}`, "POST");
 }
 
 /**

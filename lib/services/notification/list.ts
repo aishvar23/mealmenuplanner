@@ -28,6 +28,12 @@ export interface ListNotificationsParams {
   unreadOnly?: boolean;
   cursor?: string | null;
   limit?: number;
+  /**
+   * Scope the inbox to one household (BETA — per-household view). Omitted = all
+   * households the user receives notifications in. RLS still restricts reads to
+   * the recipient regardless.
+   */
+  householdId?: string;
 }
 
 function clampLimit(limit: number | undefined): number {
@@ -49,6 +55,10 @@ export async function listNotifications(
     .order("created_at", { ascending: false })
     .order("id", { ascending: false })
     .limit(limit + 1); // one extra row reveals whether a next page exists
+
+  if (params.householdId) {
+    query = query.eq("household_id", params.householdId);
+  }
 
   if (params.unreadOnly) {
     query = query.is("read_at", null);
@@ -78,7 +88,13 @@ export async function listNotifications(
       ? encodeCursor({ createdAt: last.created_at, id: last.id })
       : null;
 
-  const unreadCount = await getUnreadCount(supabase, user.id);
+  // The badge/count reflects the same scope as the list (a household when
+  // filtered, else all the recipient's notifications).
+  const unreadCount = await getUnreadCount(
+    supabase,
+    user.id,
+    params.householdId,
+  );
 
   return {
     items: pageRows.map(toNotificationDto),
@@ -87,16 +103,21 @@ export async function listNotifications(
   };
 }
 
-/** Unread count for the recipient (the header badge; design/09 § 7). */
+/** Unread count for the recipient, optionally scoped to one household. */
 async function getUnreadCount(
   supabase: SupabaseClient<Database>,
   userId: string,
+  householdId?: string,
 ): Promise<number> {
-  const { count, error } = await supabase
+  let query = supabase
     .from("notifications")
     .select("id", { count: "exact", head: true })
     .eq("recipient_user_id", userId)
     .is("read_at", null);
+  if (householdId) {
+    query = query.eq("household_id", householdId);
+  }
+  const { count, error } = await query;
   if (error) {
     throw new InternalError("Failed to count unread notifications.", {
       cause: error,

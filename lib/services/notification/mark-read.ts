@@ -67,18 +67,26 @@ export async function markNotificationRead(
 
 /**
  * Mark every unread notification read in one statement (the optional companion
- * that clears the badge, design/09 § 7). Returns how many were cleared.
+ * that clears the badge, design/09 § 7). Optionally scoped to one household
+ * (BETA — per-household view), so "mark all read" on a filtered inbox only clears
+ * that household. Returns how many were cleared.
  */
-export async function markAllNotificationsRead(): Promise<{ updated: number }> {
+export async function markAllNotificationsRead(
+  householdId?: string,
+): Promise<{ updated: number }> {
   const user = await requireAuthUser();
   const supabase = await createServerSupabaseClient();
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("notifications")
     .update({ read_at: new Date().toISOString() })
     .eq("recipient_user_id", user.id)
-    .is("read_at", null)
-    .select("id");
+    .is("read_at", null);
+  if (householdId) {
+    query = query.eq("household_id", householdId);
+  }
+
+  const { data, error } = await query.select("id");
   if (error) {
     throw new InternalError("Failed to mark notifications read.", {
       cause: error,
