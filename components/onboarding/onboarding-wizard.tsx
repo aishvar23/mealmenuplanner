@@ -229,7 +229,20 @@ export function OnboardingWizard({
         setSubmitting(false);
         return;
       }
-      await completeDraft(id);
+      const { householdId: newHouseholdId } = await completeDraft(id);
+      // Make the just-created household the one being viewed (BETA): a user may
+      // own several, and resolveCurrentHousehold otherwise defaults to the
+      // earliest-joined. Best-effort — they can still switch from Manage
+      // households if this fails.
+      try {
+        await fetch("/api/households/active", {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ householdId: newHouseholdId }),
+        });
+      } catch {
+        // Ignore — the redirect below still lands them in the app.
+      }
       // Success: hand off to Today (full navigation so the new session/household
       // is picked up server-side). Flow 1 continues with first-meal generation.
       window.location.assign("/today");

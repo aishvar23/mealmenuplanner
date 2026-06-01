@@ -511,6 +511,13 @@ content-table`app_role` write-RLS backstop to fire under a user JWT, add a
 - [x] **BETA-3** Eating-out place note: `meal_plan_items.eating_out_note`
       (≤200 chars), optional body on the eating-out endpoint, inline-editable on
       the Today + Week tiles; cleared when a dish refills the slot.
+- [x] **BETA-4** Households manager polish (migration `20260601140000`): renamed
+      the "Household" nav/dropdown label to **Members**; "Manage households" lives
+      in the account dropdown (not a nav row) with the full name shown in the
+      header; **Create a household** runs onboarding (`/onboarding?new=1`) for an
+      additional household and switches to it on completion; **owner-only delete**
+      via the `delete_household` RPC + `DELETE /api/households/{id}`, behind an
+      inline confirm on the manager.
 
 ## P10 — Meal combinations & 3-mode preferred dishes
 

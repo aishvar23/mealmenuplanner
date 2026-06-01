@@ -335,6 +335,20 @@ are `security definer` and verify `is_active_member` before writing, so a user c
 only point at a household they actively belong to. Everything downstream still
 takes an explicit `householdId`, so no other surface changes.
 
+**Create a household.** "Create a household" on the manager deep-links to
+`/onboarding?new=1`, which forces the create flow (a new household + owner
+membership) even for an already-onboarded user, then switches the active pointer
+to the new household on completion. Without `?new=1`, `/onboarding` still edits the
+current household's preferences.
+
+**Delete a household.** Only the **owner** may delete — `DELETE /api/households/{id}`
+→ the `delete_household` `security definer` RPC, which re-verifies the caller is
+this household's active owner (42501 → 403) before deleting the `households` row.
+Every household-scoped child cascades via its FK, and the `users` active/preferred
+pointers clear via `on delete set null`. The manager shows the Delete control only
+on households the caller owns, behind an inline confirm; deleting the last
+household routes the user back into onboarding.
+
 ---
 
 ## 9. Conflict handling

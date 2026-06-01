@@ -39,7 +39,7 @@ const LINKS = [
   },
   {
     href: "/household",
-    label: "Household",
+    label: "Members",
     description: "People & roles",
     icon: Users,
   },

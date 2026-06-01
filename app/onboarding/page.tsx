@@ -42,7 +42,7 @@ export const metadata = { title: "Set up your household" };
 export default async function OnboardingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ step?: string }>;
+  searchParams: Promise<{ step?: string; new?: string }>;
 }) {
   const user = await getAuthUser();
   if (!user) {
@@ -51,13 +51,18 @@ export default async function OnboardingPage({
 
   // A pencil on the Preferences page deep-links here with `?step=` to open the
   // edit wizard at that section. Only honoured for steps the edit flow walks.
-  const { step } = await searchParams;
+  const { step, new: newParam } = await searchParams;
   const initialStep: StepId | undefined =
     step && (EDIT_STEP_IDS as readonly string[]).includes(step)
       ? (step as StepId)
       : undefined;
 
-  const current = await resolveCurrentHousehold();
+  // "Create a household" from the households manager deep-links with `?new=1` to
+  // run the create flow for an ADDITIONAL household — even though the caller
+  // already has one — instead of editing the current household's preferences.
+  const creatingNew = newParam === "1";
+
+  const current = creatingNew ? null : await resolveCurrentHousehold();
   if (current) {
     // A member who can't edit preferences has nothing to do here.
     if (!current.currentUserPermissions.canEditHouseholdPreferences) {

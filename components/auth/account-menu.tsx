@@ -82,7 +82,7 @@ export function AccountMenu({
               className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm font-medium text-foreground outline-none select-none data-highlighted:bg-primary/10 data-highlighted:text-primary"
             >
               <Users className="size-4" />
-              Household
+              Members
             </Menu.Item>
             <Menu.Item
               render={<Link href="/households" />}

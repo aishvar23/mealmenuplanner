@@ -1397,6 +1397,7 @@ export type Database = {
       };
       create_household: { Args: { p_name: string }; Returns: string };
       decline_invite: { Args: { p_token_hash: string }; Returns: Json };
+      delete_household: { Args: { h: string }; Returns: undefined };
       emit_household_event: {
         // Nullable args (`| null`) are hand-adjusted: Supabase's type generator
         // does not emit nullability for function arguments, but the emit writer

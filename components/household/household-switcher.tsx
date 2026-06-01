@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Home, Star } from "lucide-react";
+import { Check, Home, Star, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -34,6 +34,8 @@ export function HouseholdSwitcher({
   const [households, setHouseholds] = useState(initialHouseholds);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  // The household awaiting a delete confirmation (two-step, no native dialog).
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   function mutate(
     path: "active" | "preferred",
@@ -65,6 +67,36 @@ export function HouseholdSwitcher({
         toast.success(successMessage);
         // Switching the active household changes what every other screen shows.
         if (refresh) router.refresh();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Something went wrong.");
+      }
+    });
+  }
+
+  function removeHousehold(householdId: string, name: string) {
+    setError(null);
+    startTransition(async () => {
+      try {
+        const res = await fetch(`/api/households/${householdId}`, {
+          method: "DELETE",
+          cache: "no-store",
+        });
+        if (!res.ok) {
+          const envelope = (await res.json().catch(() => null)) as {
+            error?: { message?: string };
+          } | null;
+          throw new Error(
+            envelope?.error?.message ?? `Request failed (${res.status})`,
+          );
+        }
+        const data = (await res.json()) as {
+          households: UserHouseholdSummary[];
+        };
+        setHouseholds(data.households);
+        setConfirmDeleteId(null);
+        toast.success(`Deleted ${name}`);
+        // Deleting the viewed household changes what the rest of the app shows.
+        router.refresh();
       } catch (e) {
         setError(e instanceof Error ? e.message : "Something went wrong.");
       }
@@ -152,6 +184,41 @@ export function HouseholdSwitcher({
                 <Star data-icon="inline-start" />
                 {household.isPreferred ? "Default" : "Set as default"}
               </Button>
+              {household.role === "owner" ? (
+                confirmDeleteId === household.householdId ? (
+                  <span className="flex items-center gap-1.5">
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      disabled={pending}
+                      onClick={() =>
+                        removeHousehold(household.householdId, household.name)
+                      }
+                    >
+                      Confirm delete
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={pending}
+                      onClick={() => setConfirmDeleteId(null)}
+                    >
+                      Cancel
+                    </Button>
+                  </span>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={pending}
+                    onClick={() => setConfirmDeleteId(household.householdId)}
+                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <Trash2 data-icon="inline-start" />
+                    Delete
+                  </Button>
+                )
+              ) : null}
             </div>
           </li>
         ))}

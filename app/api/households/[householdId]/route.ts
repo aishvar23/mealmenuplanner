@@ -1,5 +1,9 @@
 import { withErrorBoundary } from "@/lib/errors";
-import { getHousehold } from "@/lib/services/household";
+import {
+  deleteHousehold,
+  getHousehold,
+  listUserHouseholds,
+} from "@/lib/services/household";
 
 // Resolves the session from cookies; never statically cached.
 export const dynamic = "force-dynamic";
@@ -19,5 +23,23 @@ export const GET = withErrorBoundary(
     const { householdId } = await context.params;
     const household = await getHousehold(householdId);
     return Response.json(household, { status: 200 });
+  },
+);
+
+/**
+ * `DELETE /api/households/{householdId}` — permanently delete a household (BETA).
+ * Owner-only (the service's RPC re-checks); cascades to all household-scoped data.
+ * Returns the caller's remaining households so the switcher can update in place.
+ */
+export const DELETE = withErrorBoundary(
+  async (_request: Request, context: RouteContext) => {
+    const { householdId } = await context.params;
+    await deleteHousehold(householdId);
+    return Response.json(
+      { households: await listUserHouseholds() },
+      {
+        status: 200,
+      },
+    );
   },
 );
