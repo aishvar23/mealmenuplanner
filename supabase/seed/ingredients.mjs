@@ -66,6 +66,9 @@ export const INGREDIENTS = [
   i("Sweet Corn", "vegetables", "g", ["corn", "makka"]),
   i("Colocasia", "vegetables", "g", ["arbi"]),
   i("Radish", "vegetables", "g", ["mooli"]),
+  i("Beetroot", "vegetables", "g", ["chukandar"]),
+  i("Celery", "vegetables", "g", ["ajmoda"]),
+  i("Parsley", "vegetables", "g", []),
 
   // ── Fruits ─────────────────────────────────────────────────────────────────
   i("Lemon", "fruits", "piece", ["nimbu", "lime"]),
@@ -75,6 +78,9 @@ export const INGREDIENTS = [
   i("Pomegranate", "fruits", "g", ["anaar"]),
   i("Mango", "fruits", "g", ["aam"]),
   i("Apple", "fruits", "piece", ["seb"]),
+  i("Papaya", "fruits", "g", ["papita"]),
+  i("Mixed Berries", "fruits", "g", ["berries", "strawberry", "blueberry"]),
+  i("Dried Figs", "fruits", "piece", ["anjeer", "fig"]),
 
   // ── Dairy (non-vegan) ────────────────────────────────────────────────────��─
   i("Milk", "dairy", "ml", ["doodh"], "dairy"),
@@ -109,6 +115,11 @@ export const INGREDIENTS = [
   i("Quinoa", "grains", "g", []),
   i("Pearl Millet", "grains", "g", ["bajra"]),
   i("Sorghum", "grains", "g", ["jowar"]),
+  i("Finger Millet", "grains", "g", ["ragi", "nachni"]),
+  i("Barley", "grains", "g", ["jau"], "gluten"),
+  i("Broken Wheat", "grains", "g", ["dalia", "daliya", "lapsi"], "gluten"),
+  i("Brown Rice", "grains", "g", ["brown chawal"]),
+  i("Sattu", "grains", "g", ["roasted gram flour"]),
 
   // ── Lentils & legumes ────────────────────────────────────────────────────��─
   i("Toor Dal", "lentils", "g", ["arhar", "pigeon pea"]),
@@ -127,6 +138,7 @@ export const INGREDIENTS = [
     "white peas",
   ]),
   i("Moong Sprouts", "lentils", "g", ["sprouts"]),
+  i("Moth Beans", "lentils", "g", ["matki", "moth", "matki sprouts"]),
 
   // ── Spices ───────────────────────────────────────────────────────────────��─
   i("Turmeric", "spices", "tsp", ["haldi"]),
@@ -187,6 +199,13 @@ export const INGREDIENTS = [
   i("Sago", "pantry", "g", ["sabudana", "tapioca pearls"]),
   i("Tea Leaves", "pantry", "tsp", ["chai patti"]),
   i("Poppy Seeds", "pantry", "tsp", ["khus khus"]),
+  i("Walnuts", "pantry", "g", ["akhrot", "walnut"], "tree nuts"),
+  i("Chia Seeds", "pantry", "tsp", ["sabja"]),
+  i("Flax Seeds", "pantry", "tsp", ["alsi", "flaxseed"]),
+  i("Sunflower Seeds", "pantry", "tbsp", []),
+  i("Pumpkin Seeds", "pantry", "tbsp", ["pepita"]),
+  i("Makhana", "pantry", "g", ["fox nuts", "phool makhana", "lotus seeds"]),
+  i("Granola", "pantry", "g", ["muesli"]),
 ];
 
 /**

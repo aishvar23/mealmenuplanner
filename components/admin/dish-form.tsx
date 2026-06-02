@@ -29,6 +29,7 @@ const FLAGS = [
   ["lowSodium", "Low sodium"],
   ["highProtein", "High protein"],
   ["lowCarb", "Low carb"],
+  ["weightLoss", "Weight-loss"],
 ] as const;
 
 type FlagKey = (typeof FLAGS)[number][0];
@@ -76,6 +77,7 @@ function initialState(dish?: DishDto): FormState {
       lowSodium: dish?.lowSodium ?? false,
       highProtein: dish?.highProtein ?? false,
       lowCarb: dish?.lowCarb ?? false,
+      weightLoss: dish?.weightLoss ?? false,
     },
   };
 }

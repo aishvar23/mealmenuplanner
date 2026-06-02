@@ -115,6 +115,7 @@ export const HEALTH_TAG_OPTIONS: readonly Option[] = [
   { value: "low_sodium", label: "Low sodium" },
   { value: "low_carb", label: "Low carb" },
   { value: "diabetic_friendly", label: "Diabetic-friendly" },
+  { value: "weight_loss", label: "Weight-loss" },
 ];
 
 /** Find an option's display label by value, falling back to the raw value. */

@@ -67,6 +67,7 @@ const FLAGS = [
   "low_sodium",
   "high_protein",
   "low_carb",
+  "weight_loss",
 ];
 
 // ── Diet refinement sets (mirror lib/recommendation/config.ts) ────────────────
@@ -429,7 +430,7 @@ p("");
 // Dishes
 p(`-- Dishes (${DISHES.length}), seeded active.`);
 p(
-  "insert into dishes (id, name, description, cuisine, region, meal_slots, diet_type, prep_time_minutes, cook_time_minutes, difficulty, spice_level, kid_friendly, lunchbox_friendly, leftover_friendly, batch_cook_friendly, diabetic_friendly, low_sodium, high_protein, low_carb, meal_role, image_url, image_alt_text, image_status, image_verified, serving_qty, serving_unit, calories_kcal, protein_g, carbs_g, fat_g, glycemic_index, status) values",
+  "insert into dishes (id, name, description, cuisine, region, meal_slots, diet_type, prep_time_minutes, cook_time_minutes, difficulty, spice_level, kid_friendly, lunchbox_friendly, leftover_friendly, batch_cook_friendly, diabetic_friendly, low_sodium, high_protein, low_carb, weight_loss, meal_role, image_url, image_alt_text, image_status, image_verified, serving_qty, serving_unit, calories_kcal, protein_g, carbs_g, fat_g, glycemic_index, status) values",
 );
 p(
   DISHES.map((dish) => {
@@ -438,7 +439,7 @@ p(
       `  ('${uuid("dish:" + dish.name)}', '${sql(dish.name)}', ${pgText(dish.desc)}, ${pgText(dish.cuisine)}, ${pgText(dish.region)}, ` +
       `${pgArray(dish.slots)}, '${dish.diet}', ${dish.prep}, ${dish.cook}, '${dish.difficulty}', '${dish.spice}', ` +
       `${f("kid_friendly")}, ${f("lunchbox_friendly")}, ${f("leftover_friendly")}, ${f("batch_cook_friendly")}, ` +
-      `${f("diabetic_friendly")}, ${f("low_sodium")}, ${f("high_protein")}, ${f("low_carb")}, '${mealRoleOf(dish.name)}', ${imageCols(DISH_IMAGES[dish.name])}, ${nutritionCols(dish.name)}, 'active')`
+      `${f("diabetic_friendly")}, ${f("low_sodium")}, ${f("high_protein")}, ${f("low_carb")}, ${f("weight_loss")}, '${mealRoleOf(dish.name)}', ${imageCols(DISH_IMAGES[dish.name])}, ${nutritionCols(dish.name)}, 'active')`
     );
   }).join(",\n") + "\non conflict do nothing;",
 );
