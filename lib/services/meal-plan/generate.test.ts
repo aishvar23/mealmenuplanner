@@ -240,6 +240,60 @@ describe("generateToday", () => {
       },
     ]);
   });
+
+  it("recovers from a concurrent cell-insert race (23505) by updating the raced row", async () => {
+    // loadCell empty → insertCell hits unique(meal_plan_id,date,meal_slot) →
+    // re-read finds the winner row → updateCell (last-write-wins). No 500.
+    const results = [
+      { data: null, error: null }, // loadCell: cell empty
+      { data: null, error: { code: "23505" } }, // insertCell: unique violation
+      { data: row({ id: "raced-1", dish_id: "old" }), error: null }, // re-read winner
+      {
+        data: row({
+          id: "raced-1",
+          dish_id: "top",
+          dishes: { name: "Top Dish" },
+        }),
+        error: null,
+      }, // updateCell result
+    ];
+    let i = 0;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const b: any = {
+      select: () => b,
+      eq: () => b,
+      in: () => b,
+      insert: () => b,
+      update: () => b,
+      maybeSingle: () =>
+        Promise.resolve(results[i++] ?? { data: null, error: null }),
+      then: (resolve: (v: unknown) => unknown) =>
+        resolve({ data: [], error: null }),
+    };
+    vi.mocked(createServerSupabaseClient).mockResolvedValue({
+      from: () => b,
+    } as never);
+    vi.mocked(suggestForSlot).mockResolvedValue({
+      recommendations: [
+        {
+          dishId: "top",
+          score: 9,
+          reason: "best",
+          missingConstraints: [],
+          prepTasks: [],
+          pairedDishes: [],
+        },
+      ],
+      nameById: new Map([["top", "Top Dish"]]),
+      imageById: new Map(),
+      nutritionById: new Map(),
+    });
+
+    const result = await generateToday(HH, "2026-05-25", "dinner");
+
+    expect(result.mealPlanItem?.dishName).toBe("Top Dish");
+    expect(i).toBe(4); // proves the re-read + update path actually ran
+  });
 });
 
 /** Stateful client for the week path: prefs select, plan-cells select, upsert, count. */

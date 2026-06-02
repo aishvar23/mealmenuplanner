@@ -8,6 +8,21 @@ vi.mock("@/lib/services/meal-plan", () => ({
   })),
 }));
 
+// `withIdempotency` is server-only; its replay logic is covered in
+// lib/services/idempotency. Stub it to run the generator and return the fresh
+// response so the route's delegation stays under test without `server-only`.
+vi.mock("@/lib/services/idempotency", () => ({
+  withIdempotency: vi.fn(
+    async ({
+      run,
+      successStatus,
+    }: {
+      run: () => Promise<unknown>;
+      successStatus: number;
+    }) => Response.json(await run(), { status: successStatus }),
+  ),
+}));
+
 import { generateWeek } from "@/lib/services/meal-plan";
 
 import { POST } from "./route";

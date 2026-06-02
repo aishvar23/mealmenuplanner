@@ -2,6 +2,8 @@
 
 # dependencies
 /node_modules
+# Workspace dependencies (npm workspaces: packages/*, mobile)
+node_modules/
 /.pnp
 .pnp.*
 .yarn/*

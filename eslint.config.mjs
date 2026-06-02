@@ -16,6 +16,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // The mobile (Expo / React Native) workspace has its own toolchain and lints
+    // via `expo lint`; the Next.js ruleset here does not apply to it.
+    "mobile/**",
   ]),
 ]);
 

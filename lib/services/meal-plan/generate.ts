@@ -45,6 +45,9 @@ import { eachDateInRange, type MealSlot } from "./validate";
  * points are marked inline.
  */
 
+// Postgres unique-violation SQLSTATE — recovered from on a concurrent cell race.
+const PG_UNIQUE_VIOLATION = "23505";
+
 const NO_PREFERENCES = () =>
   new ValidationError(
     "Set up your household preferences before generating meal suggestions.",
@@ -538,8 +541,19 @@ async function insertCell(
     })
     .select(ITEM_ACTION_SELECT)
     .maybeSingle();
-  if (error || !data) {
+  if (error) {
+    // A concurrent generate (e.g. a retried request before its idempotency row
+    // was written) inserted this cell first, tripping `unique(meal_plan_id,
+    // date, meal_slot)`. Recover by updating the raced row — last-write-wins per
+    // the collaboration conflict policy — rather than 500ing the suggestion.
+    if (error.code === PG_UNIQUE_VIOLATION) {
+      const raced = await loadCell(supabase, planId, date, mealSlot);
+      if (raced) return updateCell(supabase, raced.id, top);
+    }
     throw new InternalError("Failed to save suggested meal.", { cause: error });
+  }
+  if (!data) {
+    throw new InternalError("Failed to save suggested meal.");
   }
   return data as unknown as ActionItemRow;
 }

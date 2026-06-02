@@ -7,6 +7,28 @@ vi.mock("@/lib/services/grocery", () => ({
   })),
 }));
 
+// `requireHouseholdPermission` (the replay-time guard) is server-only; the route
+// only references it inside the `authorize` thunk, which the stubbed
+// `withIdempotency` below never invokes. Stub it so the route imports cleanly.
+vi.mock("@/lib/services/meal-plan/access", () => ({
+  requireHouseholdPermission: vi.fn(),
+}));
+
+// `withIdempotency` is server-only; its replay logic is covered in
+// lib/services/idempotency. Stub it to run the generator and return the fresh
+// response so the route's delegation stays under test without `server-only`.
+vi.mock("@/lib/services/idempotency", () => ({
+  withIdempotency: vi.fn(
+    async ({
+      run,
+      successStatus,
+    }: {
+      run: () => Promise<unknown>;
+      successStatus: number;
+    }) => Response.json(await run(), { status: successStatus }),
+  ),
+}));
+
 import { regenerateGroceryList } from "@/lib/services/grocery";
 
 import { POST } from "./route";

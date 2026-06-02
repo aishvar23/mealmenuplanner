@@ -8,6 +8,22 @@ vi.mock("@/lib/services/meal-plan", () => ({
   })),
 }));
 
+// `withIdempotency` is server-only (uses the per-request Supabase client); its
+// own replay logic is covered in lib/services/idempotency. Here we stub it to run
+// the wrapped generator and return the fresh response, so the route's delegation
+// stays under test without pulling in `server-only`.
+vi.mock("@/lib/services/idempotency", () => ({
+  withIdempotency: vi.fn(
+    async ({
+      run,
+      successStatus,
+    }: {
+      run: () => Promise<unknown>;
+      successStatus: number;
+    }) => Response.json(await run(), { status: successStatus }),
+  ),
+}));
+
 import { generateToday } from "@/lib/services/meal-plan";
 
 import { POST } from "./route";

@@ -33,14 +33,15 @@ This tracker is separate from the web build's
 
 | Phase | Area                       | Done / Total | Status      |
 | ----- | -------------------------- | ------------ | ----------- |
-| M0    | Foundations & backend auth | 0 / 8        | Not started |
+| M0    | Foundations & backend auth | 8 / 8        | Complete    |
 | M1    | Auth + core daily loop     | 0 / 7        | Not started |
 | M2    | Full parity                | 0 / 6        | Not started |
 | M3    | Native push + store launch | 0 / 7        | Not started |
-|       | **Total**                  | **0 / 28**   |             |
+|       | **Total**                  | **8 / 28**   |             |
 
-**Suggested next task:** `M0-1` — convert the repo to npm workspaces and add the
-`packages/shared` + `mobile` workspaces.
+**Suggested next task:** `M1-1` — sign in / sign up / magic-link screens with
+secure session persistence (the auth client + secure-store session from M0-7 are
+ready). `M1` then builds the core daily loop (Today / Week / Grocery).
 
 ---
 
@@ -49,30 +50,40 @@ This tracker is separate from the web build's
 > Design: §2 (architecture / monorepo), §3 (auth / backend change), §4 (API
 > client).
 
-- [ ] **M0-1** Convert repo to npm workspaces; add `packages/shared` and
+- [x] **M0-1** Convert repo to npm workspaces; add `packages/shared` and
       `mobile` workspaces (root `package.json`). No web behavior change.
-- [ ] **M0-2** `packages/shared`: re-export `lib/recommendation`; expose shared
+- [x] **M0-2** `packages/shared`: re-export `lib/recommendation`; expose shared
       domain types and pure validators (nothing `server-only`).
-- [ ] **M0-3** Backend: add bearer-token auth in `lib/db/server.ts` — read the
+- [x] **M0-3** Backend: add bearer-token auth in `lib/db/server.ts` — read the
       `Authorization` header and pass it through `global.headers`, alongside the
       existing cookie path. No web regression.
-- [ ] **M0-4** Test: Vitest in `lib/db/` proving a bearer token resolves a user
+- [x] **M0-4** Test: Vitest in `lib/db/` proving a bearer token resolves a user
       and an unauthenticated request 401s; run all CI gates (`lint`, `typecheck`,
       `test`, `format:check`).
-- [ ] **M0-5** Document the bearer-auth contract in
+- [x] **M0-5** Document the bearer-auth contract in
       `design/04_api_design.md`.
-- [ ] **M0-6** Scaffold the Expo app under `mobile/` (expo-router, NativeWind,
-      TanStack Query, base navigation shell).
-- [ ] **M0-7** Wire the Supabase client in the app with an `expo-secure-store`
+- [x] **M0-6** Scaffold the Expo app under `mobile/` (expo-router, NativeWind,
+      TanStack Query, base navigation shell). _Done: SDK 56 app; expo-router
+      file-based nav with an auth gate + bottom tabs (Today/Week/Grocery/
+      Household/More); NativeWind 4 + monorepo-aware Metro; `QueryClient`. Mobile
+      `tsc` clean; `expo config` resolves. Device run deferred (no emulator here)._
+- [x] **M0-7** Wire the Supabase client in the app with an `expo-secure-store`
       session adapter; build the typed API client (`mobile/src/api/`) with envelope
-      unwrapping, error mapping, and idempotency-key support.
-- [ ] **M0-8** Implement the `Idempotency-Key` contract from
+      unwrapping, error mapping, and idempotency-key support. _Done: Supabase
+      client + chunked SecureStore adapter (handles the 2KB limit) + `AuthProvider`;
+      `apiRequest`/`getCollection` inject the bearer token, unwrap envelopes, map
+      the error envelope to typed `ApiError`, refresh-and-retry once on 401, and
+      send a reusable `Idempotency-Key`._
+- [x] **M0-8** Implement the `Idempotency-Key` contract from
       `design/04_api_design.md` §3 server-side — the three generation handlers
       (`meal-plans/today/generate`, `meal-plans/week/generate`,
       `grocery-list/regenerate`) currently ignore the header, so mobile retries are
       not replay-protected. Read + persist the key, replay within the 24h window,
       and `409 idempotency_key_reused` on reuse with a different body. Backend
-      prerequisite for safe mobile retries (`M0-7`).
+      prerequisite for safe mobile retries (`M0-7`). _Done: `idempotency_keys`
+      table (migration `20260602120000`, applied to cloud dev, RLS member-scoped);
+      `lib/services/idempotency` (`withIdempotency`) wired into all three handlers;
+      15 unit tests._
 
 ## M1 — Auth + core daily loop
 
