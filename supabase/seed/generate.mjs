@@ -19,7 +19,12 @@ import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { INGREDIENTS, INGREDIENT_IMAGES } from "./ingredients.mjs";
-import { DISHES, MEAL_ROLE_OVERRIDES, DISH_IMAGES } from "./dishes.mjs";
+import {
+  DISHES,
+  MEAL_ROLE_OVERRIDES,
+  DISH_IMAGES,
+  DISH_NUTRITION,
+} from "./dishes.mjs";
 import { COMBINATIONS } from "./combinations.mjs";
 
 // ── Enum vocabularies (P0-5 migration is the source of truth) ─────────────────
@@ -154,6 +159,14 @@ const imageCols = (img) =>
   img
     ? `${pgText(img.url)}, ${pgText(img.alt)}, 'verified', true`
     : `null, null, 'placeholder', false`;
+
+// The seven per-serving nutrition columns for a dish row (P11): the estimate from
+// DISH_NUTRITION, or all-null for a dish with no profile (the UI shows nothing).
+const nutritionCols = (name) => {
+  const n = DISH_NUTRITION[name];
+  if (!n) return "null, null, null, null, null, null, null";
+  return `${n.qty}, '${n.unit}', ${n.kcal}, ${n.protein}, ${n.carbs}, ${n.fat}, ${n.gi}`;
+};
 
 // ── Validate ingredients ────────────────────────────────────────────────────��─
 const ingByName = new Map();
@@ -397,7 +410,7 @@ p("");
 // Dishes
 p(`-- Dishes (${DISHES.length}), seeded active.`);
 p(
-  "insert into dishes (id, name, description, cuisine, region, meal_slots, diet_type, prep_time_minutes, cook_time_minutes, difficulty, spice_level, kid_friendly, lunchbox_friendly, leftover_friendly, batch_cook_friendly, diabetic_friendly, low_sodium, high_protein, low_carb, meal_role, image_url, image_alt_text, image_status, image_verified, status) values",
+  "insert into dishes (id, name, description, cuisine, region, meal_slots, diet_type, prep_time_minutes, cook_time_minutes, difficulty, spice_level, kid_friendly, lunchbox_friendly, leftover_friendly, batch_cook_friendly, diabetic_friendly, low_sodium, high_protein, low_carb, meal_role, image_url, image_alt_text, image_status, image_verified, serving_qty, serving_unit, calories_kcal, protein_g, carbs_g, fat_g, glycemic_index, status) values",
 );
 p(
   DISHES.map((dish) => {
@@ -406,7 +419,7 @@ p(
       `  ('${uuid("dish:" + dish.name)}', '${sql(dish.name)}', ${pgText(dish.desc)}, ${pgText(dish.cuisine)}, ${pgText(dish.region)}, ` +
       `${pgArray(dish.slots)}, '${dish.diet}', ${dish.prep}, ${dish.cook}, '${dish.difficulty}', '${dish.spice}', ` +
       `${f("kid_friendly")}, ${f("lunchbox_friendly")}, ${f("leftover_friendly")}, ${f("batch_cook_friendly")}, ` +
-      `${f("diabetic_friendly")}, ${f("low_sodium")}, ${f("high_protein")}, ${f("low_carb")}, '${mealRoleOf(dish.name)}', ${imageCols(DISH_IMAGES[dish.name])}, 'active')`
+      `${f("diabetic_friendly")}, ${f("low_sodium")}, ${f("high_protein")}, ${f("low_carb")}, '${mealRoleOf(dish.name)}', ${imageCols(DISH_IMAGES[dish.name])}, ${nutritionCols(dish.name)}, 'active')`
     );
   }).join(",\n") + "\non conflict do nothing;",
 );
@@ -426,6 +439,31 @@ p(
 p(") as v(id, role)");
 p(
   "where d.id = v.id::uuid and d.meal_role is distinct from v.role::meal_role;",
+);
+p("");
+
+// Per-serving nutrition is data too (P11): re-apply on every seed so an
+// already-seeded DB converges to the catalog's estimates. Skips rows that are
+// already in sync so the updated_at trigger doesn't churn.
+const nutritionDishes = DISHES.filter((dish) => DISH_NUTRITION[dish.name]);
+p("-- Sync nutrition onto existing rows (idempotent).");
+p(
+  "update dishes d set serving_qty = v.serving_qty::numeric, serving_unit = v.serving_unit::serving_unit, calories_kcal = v.calories_kcal::int, protein_g = v.protein_g::numeric, carbs_g = v.carbs_g::numeric, fat_g = v.fat_g::numeric, glycemic_index = v.glycemic_index::int",
+);
+p("from (values");
+p(
+  nutritionDishes
+    .map((dish) => {
+      const n = DISH_NUTRITION[dish.name];
+      return `  ('${uuid("dish:" + dish.name)}', ${n.qty}, '${n.unit}', ${n.kcal}, ${n.protein}, ${n.carbs}, ${n.fat}, ${n.gi})`;
+    })
+    .join(",\n"),
+);
+p(
+  ") as v(id, serving_qty, serving_unit, calories_kcal, protein_g, carbs_g, fat_g, glycemic_index)",
+);
+p(
+  "where d.id = v.id::uuid and (d.serving_qty is distinct from v.serving_qty::numeric or d.serving_unit is distinct from v.serving_unit::serving_unit or d.calories_kcal is distinct from v.calories_kcal::int or d.protein_g is distinct from v.protein_g::numeric or d.carbs_g is distinct from v.carbs_g::numeric or d.fat_g is distinct from v.fat_g::numeric or d.glycemic_index is distinct from v.glycemic_index::int);",
 );
 p("");
 

@@ -9,6 +9,11 @@
  */
 
 import type { Database } from "@/lib/db/database.types";
+import {
+  toDishNutrition,
+  type DishNutrition,
+  type ServingUnit,
+} from "@/lib/meal-plan/nutrition";
 
 type MealSlot = Database["public"]["Enums"]["meal_slot"];
 type MealItemStatus = Database["public"]["Enums"]["meal_item_status"];
@@ -27,6 +32,8 @@ export interface PairedDishDto {
   dishId: string;
   dishName: string;
   pairingType: PairingType;
+  /** Per-serving nutrition (P11), so a meal total can include its sides. */
+  nutrition: DishNutrition | null;
 }
 
 /** The `meal_plan_items` columns the API projects, plus the optional joined dish. */
@@ -47,6 +54,13 @@ export interface MealPlanItemRow {
     image_url: string | null;
     image_alt_text: string | null;
     image_status: ImageStatus;
+    serving_qty: number | null;
+    serving_unit: ServingUnit | null;
+    calories_kcal: number | null;
+    protein_g: number | null;
+    carbs_g: number | null;
+    fat_g: number | null;
+    glycemic_index: number | null;
   } | null;
 }
 
@@ -65,6 +79,12 @@ export interface MealPlanItemDto {
   status: MealItemStatus;
   locked: boolean;
   reason: string | null;
+  /**
+   * Per-serving nutrition of the planned dish (P11), from the joined `dishes`
+   * row. Null for an eating-out/empty slot, an absent dish, or a dish with no
+   * nutrition data.
+   */
+  nutrition: DishNutrition | null;
   /**
    * Optional free-text place for an eating-out slot (BETA) — e.g. the restaurant
    * the household has in mind. Null unless the slot is eating-out with a note.
@@ -94,6 +114,7 @@ export function toMealPlanItemDto(
     imageAltText: string | null;
     imageStatus: ImageStatus;
   } | null,
+  nutrition?: DishNutrition | null,
 ): MealPlanItemDto {
   return {
     mealPlanItemId: row.id,
@@ -117,6 +138,12 @@ export function toMealPlanItemDto(
     status: row.status,
     locked: row.locked,
     reason: row.reason,
+    nutrition:
+      nutrition !== undefined
+        ? nutrition
+        : row.dishes
+          ? toDishNutrition(row.dishes)
+          : null,
     eatingOutNote: row.eating_out_note,
     changedByUserId: row.changed_by_user_id,
     pairedDishes: [],
@@ -130,6 +157,8 @@ export interface AlternativeDto {
   dishImageUrl: string | null;
   dishImageAltText: string | null;
   dishImageStatus: ImageStatus | null;
+  /** Per-serving nutrition (P11); null for a dish with no data. */
+  nutrition: DishNutrition | null;
   score: number;
   reason: string;
   /** Package accompaniments for this alternative; filled by `attachPackages`. */

@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/lib/db/database.types";
 import { InternalError } from "@/lib/errors";
+import { toDishNutrition } from "@/lib/meal-plan/nutrition";
 import type {
   CandidateDish,
   CandidateIngredient,
@@ -40,7 +41,7 @@ const HOUSEHOLD_PREFERENCES_SELECT =
   "diet_type, diet_types, preferred_cuisines, weekday_cooking_time_minutes, weekend_cooking_time_minutes, variety_gap_days, kids_count";
 
 const DISH_SELECT =
-  "id, name, diet_type, cuisine, meal_slots, meal_role, total_time_minutes, popularity_count, difficulty, kid_friendly, lunchbox_friendly, image_url, image_alt_text, image_status";
+  "id, name, diet_type, cuisine, meal_slots, meal_role, total_time_minutes, popularity_count, difficulty, kid_friendly, lunchbox_friendly, image_url, image_alt_text, image_status, serving_qty, serving_unit, calories_kcal, protein_g, carbs_g, fat_g, glycemic_index";
 
 /** Household-level inputs (design/05 § 3.1). `null` when the row doesn't exist. */
 export async function loadHouseholdContext(
@@ -234,6 +235,7 @@ export async function loadCandidateDishes(
     imageUrl: dish.image_url,
     imageAltText: dish.image_alt_text,
     imageStatus: dish.image_status,
+    nutrition: toDishNutrition(dish),
     ingredients: ingredientsByDish.get(dish.id) ?? [],
     prepTasks: prepByDish.get(dish.id) ?? [],
     pairings: pairingsByDish.get(dish.id) ?? [],

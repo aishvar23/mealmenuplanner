@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/lib/db/database.types";
 import { InternalError } from "@/lib/errors";
+import { toDishNutrition } from "@/lib/meal-plan/nutrition";
 import {
   selectPackagePairings,
   type PairingCandidate,
@@ -59,7 +60,9 @@ export async function resolvePackagesByDishId(
   ];
   const { data: dishes, error: dishErr } = await supabase
     .from("dishes")
-    .select("id, name, meal_role")
+    .select(
+      "id, name, meal_role, serving_qty, serving_unit, calories_kcal, protein_g, carbs_g, fat_g, glycemic_index",
+    )
     .eq("status", "active")
     .in("id", allIds);
   if (dishErr) {
@@ -99,11 +102,15 @@ export async function resolvePackagesByDishId(
       );
     result.set(
       primaryId,
-      selectPackagePairings(primary.meal_role, candidates).map((c) => ({
-        dishId: c.dishId,
-        dishName: c.dishName,
-        pairingType: c.pairingType,
-      })),
+      selectPackagePairings(primary.meal_role, candidates).map((c) => {
+        const paired = byId.get(c.dishId);
+        return {
+          dishId: c.dishId,
+          dishName: c.dishName,
+          pairingType: c.pairingType,
+          nutrition: paired ? toDishNutrition(paired) : null,
+        };
+      }),
     );
   }
 

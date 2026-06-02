@@ -26,9 +26,9 @@ import { isUuid } from "@/lib/validation";
 
 type ServerClient = SupabaseClient<Database>;
 
-/** The `meal_plan_items` columns every item action reads, with the joined dish name. */
+/** The `meal_plan_items` columns every item action reads, with the joined dish name + nutrition. */
 export const ITEM_ACTION_SELECT =
-  "id, household_id, meal_plan_id, date, meal_slot, dish_id, status, locked, reason, eating_out_note, changed_by_user_id, dishes(name, image_url, image_alt_text, image_status)";
+  "id, household_id, meal_plan_id, date, meal_slot, dish_id, status, locked, reason, eating_out_note, changed_by_user_id, dishes(name, image_url, image_alt_text, image_status, serving_qty, serving_unit, calories_kcal, protein_g, carbs_g, fat_g, glycemic_index)";
 
 /** One `meal_plan_items` row loaded for an action (shape of `ITEM_ACTION_SELECT`). */
 export interface ActionItemRow {
@@ -48,6 +48,13 @@ export interface ActionItemRow {
     image_url: string | null;
     image_alt_text: string | null;
     image_status: Database["public"]["Enums"]["image_status"];
+    serving_qty: number | null;
+    serving_unit: Database["public"]["Enums"]["serving_unit"] | null;
+    calories_kcal: number | null;
+    protein_g: number | null;
+    carbs_g: number | null;
+    fat_g: number | null;
+    glycemic_index: number | null;
   } | null;
 }
 

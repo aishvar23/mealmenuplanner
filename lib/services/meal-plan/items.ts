@@ -200,16 +200,19 @@ export async function rejectItem(
     },
   });
 
-  const { recommendations, nameById, imageById } = await suggestForSlot(
-    item.household_id,
-    item.date,
-    item.meal_slot,
-    { excludeDishIds: [item.dish_id] },
-  );
+  const { recommendations, nameById, imageById, nutritionById } =
+    await suggestForSlot(item.household_id, item.date, item.meal_slot, {
+      excludeDishIds: [item.dish_id],
+    });
 
   const result: RejectResult = {
     mealPlanItem: toMealPlanItemDto(updated),
-    alternatives: toAlternatives(recommendations, nameById, imageById),
+    alternatives: toAlternatives(
+      recommendations,
+      nameById,
+      imageById,
+      nutritionById,
+    ),
   };
   await attachPackages(supabase, [result.mealPlanItem, ...result.alternatives]);
   return result;

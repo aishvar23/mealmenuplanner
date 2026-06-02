@@ -80,6 +80,7 @@ export function makeDish(
     imageUrl: null,
     imageAltText: null,
     imageStatus: "placeholder",
+    nutrition: null,
     ingredients: [makeIngredient()],
     prepTasks: [],
     pairings: [],

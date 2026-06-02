@@ -97,12 +97,11 @@ export async function generateToday(
   }
 
   // Rank candidates (existence-hidden 404 if the caller isn't a member).
-  const { recommendations, nameById, imageById } = await suggestForSlot(
-    householdId,
-    date,
-    mealSlot,
-    { excludeDishIds: options.excludeDishIds, now: options.now },
-  );
+  const { recommendations, nameById, imageById, nutritionById } =
+    await suggestForSlot(householdId, date, mealSlot, {
+      excludeDishIds: options.excludeDishIds,
+      now: options.now,
+    });
   const top = recommendations[0];
 
   // No eligible dish for the slot — leave the cell as-is (design/08 § 3 "no eligible dish").
@@ -128,8 +127,14 @@ export async function generateToday(
       saved,
       nameById.get(top.dishId) ?? null,
       imageById.get(top.dishId) ?? null,
+      nutritionById.get(top.dishId) ?? null,
     ),
-    alternatives: toAlternatives(recommendations.slice(1), nameById, imageById),
+    alternatives: toAlternatives(
+      recommendations.slice(1),
+      nameById,
+      imageById,
+      nutritionById,
+    ),
   });
 }
 

@@ -167,6 +167,8 @@ export type Database = {
       dishes: {
         Row: {
           batch_cook_friendly: boolean;
+          calories_kcal: number | null;
+          carbs_g: number | null;
           cook_time_minutes: number;
           created_at: string;
           cuisine: string | null;
@@ -174,6 +176,8 @@ export type Database = {
           diabetic_friendly: boolean;
           diet_type: Database["public"]["Enums"]["diet_type"];
           difficulty: Database["public"]["Enums"]["difficulty_level"];
+          fat_g: number | null;
+          glycemic_index: number | null;
           high_protein: boolean;
           id: string;
           image_alt_text: string | null;
@@ -190,7 +194,10 @@ export type Database = {
           name: string;
           popularity_count: number;
           prep_time_minutes: number;
+          protein_g: number | null;
           region: string | null;
+          serving_qty: number | null;
+          serving_unit: Database["public"]["Enums"]["serving_unit"] | null;
           spice_level: Database["public"]["Enums"]["spice_level"];
           status: Database["public"]["Enums"]["dish_status"];
           total_time_minutes: number | null;
@@ -198,6 +205,8 @@ export type Database = {
         };
         Insert: {
           batch_cook_friendly?: boolean;
+          calories_kcal?: number | null;
+          carbs_g?: number | null;
           cook_time_minutes?: number;
           created_at?: string;
           cuisine?: string | null;
@@ -205,6 +214,8 @@ export type Database = {
           diabetic_friendly?: boolean;
           diet_type: Database["public"]["Enums"]["diet_type"];
           difficulty?: Database["public"]["Enums"]["difficulty_level"];
+          fat_g?: number | null;
+          glycemic_index?: number | null;
           high_protein?: boolean;
           id?: string;
           image_alt_text?: string | null;
@@ -221,7 +232,10 @@ export type Database = {
           name: string;
           popularity_count?: number;
           prep_time_minutes?: number;
+          protein_g?: number | null;
           region?: string | null;
+          serving_qty?: number | null;
+          serving_unit?: Database["public"]["Enums"]["serving_unit"] | null;
           spice_level?: Database["public"]["Enums"]["spice_level"];
           status?: Database["public"]["Enums"]["dish_status"];
           total_time_minutes?: number | null;
@@ -229,6 +243,8 @@ export type Database = {
         };
         Update: {
           batch_cook_friendly?: boolean;
+          calories_kcal?: number | null;
+          carbs_g?: number | null;
           cook_time_minutes?: number;
           created_at?: string;
           cuisine?: string | null;
@@ -236,6 +252,8 @@ export type Database = {
           diabetic_friendly?: boolean;
           diet_type?: Database["public"]["Enums"]["diet_type"];
           difficulty?: Database["public"]["Enums"]["difficulty_level"];
+          fat_g?: number | null;
+          glycemic_index?: number | null;
           high_protein?: boolean;
           id?: string;
           image_alt_text?: string | null;
@@ -252,7 +270,10 @@ export type Database = {
           name?: string;
           popularity_count?: number;
           prep_time_minutes?: number;
+          protein_g?: number | null;
           region?: string | null;
+          serving_qty?: number | null;
+          serving_unit?: Database["public"]["Enums"]["serving_unit"] | null;
           spice_level?: Database["public"]["Enums"]["spice_level"];
           status?: Database["public"]["Enums"]["dish_status"];
           total_time_minutes?: number | null;
@@ -1572,6 +1593,7 @@ export type Database = {
         | "bread_pairing"
         | "condiment"
         | "beverage";
+      serving_unit: "cup" | "bowl" | "plate" | "glass" | "piece";
       spice_level: "mild" | "medium" | "spicy";
     };
     CompositeTypes: {
@@ -1773,6 +1795,7 @@ export const Constants = {
         "condiment",
         "beverage",
       ],
+      serving_unit: ["cup", "bowl", "plate", "glass", "piece"],
       spice_level: ["mild", "medium", "spicy"],
     },
   },
