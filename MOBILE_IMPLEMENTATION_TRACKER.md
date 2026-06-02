@@ -33,11 +33,11 @@ This tracker is separate from the web build's
 
 | Phase | Area                       | Done / Total | Status      |
 | ----- | -------------------------- | ------------ | ----------- |
-| M0    | Foundations & backend auth | 0 / 7        | Not started |
+| M0    | Foundations & backend auth | 0 / 8        | Not started |
 | M1    | Auth + core daily loop     | 0 / 7        | Not started |
 | M2    | Full parity                | 0 / 6        | Not started |
 | M3    | Native push + store launch | 0 / 7        | Not started |
-|       | **Total**                  | **0 / 27**   |             |
+|       | **Total**                  | **0 / 28**   |             |
 
 **Suggested next task:** `M0-1` — convert the repo to npm workspaces and add the
 `packages/shared` + `mobile` workspaces.
@@ -66,6 +66,13 @@ This tracker is separate from the web build's
 - [ ] **M0-7** Wire the Supabase client in the app with an `expo-secure-store`
       session adapter; build the typed API client (`mobile/src/api/`) with envelope
       unwrapping, error mapping, and idempotency-key support.
+- [ ] **M0-8** Implement the `Idempotency-Key` contract from
+      `design/04_api_design.md` §3 server-side — the three generation handlers
+      (`meal-plans/today/generate`, `meal-plans/week/generate`,
+      `grocery-list/regenerate`) currently ignore the header, so mobile retries are
+      not replay-protected. Read + persist the key, replay within the 24h window,
+      and `409 idempotency_key_reused` on reuse with a different body. Backend
+      prerequisite for safe mobile retries (`M0-7`).
 
 ## M1 — Auth + core daily loop
 

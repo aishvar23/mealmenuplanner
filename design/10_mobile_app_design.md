@@ -13,11 +13,12 @@ The phased task list that delivers this design lives in
 ## 1. Why a native app
 
 Users have asked for installable App Store / Play Store apps, not a mobile web
-page. The backend is already prepared for this: per
-[`02_system_architecture.md` § Future scaling](02_system_architecture.md) and
-[`04_api_design.md` § API Contract](04_api_design.md), the REST surface is "the
-stable URL contract (also used by a future mobile client)". The mobile app reuses
-that surface verbatim.
+page. The backend is already prepared for this:
+[`04_api_design.md` § 1](04_api_design.md) states the route-handler paths are
+"the stable URL contract (also used by a future mobile client)", and
+[`02_system_architecture.md` § Future scaling](02_system_architecture.md) calls
+out adding "a mobile client against the same API". The mobile app reuses that
+surface verbatim.
 
 ### Goals
 
@@ -133,9 +134,11 @@ Properties:
 - **Zero web behavior change.** Cookies remain the path for browser requests;
   the header path only engages when an `Authorization` header is present.
 - **No `proxy.ts` change.** The edge proxy
-  ([`../proxy.ts`](../proxy.ts)) only does cookie refresh + HTML redirect gating;
-  the app calls `/api/*` directly and never hits HTML routes, so the proxy is a
-  harmless no-op for header-auth requests.
+  ([`../proxy.ts`](../proxy.ts)) only does cookie refresh + HTML redirect gating.
+  Its matcher does still run on `/api/*`, but `/api` is not in its protected
+  prefixes, so it attempts a cookie-based `getUser()` (finds no session) and
+  falls straight through without redirecting — a harmless no-op for header-auth
+  requests.
 - **Defense-in-depth intact.** Permission `can_*` checks, active-membership
   checks, and RLS all run exactly as before — they key off the resolved user,
   regardless of how the JWT arrived.
@@ -162,8 +165,12 @@ conventions:
 - **Idempotency:** generates and sends an `Idempotency-Key` (UUID v4) on the
   generation endpoints (`meal-plans/today/generate`, `meal-plans/week/generate`,
   `grocery-list/regenerate`) and **reuses the same key on retry**, per
-  [`04_api_design.md` § 3](04_api_design.md), so a flaky connection cannot create
-  duplicate plans/lists.
+  [`04_api_design.md` § 3](04_api_design.md). ⚠️ **Backend prerequisite:** that
+  contract is documented but **not yet implemented** — no route handler currently
+  reads the header — so a flaky-connection retry is **not** replay-protected
+  today and can create duplicate plans/lists. Implementing it server-side is a
+  hard prerequisite, tracked as `M0-8`. The client sends the key from day one
+  (forward-compatible) but must not assume dedup until `M0-8` lands.
 - **Pagination:** passes `limit` / `cursor`, reads `page.nextCursor` /
   `page.hasMore`.
 
@@ -190,9 +197,9 @@ auth change and the push-token endpoint (§7).
 | Onboarding    | multi-step, autosave + resume (see [`06_onboarding_design.md`](06_onboarding_design.md)) | `POST` / `GET /api/onboarding/draft`, `POST /api/onboarding/complete`, catalog endpoints (dishes / combinations / accompaniments)                                   |
 | Today         | view; accept / reject; swap; suggest-another; lock / unlock; eating-out; cooked          | `POST .../meal-plans/today/generate`, `GET /api/meal-plan-items/{id}/candidates`, accept / reject / replace / lock / unlock / eating-out / cooked / suggest-another |
 | Week          | weekly plan view                                                                         | `POST .../meal-plans/week/generate`, plan reads                                                                                                                     |
-| Grocery       | list view; check off items; regenerate                                                   | `GET` / `POST .../grocery-list`, `.../grocery-list/regenerate`, `PATCH /api/grocery-list-items/{id}`                                                                |
+| Grocery       | list view; check off items; regenerate                                                   | `GET .../grocery-list`, `POST .../grocery-list/regenerate`, `PATCH /api/grocery-list-items/{id}`                                                                    |
 | Household     | members; roles / permissions; create / delete; preferences; food / dish prefs            | households + preferences + members + food-preferences + dish-preferences endpoints                                                                                  |
-| Invites       | create; accept; decline; list                                                            | `POST` / `GET /api/invites/{token}`, accept, decline, list                                                                                                          |
+| Invites       | create; view; accept; decline                                                            | `POST /api/households/{householdId}/invites` (create), `GET /api/invites/{token}` (view), `.../invites/{token}/accept`, `.../invites/{token}/decline`               |
 | Notifications | list; mark read; read-all; preferences; **push**                                         | notifications endpoints + push registration (§7)                                                                                                                    |
 | Settings      | profile; household switcher; sign out                                                    | mixed                                                                                                                                                               |
 
