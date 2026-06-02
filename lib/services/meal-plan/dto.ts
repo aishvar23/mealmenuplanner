@@ -9,6 +9,11 @@
  */
 
 import type { Database } from "@/lib/db/database.types";
+import {
+  toDishNutrition,
+  type DishNutrition,
+  type ServingUnit,
+} from "@/lib/meal-plan/nutrition";
 
 type MealSlot = Database["public"]["Enums"]["meal_slot"];
 type MealItemStatus = Database["public"]["Enums"]["meal_item_status"];
@@ -27,6 +32,8 @@ export interface PairedDishDto {
   dishId: string;
   dishName: string;
   pairingType: PairingType;
+  /** Per-serving nutrition (P11), so a meal total can include its sides. */
+  nutrition: DishNutrition | null;
 }
 
 /** The `meal_plan_items` columns the API projects, plus the optional joined dish. */
@@ -47,6 +54,13 @@ export interface MealPlanItemRow {
     image_url: string | null;
     image_alt_text: string | null;
     image_status: ImageStatus;
+    serving_qty: number | null;
+    serving_unit: ServingUnit | null;
+    calories_kcal: number | null;
+    protein_g: number | null;
+    carbs_g: number | null;
+    fat_g: number | null;
+    glycemic_index: number | null;
   } | null;
 }
 
@@ -66,6 +80,12 @@ export interface MealPlanItemDto {
   locked: boolean;
   reason: string | null;
   /**
+   * Per-serving nutrition of the planned dish (P11), from the joined `dishes`
+   * row. Null for an eating-out/empty slot, an absent dish, or a dish with no
+   * nutrition data.
+   */
+  nutrition: DishNutrition | null;
+  /**
    * Optional free-text place for an eating-out slot (BETA) — e.g. the restaurant
    * the household has in mind. Null unless the slot is eating-out with a note.
    */
@@ -79,22 +99,35 @@ export interface MealPlanItemDto {
 }
 
 /**
- * Map a `meal_plan_items` row to its DTO. `dishName` comes from a joined
- * `dishes(name)` when present; pass it explicitly to override (e.g. a name the
- * caller already resolved from the candidate set during generation).
+ * Per-dish fields that can be supplied directly instead of read from the joined
+ * `dishes(...)` row. Generation passes these from the candidate set because the
+ * freshly-written row it has in hand carries no dish join. An omitted key falls
+ * back to the joined row; pass an explicit value (incl. `null`) to override.
+ */
+export interface DishFieldOverrides {
+  dishName?: string | null;
+  dishImage?: {
+    imageUrl: string | null;
+    imageAltText: string | null;
+    imageStatus: ImageStatus;
+  } | null;
+  nutrition?: DishNutrition | null;
+}
+
+/**
+ * Map a `meal_plan_items` row to its DTO. Dish fields come from the joined
+ * `dishes(...)` when present; pass `overrides` to supply them directly (e.g.
+ * values the caller already resolved from the candidate set during generation,
+ * where the written row has no dish join).
  *
  * `pairedDishes` defaults to `[]` — package resolution needs a DB lookup, so the
  * server-only `attachPackages` helper fills it in after this pure mapping.
  */
 export function toMealPlanItemDto(
   row: MealPlanItemRow,
-  dishName?: string | null,
-  dishImage?: {
-    imageUrl: string | null;
-    imageAltText: string | null;
-    imageStatus: ImageStatus;
-  } | null,
+  overrides: DishFieldOverrides = {},
 ): MealPlanItemDto {
+  const { dishName, dishImage, nutrition } = overrides;
   return {
     mealPlanItemId: row.id,
     mealPlanId: row.meal_plan_id,
@@ -117,6 +150,12 @@ export function toMealPlanItemDto(
     status: row.status,
     locked: row.locked,
     reason: row.reason,
+    nutrition:
+      nutrition !== undefined
+        ? nutrition
+        : row.dishes
+          ? toDishNutrition(row.dishes)
+          : null,
     eatingOutNote: row.eating_out_note,
     changedByUserId: row.changed_by_user_id,
     pairedDishes: [],
@@ -130,6 +169,8 @@ export interface AlternativeDto {
   dishImageUrl: string | null;
   dishImageAltText: string | null;
   dishImageStatus: ImageStatus | null;
+  /** Per-serving nutrition (P11); null for a dish with no data. */
+  nutrition: DishNutrition | null;
   score: number;
   reason: string;
   /** Package accompaniments for this alternative; filled by `attachPackages`. */

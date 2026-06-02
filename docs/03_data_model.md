@@ -203,6 +203,13 @@ Fields:
 - low_sodium
 - high_protein
 - low_carb
+- serving_qty (P11 — size of one per-person serving; nullable)
+- serving_unit (P11 — cup | bowl | plate | glass | piece; nullable)
+- calories_kcal (P11 — per serving; nullable)
+- protein_g (P11 — per serving; nullable)
+- carbs_g (P11 — per serving; nullable)
+- fat_g (P11 — per serving; nullable)
+- glycemic_index (P11 — estimated 0–110, shown as a Low/Med/High band; nullable)
 - status
 - created_at
 - updated_at
@@ -212,6 +219,18 @@ Status values:
 - draft
 - active
 - archived
+
+Serving unit values (P11 nutrition profile):
+
+- cup
+- bowl
+- plate
+- glass
+- piece
+
+Nutrition values are estimates for one per-person serving, display-only (the
+recommendation engine does not score on them), and informational rather than
+medical. A dish may leave them null, in which case the UI shows no nutrition.
 
 ## ingredients
 

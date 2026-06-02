@@ -166,6 +166,7 @@ describe("generateToday", () => {
       recommendations: [],
       nameById: new Map(),
       imageById: new Map(),
+      nutritionById: new Map(),
     });
     const result = await generateToday(HH, "2026-05-25", "dinner");
     expect(result.mealPlanItem).toBeNull();
@@ -219,6 +220,7 @@ describe("generateToday", () => {
           },
         ],
       ]),
+      nutritionById: new Map(),
     });
 
     const result = await generateToday(HH, "2026-05-25", "dinner");

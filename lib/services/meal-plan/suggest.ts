@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { DishNutrition } from "@/lib/meal-plan/nutrition";
 import {
   recommendSlot,
   RECOMMENDATION_CONFIG,
@@ -32,6 +33,7 @@ export async function suggestForSlot(
   recommendations: Recommendation[];
   nameById: Map<string, string>;
   imageById: Map<string, DishImageMeta>;
+  nutritionById: Map<string, DishNutrition | null>;
 }> {
   const inputs = await loadSlotInputs(householdId, date, mealSlot);
   const excluded = new Set(options.excludeDishIds ?? []);
@@ -44,8 +46,9 @@ export async function suggestForSlot(
   });
   const nameById = new Map(inputs.dishes.map((d) => [d.id, d.name]));
   const imageById = new Map(inputs.dishes.map((d) => [d.id, toImageMeta(d)]));
+  const nutritionById = new Map(inputs.dishes.map((d) => [d.id, d.nutrition]));
 
-  return { recommendations, nameById, imageById };
+  return { recommendations, nameById, imageById, nutritionById };
 }
 
 /**
@@ -84,7 +87,8 @@ export async function listSlotCandidates(
 
   const nameById = new Map(inputs.dishes.map((d) => [d.id, d.name]));
   const imageById = new Map(inputs.dishes.map((d) => [d.id, toImageMeta(d)]));
-  return toAlternatives(recommendations, nameById, imageById);
+  const nutritionById = new Map(inputs.dishes.map((d) => [d.id, d.nutrition]));
+  return toAlternatives(recommendations, nameById, imageById, nutritionById);
 }
 
 /**
@@ -96,6 +100,7 @@ export function toAlternatives(
   recommendations: Recommendation[],
   nameById: Map<string, string>,
   imageById: Map<string, DishImageMeta> = new Map(),
+  nutritionById: Map<string, DishNutrition | null> = new Map(),
 ): AlternativeDto[] {
   return recommendations.map((rec) => ({
     dishId: rec.dishId,
@@ -103,6 +108,7 @@ export function toAlternatives(
     dishImageUrl: imageById.get(rec.dishId)?.imageUrl ?? null,
     dishImageAltText: imageById.get(rec.dishId)?.imageAltText ?? null,
     dishImageStatus: imageById.get(rec.dishId)?.imageStatus ?? null,
+    nutrition: nutritionById.get(rec.dishId) ?? null,
     score: rec.score,
     reason: rec.reason,
     pairedDishes: [],

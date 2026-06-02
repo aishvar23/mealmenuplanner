@@ -41,7 +41,28 @@ const RAJMA = {
   name: "Rajma Masala",
   meal_role: "main_component",
 };
-const RICE = { id: "rice", name: "Steamed Rice", meal_role: "rice_component" };
+const RICE = {
+  id: "rice",
+  name: "Steamed Rice",
+  meal_role: "rice_component",
+  serving_qty: 1,
+  serving_unit: "cup",
+  calories_kcal: 200,
+  protein_g: 4,
+  carbs_g: 44,
+  fat_g: 0,
+  glycemic_index: 73,
+};
+
+const RICE_NUTRITION = {
+  servingQty: 1,
+  servingUnit: "cup",
+  calories: 200,
+  proteinG: 4,
+  carbsG: 44,
+  fatG: 0,
+  glycemicIndex: 73,
+};
 const BIRYANI = {
   id: "biryani",
   name: "Veg Biryani",
@@ -63,7 +84,12 @@ describe("resolvePackagesByDishId", () => {
 
     const map = await resolvePackagesByDishId(client, ["rajma"]);
     expect(map.get("rajma")).toEqual([
-      { dishId: "rice", dishName: "Steamed Rice", pairingType: "rice_pairing" },
+      {
+        dishId: "rice",
+        dishName: "Steamed Rice",
+        pairingType: "rice_pairing",
+        nutrition: RICE_NUTRITION,
+      },
     ]);
   });
 
@@ -150,7 +176,12 @@ describe("attachPackages", () => {
     ];
     await attachPackages(client, rows);
     expect(rows[0]?.pairedDishes).toEqual([
-      { dishId: "rice", dishName: "Steamed Rice", pairingType: "rice_pairing" },
+      {
+        dishId: "rice",
+        dishName: "Steamed Rice",
+        pairingType: "rice_pairing",
+        nutrition: RICE_NUTRITION,
+      },
     ]);
   });
 

@@ -27,6 +27,7 @@ import type {
 } from "@/lib/services/meal-plan/dto";
 import { cn } from "@/lib/utils";
 
+import { DailyNutritionSummary, MealNutrition } from "./meal-nutrition";
 import * as api from "./meal-plan-client";
 import { SlotReplacementPicker } from "./slot-replacement-picker";
 
@@ -39,6 +40,17 @@ function needsDecision(item: MealPlanItemDto | null): boolean {
   if (!item) return true;
   if (!item.dishId && item.status !== "eating_out") return true;
   return item.status === "suggested";
+}
+
+/**
+ * Whether a slot's nutrition should count — it has a dish AND the household still
+ * intends to eat it. Rejected/skipped cells keep their dish_id on the row, so
+ * presence of a dish alone would wrongly fold them into the per-meal strip and the
+ * daily total (BUG fix).
+ */
+function countsForNutrition(item: MealPlanItemDto | null | undefined): boolean {
+  if (!item?.dishId) return false;
+  return item.status !== "rejected" && item.status !== "skipped";
 }
 
 /**
@@ -62,39 +74,65 @@ export function TodayBoard({
   initialItems: MealPlanItemDto[];
   canChange: boolean;
 }) {
-  const seeded = new Map<string, MealPlanItemDto>(
-    initialItems.map((item) => [item.mealSlot, item]),
+  // Lift the per-slot items into the board so the daily nutrition total stays
+  // live as slots are generated/swapped (each SlotCard is controlled below).
+  const [items, setItems] = useState<Record<string, MealPlanItemDto | null>>(
+    () => {
+      const map: Record<string, MealPlanItemDto | null> = {};
+      for (const slot of slots) map[slot] = null;
+      for (const item of initialItems) map[item.mealSlot] = item;
+      return map;
+    },
   );
+
   // Feature the slot that most needs a decision (the first undecided one) so the
-  // hero's "Best next decision" label is honest; fall back to the first slot
-  // when everything is already settled.
-  const featuredSlot =
-    slots.find((slot) => needsDecision(seeded.get(slot) ?? null)) ?? slots[0];
+  // hero's "Best next decision" label is honest; fall back to the first slot when
+  // everything is already settled. Computed once from the initial items so the
+  // featured card doesn't jump around as the user works through the slots.
+  const [featuredSlot] = useState(
+    () => slots.find((slot) => needsDecision(items[slot] ?? null)) ?? slots[0],
+  );
   if (!featuredSlot) return null;
   const supportingSlots = slots.filter((slot) => slot !== featuredSlot);
 
-  return (
-    <div className="grid gap-5 2xl:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.65fr)]">
-      <SlotCard
-        householdId={householdId}
-        date={date}
-        slot={featuredSlot}
-        initialItem={seeded.get(featuredSlot) ?? null}
-        canChange={canChange}
-        featured
-      />
+  const setSlotItem = (slot: string, item: MealPlanItemDto | null) =>
+    setItems((prev) => ({ ...prev, [slot]: item }));
 
-      <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-1">
-        {supportingSlots.map((slot) => (
-          <SlotCard
-            key={slot}
-            householdId={householdId}
-            date={date}
-            slot={slot}
-            initialItem={seeded.get(slot) ?? null}
-            canChange={canChange}
-          />
-        ))}
+  // The daily total only counts meals the household actually intends to eat —
+  // a dish that was rejected or skipped keeps its dish_id on the row, so filter
+  // on status too, not just presence of a dish.
+  const dailyItems = slots
+    .map((slot) => items[slot])
+    .filter((item): item is MealPlanItemDto => countsForNutrition(item));
+
+  return (
+    <div className="flex flex-col gap-5">
+      <DailyNutritionSummary items={dailyItems} />
+
+      <div className="grid gap-5 2xl:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.65fr)]">
+        <SlotCard
+          householdId={householdId}
+          date={date}
+          slot={featuredSlot}
+          item={items[featuredSlot] ?? null}
+          onItemChange={(item) => setSlotItem(featuredSlot, item)}
+          canChange={canChange}
+          featured
+        />
+
+        <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-1">
+          {supportingSlots.map((slot) => (
+            <SlotCard
+              key={slot}
+              householdId={householdId}
+              date={date}
+              slot={slot}
+              item={items[slot] ?? null}
+              onItemChange={(item) => setSlotItem(slot, item)}
+              canChange={canChange}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -104,18 +142,19 @@ function SlotCard({
   householdId,
   date,
   slot,
-  initialItem,
+  item,
+  onItemChange,
   canChange,
   featured = false,
 }: {
   householdId: string;
   date: string;
   slot: string;
-  initialItem: MealPlanItemDto | null;
+  item: MealPlanItemDto | null;
+  onItemChange: (item: MealPlanItemDto | null) => void;
   canChange: boolean;
   featured?: boolean;
 }) {
-  const [item, setItem] = useState<MealPlanItemDto | null>(initialItem);
   const [alternatives, setAlternatives] = useState<AlternativeDto[]>([]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -141,7 +180,7 @@ function SlotCard({
     run(
       () => api.generateToday(householdId, date, slot),
       (r) => {
-        setItem(r.mealPlanItem);
+        onItemChange(r.mealPlanItem);
         setAlternatives(r.alternatives);
       },
     );
@@ -150,7 +189,7 @@ function SlotCard({
     run(
       () => api.acceptItem(id),
       (updated) => {
-        setItem(updated);
+        onItemChange(updated);
         setAlternatives([]);
         toast.success(`${mealSlotLabel(slot)} approved`);
       },
@@ -160,7 +199,7 @@ function SlotCard({
     run(
       () => api.rejectItem(id, { feedbackType }),
       (r) => {
-        setItem(r.mealPlanItem);
+        onItemChange(r.mealPlanItem);
         setAlternatives(r.alternatives);
         setRejecting(false);
       },
@@ -170,7 +209,7 @@ function SlotCard({
     run(
       () => api.replaceItem(id, { replacementDishId }),
       (r) => {
-        setItem(r.mealPlanItem);
+        onItemChange(r.mealPlanItem);
         setAlternatives([]);
         toast.success("Meal swapped");
       },
@@ -180,7 +219,7 @@ function SlotCard({
     run(
       () => api.markEatingOut(id),
       (updated) => {
-        setItem(updated);
+        onItemChange(updated);
         setAlternatives([]);
         toast.success(`${mealSlotLabel(slot)} set to eating out`);
       },
@@ -192,13 +231,13 @@ function SlotCard({
         current.locked
           ? api.unlockItem(current.mealPlanItemId)
           : api.lockItem(current.mealPlanItemId),
-      (updated) => setItem(updated),
+      (updated) => onItemChange(updated),
     );
 
   const onSaveEatingOutNote = (id: string, note: string) =>
     run(
       () => api.markEatingOut(id, note),
-      (updated) => setItem(updated),
+      (updated) => onItemChange(updated),
     );
 
   const hasDish = Boolean(item?.dishId);
@@ -307,6 +346,13 @@ function SlotCard({
           </p>
         ) : null}
 
+        {countsForNutrition(item) && item ? (
+          <MealNutrition
+            nutrition={item.nutrition}
+            pairedDishes={item.pairedDishes}
+          />
+        ) : null}
+
         {isEatingOut ? (
           <EatingOutNote
             note={item?.eatingOutNote ?? null}
@@ -345,7 +391,7 @@ function SlotCard({
               currentDishName={item.dishName}
               onCancel={() => setPickerOpen(false)}
               onReplaced={(result) => {
-                setItem(result.mealPlanItem);
+                onItemChange(result.mealPlanItem);
                 setAlternatives([]);
                 setPickerOpen(false);
               }}

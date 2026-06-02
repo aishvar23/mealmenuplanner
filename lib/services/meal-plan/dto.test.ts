@@ -18,6 +18,13 @@ const ROW: MealPlanItemRow = {
     image_url: null,
     image_alt_text: null,
     image_status: "placeholder",
+    serving_qty: 1,
+    serving_unit: "bowl",
+    calories_kcal: 320,
+    protein_g: 14,
+    carbs_g: 12,
+    fat_g: 22,
+    glycemic_index: 30,
   },
 };
 
@@ -36,6 +43,15 @@ describe("toMealPlanItemDto", () => {
       status: "suggested",
       locked: false,
       reason: "Vegetarian, fits your window.",
+      nutrition: {
+        servingQty: 1,
+        servingUnit: "bowl",
+        calories: 320,
+        proteinG: 14,
+        carbsG: 12,
+        fatG: 22,
+        glycemicIndex: 30,
+      },
       eatingOutNote: null,
       changedByUserId: null,
       pairedDishes: [],
@@ -48,23 +64,47 @@ describe("toMealPlanItemDto", () => {
 
   it("uses an explicit dishName override when provided", () => {
     expect(
-      toMealPlanItemDto({ ...ROW, dishes: null }, "Rajma Chawal", {
-        imageUrl: "/rajma.jpg",
-        imageAltText: "Rajma Chawal",
-        imageStatus: "verified",
-      }).dishName,
+      toMealPlanItemDto(
+        { ...ROW, dishes: null },
+        {
+          dishName: "Rajma Chawal",
+          dishImage: {
+            imageUrl: "/rajma.jpg",
+            imageAltText: "Rajma Chawal",
+            imageStatus: "verified",
+          },
+        },
+      ).dishName,
     ).toBe("Rajma Chawal");
   });
 
   it("uses an explicit dish image override when provided", () => {
-    const dto = toMealPlanItemDto({ ...ROW, dishes: null }, "Rajma Chawal", {
-      imageUrl: "/rajma.jpg",
-      imageAltText: "Rajma Chawal in a bowl",
-      imageStatus: "verified",
-    });
+    const dto = toMealPlanItemDto(
+      { ...ROW, dishes: null },
+      {
+        dishName: "Rajma Chawal",
+        dishImage: {
+          imageUrl: "/rajma.jpg",
+          imageAltText: "Rajma Chawal in a bowl",
+          imageStatus: "verified",
+        },
+      },
+    );
     expect(dto.dishImageUrl).toBe("/rajma.jpg");
     expect(dto.dishImageAltText).toBe("Rajma Chawal in a bowl");
     expect(dto.dishImageStatus).toBe("verified");
+  });
+
+  it("derives nutrition from the joined dish when no override is given", () => {
+    expect(toMealPlanItemDto(ROW).nutrition).toEqual({
+      servingQty: 1,
+      servingUnit: "bowl",
+      calories: 320,
+      proteinG: 14,
+      carbsG: 12,
+      fatG: 22,
+      glycemicIndex: 30,
+    });
   });
 
   it("maps an eating-out cell (null dish)", () => {

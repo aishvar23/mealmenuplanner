@@ -13,6 +13,7 @@
  */
 
 import type { Database } from "@/lib/db/database.types";
+import type { DishNutrition } from "@/lib/meal-plan/nutrition";
 
 export type DietType = Database["public"]["Enums"]["diet_type"];
 export type DifficultyLevel = Database["public"]["Enums"]["difficulty_level"];
@@ -140,6 +141,11 @@ export interface CandidateDish {
   imageUrl: string | null;
   imageAltText: string | null;
   imageStatus: ImageStatus;
+  /**
+   * Per-serving nutrition estimate (P11), display-only — the engine never scores
+   * on it; the suggest/read DTOs surface it. `null` for a dish with no data.
+   */
+  nutrition: DishNutrition | null;
   ingredients: CandidateIngredient[];
   prepTasks: CandidatePrepTask[];
   pairings: CandidatePairing[];

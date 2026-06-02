@@ -97,12 +97,11 @@ export async function generateToday(
   }
 
   // Rank candidates (existence-hidden 404 if the caller isn't a member).
-  const { recommendations, nameById, imageById } = await suggestForSlot(
-    householdId,
-    date,
-    mealSlot,
-    { excludeDishIds: options.excludeDishIds, now: options.now },
-  );
+  const { recommendations, nameById, imageById, nutritionById } =
+    await suggestForSlot(householdId, date, mealSlot, {
+      excludeDishIds: options.excludeDishIds,
+      now: options.now,
+    });
   const top = recommendations[0];
 
   // No eligible dish for the slot — leave the cell as-is (design/08 § 3 "no eligible dish").
@@ -124,12 +123,19 @@ export async function generateToday(
 
   return finalizeTodayResult(supabase, {
     mealPlanId: plan.id,
-    mealPlanItem: toMealPlanItemDto(
-      saved,
-      nameById.get(top.dishId) ?? null,
-      imageById.get(top.dishId) ?? null,
+    mealPlanItem: toMealPlanItemDto(saved, {
+      dishName: nameById.get(top.dishId) ?? null,
+      dishImage: imageById.get(top.dishId) ?? null,
+      // Leave undefined on a map miss so the joined row (if any) still wins,
+      // rather than forcing a null that suppresses the fallback.
+      nutrition: nutritionById.get(top.dishId) ?? undefined,
+    }),
+    alternatives: toAlternatives(
+      recommendations.slice(1),
+      nameById,
+      imageById,
+      nutritionById,
     ),
-    alternatives: toAlternatives(recommendations.slice(1), nameById, imageById),
   });
 }
 
