@@ -1,9 +1,11 @@
 import { apiRequest } from "./client";
 import type {
+  DevicePlatform,
   MarkReadResult,
   NotificationEmailPreferences,
   NotificationInbox,
   ReadAllResult,
+  RegisterDeviceTokenResult,
 } from "./types";
 
 /**
@@ -68,5 +70,20 @@ export function updateEmailPreferences(
   return apiRequest<NotificationEmailPreferences>(
     "/api/notification-preferences",
     { method: "PUT", body: { householdId, categories } },
+  );
+}
+
+/**
+ * `POST /api/notifications/device-tokens` — register this device's Expo push
+ * token for native push (M3-3). Upserts to the current user; a device signing in
+ * as a new user reassigns the token server-side.
+ */
+export function registerDeviceToken(
+  token: string,
+  platform: DevicePlatform,
+): Promise<RegisterDeviceTokenResult> {
+  return apiRequest<RegisterDeviceTokenResult>(
+    "/api/notifications/device-tokens",
+    { method: "POST", body: { token, platform } },
   );
 }

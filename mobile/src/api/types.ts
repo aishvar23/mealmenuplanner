@@ -423,3 +423,11 @@ export interface NotificationEmailPreferences {
   householdId: string;
   categories: Record<string, boolean>;
 }
+
+/** Native push platform (M3). */
+export type DevicePlatform = "ios" | "android";
+
+/** `POST /api/notifications/device-tokens` response. */
+export interface RegisterDeviceTokenResult {
+  deviceTokenId: string;
+}

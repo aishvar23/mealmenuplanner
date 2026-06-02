@@ -36,13 +36,13 @@ This tracker is separate from the web build's
 | M0    | Foundations & backend auth | 8 / 8        | Complete    |
 | M1    | Auth + core daily loop     | 7 / 7        | Complete    |
 | M2    | Full parity                | 6 / 6        | Complete    |
-| M3    | Native push + store launch | 2 / 7        | In progress |
-|       | **Total**                  | **23 / 28**  |             |
+| M3    | Native push + store launch | 3 / 7        | In progress |
+|       | **Total**                  | **24 / 28**  |             |
 
-**Suggested next task:** `M3-3` — device push registration after sign-in (Expo
-token → `POST …/device-tokens`). `M3-4` / `M3-6` / `M3-7` (developer accounts,
-store builds, submission) need external accounts + real devices and can't be done
-from this environment.
+**Suggested next task:** `M3-5` — EAS Build config + signing credentials; bundle /
+application IDs. `M3-4` / `M3-6` / `M3-7` (developer accounts, store builds,
+submission) need external accounts + real devices and can't be done from this
+environment.
 
 > **Backend reads added for M1.** The web app reads plans / household lists /
 > the grocery screen server-side in React Server Components, so those had no HTTP
@@ -211,7 +211,16 @@ households` (`useHouseholdSwitcher`: tap to switch active via `PUT
       a registered token, so it's not gated by the email prefs. `database.types.ts`
       hand-patched for the RPC. 7 new tests; full `lib/events` suite + web `tsc`
       pass._
-- [ ] **M3-3** Device push registration after sign-in.
+- [x] **M3-3** Device push registration after sign-in. _Done: added
+      `expo-notifications` + `expo-device` (+ the `expo-notifications` config
+      plugin). `registerForPushNotifications` (`src/notifications/`) requests
+      permission, mints an Expo push token, and upserts it via the new
+      `notificationsApi.registerDeviceToken` → `POST …/device-tokens`. A
+      `PushRegistrar` mounted under `AuthProvider` runs it on the transition to a
+      session (and re-runs if the signed-in user changes). Best-effort: no-ops on a
+      simulator, on denied permission, or before an EAS `projectId` exists (M3-5),
+      never surfacing an error. Mobile `tsc` clean; `expo config` resolves with the
+      plugin. Device run deferred._
 - [ ] **M3-4** Set up Apple Developer + Google Play Console accounts.
 - [ ] **M3-5** EAS Build config + signing credentials; bundle / application IDs.
 - [ ] **M3-6** TestFlight + Play internal testing builds.

@@ -7,6 +7,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { AuthProvider } from "@/auth/context";
 import { useAuthDeepLinks } from "@/auth/deep-link";
+import { PushRegistrar } from "@/notifications/use-push-registration";
 import { queryClient } from "@/query/client";
 
 /**
@@ -21,6 +22,7 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <PushRegistrar />
         <SafeAreaProvider>
           <StatusBar style="auto" />
           <Stack screenOptions={{ headerShown: false }}>
