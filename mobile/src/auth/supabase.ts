@@ -3,9 +3,17 @@ import "react-native-url-polyfill/auto";
 import { createClient } from "@supabase/supabase-js";
 import { AppState } from "react-native";
 
-import { SUPABASE_ANON_KEY, SUPABASE_URL } from "@/config";
+import {
+  assertSupabaseConfig,
+  SUPABASE_ANON_KEY,
+  SUPABASE_URL,
+} from "@/config";
 
 import { secureStorageAdapter } from "./secure-store";
+
+// Fail fast with an actionable message if the env vars are missing, rather than
+// letting `createClient("")` surface a cryptic error deep in the first request.
+assertSupabaseConfig();
 
 /**
  * The app's Supabase client (design/10 § 3). It authenticates directly with

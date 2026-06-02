@@ -46,7 +46,7 @@ function fakeSupabase(opts: {
     insert,
   };
   const from = vi.fn(() => builder);
-  return { client: { from }, insert, from };
+  return { client: { from }, insert, from, builder };
 }
 
 const mockedFactory = vi.mocked(createServerSupabaseClient);
@@ -167,7 +167,7 @@ describe("withIdempotency", () => {
       response_body: RESULT,
     };
     // First lookup misses; insert hits a unique violation; re-read returns winner.
-    const { client, insert } = fakeSupabase({
+    const { client, insert, builder } = fakeSupabase({
       selectResults: [null, winner],
       insertError: { code: "23505" },
     });
@@ -185,8 +185,40 @@ describe("withIdempotency", () => {
 
     expect(run).toHaveBeenCalledTimes(1); // this caller did run, but loses the insert
     expect(insert).toHaveBeenCalledTimes(1);
+    // Proves the recovery actually re-read the winner (initial miss + re-read),
+    // rather than just echoing this caller's local result on the 23505.
+    expect(builder.maybeSingle).toHaveBeenCalledTimes(2);
     expect(res.status).toBe(201);
     expect(res.headers.get("Idempotency-Replayed")).toBe("true");
     await expect(res.json()).resolves.toEqual(RESULT);
+  });
+
+  it("re-asserts authorization before serving a replay", async () => {
+    const stored = {
+      request_hash: requestHash(ENDPOINT, REQUEST),
+      response_status: 201,
+      response_body: RESULT,
+    };
+    const { client } = fakeSupabase({ selectResults: [stored] });
+    mockedFactory.mockResolvedValue(client as never);
+    const run = vi.fn(async () => RESULT);
+    const authorize = vi.fn(async () => {
+      throw new ConflictError("forbidden", { reason: "x" });
+    });
+
+    const promise = withIdempotency({
+      householdId: HOUSEHOLD,
+      key: "key-abc",
+      endpoint: ENDPOINT,
+      request: REQUEST,
+      successStatus: 201,
+      run,
+      authorize,
+    });
+
+    // The replay path must run the guard; a revoked caller is rejected, not served.
+    await expect(promise).rejects.toBeInstanceOf(ConflictError);
+    expect(authorize).toHaveBeenCalledTimes(1);
+    expect(run).not.toHaveBeenCalled();
   });
 });

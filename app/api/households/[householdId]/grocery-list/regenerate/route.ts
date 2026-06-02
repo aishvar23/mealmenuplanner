@@ -5,6 +5,9 @@ import {
   validateRegenerateRequest,
 } from "@/lib/services/grocery";
 import { withIdempotency } from "@/lib/services/idempotency";
+// Imported from the lightweight access module (not the `meal-plan` barrel) so the
+// grocery route doesn't transitively pull in the recommendation/generation engine.
+import { requireHouseholdPermission } from "@/lib/services/meal-plan/access";
 
 // Resolves the session from cookies and writes the grocery list; never cached.
 export const dynamic = "force-dynamic";
@@ -33,6 +36,12 @@ export const POST = withErrorBoundary(
       request: { mealPlanId },
       successStatus: 200,
       run: () => regenerateGroceryList(householdId, mealPlanId),
+      authorize: () =>
+        requireHouseholdPermission(
+          householdId,
+          "can_manage_grocery_list",
+          "You don't have permission to manage the grocery list.",
+        ),
     });
   },
 );

@@ -42,6 +42,13 @@ export interface IdempotencyParams<T> {
   successStatus: number;
   /** The generation work; its JSON result is the stored/returned body. */
   run: () => Promise<T>;
+  /**
+   * Re-assert the caller's permission before serving a *replayed* response.
+   * The fresh path is already guarded by `run()` itself; a replay skips `run()`,
+   * so without this a member whose `can_*` flag was revoked could still replay a
+   * stored success within the 24h window. Mirror the same guard `run()` uses.
+   */
+  authorize?: () => Promise<void>;
 }
 
 /**
@@ -51,7 +58,8 @@ export interface IdempotencyParams<T> {
 export async function withIdempotency<T>(
   params: IdempotencyParams<T>,
 ): Promise<Response> {
-  const { householdId, endpoint, request, successStatus, run } = params;
+  const { householdId, endpoint, request, successStatus, run, authorize } =
+    params;
   const key = normalizeIdempotencyKey(params.key);
 
   // No key: behave exactly as the endpoint did before — run and return.
@@ -66,6 +74,7 @@ export async function withIdempotency<T>(
   // Replay path: a live row for this (household, key)?
   const existing = await loadKey(supabase, householdId, key);
   if (existing) {
+    if (authorize) await authorize();
     return replayOrConflict(existing, hash);
   }
 
@@ -87,6 +96,7 @@ export async function withIdempotency<T>(
     if (error.code === UNIQUE_VIOLATION) {
       const winner = await loadKey(supabase, householdId, key);
       if (winner) {
+        if (authorize) await authorize();
         return replayOrConflict(winner, hash);
       }
     }

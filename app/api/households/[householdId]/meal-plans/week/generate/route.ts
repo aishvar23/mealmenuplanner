@@ -1,7 +1,11 @@
 import { withErrorBoundary } from "@/lib/errors";
 import { readJsonObject } from "@/lib/http";
 import { withIdempotency } from "@/lib/services/idempotency";
-import { generateWeek, validateWeekRequest } from "@/lib/services/meal-plan";
+import {
+  generateWeek,
+  requireHouseholdPermission,
+  validateWeekRequest,
+} from "@/lib/services/meal-plan";
 
 // Resolves the session from cookies and writes meal_plan_items; never cached.
 export const dynamic = "force-dynamic";
@@ -30,6 +34,12 @@ export const POST = withErrorBoundary(
       request: { startDate, endDate },
       successStatus: 201,
       run: () => generateWeek(householdId, startDate, endDate),
+      authorize: () =>
+        requireHouseholdPermission(
+          householdId,
+          "can_change_weekly_schedule",
+          "You don't have permission to change the weekly schedule.",
+        ),
     });
   },
 );

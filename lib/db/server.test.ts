@@ -89,6 +89,22 @@ describe("createServerSupabaseClient — bearer-token auth (design/10 § 3)", ()
     // The cookie adapter is always wired up, regardless of the header path.
     expect(lastCreateOptions?.cookies).toBeDefined();
   });
+
+  it("ignores an Authorization header when a Supabase auth cookie is present (no split identity)", async () => {
+    // A browser request that also carries an Authorization header must NOT split
+    // its identity: the cookie session is authoritative, the header is dropped.
+    headerGet.mockImplementation((name) =>
+      name.toLowerCase() === "authorization" ? `Bearer ${VALID_JWT}` : null,
+    );
+    cookieGetAll.mockReturnValue([
+      { name: "sb-example-auth-token", value: "cookie-session" },
+    ]);
+
+    const { createServerSupabaseClient } = await import("./server");
+    await createServerSupabaseClient();
+
+    expect(lastCreateOptions?.global).toBeUndefined();
+  });
 });
 
 describe("auth resolution through the bearer path", () => {

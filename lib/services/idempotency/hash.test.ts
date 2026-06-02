@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { ValidationError } from "@/lib/errors";
+
 import { canonicalize, normalizeIdempotencyKey, requestHash } from "./hash";
 
 describe("canonicalize", () => {
@@ -54,8 +56,10 @@ describe("normalizeIdempotencyKey", () => {
     expect(normalizeIdempotencyKey("  abc-123  ")).toBe("abc-123");
   });
 
-  it("rejects an over-long key as absent", () => {
-    expect(normalizeIdempotencyKey("x".repeat(256))).toBeNull();
+  it("rejects an over-long key with a validation error", () => {
+    expect(() => normalizeIdempotencyKey("x".repeat(256))).toThrow(
+      ValidationError,
+    );
     expect(normalizeIdempotencyKey("x".repeat(255))).toBe("x".repeat(255));
   });
 });

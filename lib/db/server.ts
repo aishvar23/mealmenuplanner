@@ -17,12 +17,17 @@ import { getPublicSupabaseConfig } from "./env";
  *
  * **Bearer-token (mobile) auth.** Native clients carry no auth cookies; they
  * send `Authorization: Bearer <jwt>` instead (design/10 § 3). When that header
- * is present we forward it via `global.headers`, which makes BOTH
- * `supabase.auth.getUser()` (used by `lib/auth/session.ts`) and PostgREST/RLS
- * resolve the mobile user's JWT. This is purely additive: browser requests carry
- * no `Authorization` header, so the cookie path is unchanged — zero web behavior
- * change. Defense-in-depth (`can_*` checks, active-membership, RLS) is untouched;
- * it keys off the resolved user regardless of how the JWT arrived.
+ * is present *and there is no Supabase auth cookie*, we forward it via
+ * `global.headers`, which makes BOTH `supabase.auth.getUser()` (used by
+ * `lib/auth/session.ts`) and PostgREST/RLS resolve the mobile user's JWT.
+ *
+ * The cookie guard is deliberate. If both transports were active at once they
+ * would resolve different identities — `getUser()` keys off the cookie session
+ * while PostgREST honors the pre-set `Authorization` header — so a browser
+ * request could split its auth identity across the guard and the DB query. By
+ * ignoring the header whenever an auth cookie is present we keep exactly one
+ * identity per request: browsers stay on the cookie path (zero web behavior
+ * change), genuine cookieless native clients use the bearer path.
  *
  * `cookies()` / `headers()` are async in Next.js (App Router), so this factory
  * is async too.
@@ -34,8 +39,16 @@ export async function createServerSupabaseClient(): Promise<
   const headerStore = await headers();
   const { url, anonKey } = getPublicSupabaseConfig();
 
-  // "Bearer <jwt>" from a native client, or undefined for browser (cookie) auth.
-  const authorization = headerStore.get("authorization") ?? undefined;
+  // Bearer auth is for cookieless native clients only. If the request carries a
+  // Supabase auth cookie (`sb-<ref>-auth-token`), the cookie session is
+  // authoritative and any `Authorization` header is ignored — see the note above
+  // on avoiding a split identity.
+  const hasAuthCookie = cookieStore
+    .getAll()
+    .some((cookie) => cookie.name.includes("-auth-token"));
+  const authorization = hasAuthCookie
+    ? undefined
+    : (headerStore.get("authorization") ?? undefined);
 
   return createServerClient<Database>(url, anonKey, {
     ...(authorization

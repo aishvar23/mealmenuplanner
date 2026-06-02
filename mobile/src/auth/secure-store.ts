@@ -11,9 +11,41 @@ import * as SecureStore from "expo-secure-store";
  * key/value store with no size limit.
  */
 
-// Leave headroom under the 2048-byte SecureStore limit.
-const MAX_CHUNK = 2000;
+// Leave headroom under the 2048-byte SecureStore limit. The cap is in *bytes*,
+// so chunking is measured in UTF-8 bytes (not UTF-16 code units): a session with
+// non-ASCII user metadata would otherwise overflow a chunk that looked short.
+const MAX_CHUNK_BYTES = 2000;
 const CHUNK_MARKER = "__mmp_chunked__:"; // followed by the chunk count
+
+const textEncoder = new TextEncoder();
+
+function byteLength(value: string): number {
+  return textEncoder.encode(value).length;
+}
+
+/**
+ * Split a string into chunks each ≤ `MAX_CHUNK_BYTES` UTF-8 bytes, never
+ * breaking a code point — so concatenating the chunks reproduces the original
+ * exactly. Iterating with `for…of` yields whole code points (surrogate pairs
+ * stay intact).
+ */
+function chunkByBytes(value: string): string[] {
+  const parts: string[] = [];
+  let current = "";
+  let currentBytes = 0;
+  for (const ch of value) {
+    const chBytes = byteLength(ch);
+    if (currentBytes + chBytes > MAX_CHUNK_BYTES && current.length > 0) {
+      parts.push(current);
+      current = "";
+      currentBytes = 0;
+    }
+    current += ch;
+    currentBytes += chBytes;
+  }
+  if (current.length > 0) parts.push(current);
+  return parts;
+}
 
 function chunkKey(key: string, i: number): string {
   return `${key}.${i}`;
@@ -53,15 +85,12 @@ async function setItem(key: string, value: string): Promise<void> {
   const prev = markerCount(await SecureStore.getItemAsync(key));
   if (prev !== null) await clearChunks(key, prev);
 
-  if (value.length <= MAX_CHUNK) {
+  if (byteLength(value) <= MAX_CHUNK_BYTES) {
     await SecureStore.setItemAsync(key, value);
     return;
   }
 
-  const parts: string[] = [];
-  for (let i = 0; i < value.length; i += MAX_CHUNK) {
-    parts.push(value.slice(i, i + MAX_CHUNK));
-  }
+  const parts = chunkByBytes(value);
   await Promise.all(
     parts.map((part, i) => SecureStore.setItemAsync(chunkKey(key, i), part)),
   );
