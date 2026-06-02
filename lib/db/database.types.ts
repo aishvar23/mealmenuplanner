@@ -855,6 +855,41 @@ export type Database = {
           },
         ];
       };
+      device_tokens: {
+        Row: {
+          created_at: string;
+          id: string;
+          platform: string;
+          token: string;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          platform: string;
+          token: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          platform?: string;
+          token?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "device_tokens_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       idempotency_keys: {
         Row: {
           created_at: string;
@@ -1507,6 +1542,19 @@ export type Database = {
           user_id: string;
         }[];
       };
+      get_event_push_tokens: {
+        // p_extra_recipient_ids hand-adjusted to `| null` (the push fan-out passes
+        // null when there are no extra recipients), matching the email recipients fn.
+        Args: {
+          p_extra_recipient_ids: string[] | null;
+          p_household_id: string;
+        };
+        Returns: {
+          platform: string;
+          token: string;
+          user_id: string;
+        }[];
+      };
       get_invite_preview: {
         Args: { p_token_hash: string };
         Returns: {
@@ -1570,6 +1618,10 @@ export type Database = {
           p_household_id: string;
           p_name: string;
         };
+        Returns: string;
+      };
+      register_device_token: {
+        Args: { p_platform: string; p_token: string };
         Returns: string;
       };
       replace_grocery_list: {

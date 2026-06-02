@@ -49,17 +49,21 @@ export interface GroceryScreen {
  * Resolve the grocery screen's data in one member-gated call (P7-2): the current
  * plan (see {@link resolveCurrentPlanForGrocery}) and its grocery list if one
  * exists. Keeps the page component thin (no client wiring). 404s a non-member.
+ *
+ * `today` is the caller's calendar day (`YYYY-MM-DD`); it drives which active
+ * plan "currently covers today". Callers with a wall-clock context (the mobile
+ * client) should pass their device-local day so the grocery screen resolves the
+ * same day the Today/Week screens show; it defaults to the server's UTC day.
  */
 export async function getGroceryScreen(
   householdId: string,
-  now: Date = new Date(),
+  today: string = new Date().toISOString().slice(0, 10),
 ): Promise<GroceryScreen> {
   if (!isUuid(householdId)) throw new NotFoundError("Household not found.");
   const membership = await getActiveMembership(householdId);
   if (!membership) throw new NotFoundError("Household not found.");
 
   const supabase = await createServerSupabaseClient();
-  const today = now.toISOString().slice(0, 10);
   const plan = await resolveCurrentPlanForGrocery(supabase, householdId, today);
   if (!plan) return { plan: null, list: null };
 

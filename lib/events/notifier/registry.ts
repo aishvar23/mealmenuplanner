@@ -1,6 +1,7 @@
 import "server-only";
 
 import { EmailNotifier } from "./email";
+import { ExpoPushNotifier } from "./expo-push";
 import { createNoopNotifier } from "./noop";
 import type { Channel, Notifier } from "./port";
 
@@ -31,14 +32,16 @@ export class NotifierRegistry {
 }
 
 /**
- * The MVP registry: a real {@link EmailNotifier} for invites, and no-op adapters
- * for in-app (written by the fan-out RPC), push, WhatsApp, and SMS.
+ * The registry: a real {@link EmailNotifier} for invites/events, a real
+ * {@link ExpoPushNotifier} for native push (both best-effort no-ops until their
+ * transport env is set), and no-op adapters for in-app (written by the fan-out
+ * RPC), WhatsApp, and SMS.
  */
 export function buildDefaultRegistry(): NotifierRegistry {
   return new NotifierRegistry()
     .register(createNoopNotifier("inApp"))
     .register(new EmailNotifier())
-    .register(createNoopNotifier("push"))
+    .register(new ExpoPushNotifier())
     .register(createNoopNotifier("whatsapp"))
     .register(createNoopNotifier("sms"));
 }

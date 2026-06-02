@@ -2,6 +2,7 @@ import "server-only";
 
 import { EmailNotifier } from "./email";
 import type { EventEmailParams } from "./event-email";
+import { ExpoPushNotifier, type EventPushParams } from "./expo-push";
 import type { InviteEmailParams } from "./invite-email";
 import { getNotifierRegistry, type NotifierRegistry } from "./registry";
 
@@ -80,4 +81,36 @@ export function isEmailConfigured(
 ): boolean {
   const notifier = registry.get("email");
   return notifier instanceof EmailNotifier && notifier.isConfigured;
+}
+
+/**
+ * Push one household event to a set of device targets, best-effort (design/10
+ * § 7). Resolves the push adapter; no-ops when unconfigured (`EXPO_ACCESS_TOKEN`
+ * unset). Swallows transport failures so a failed push never affects the
+ * committed in-app/email notifications. Returns the same outcome shape as the
+ * email senders.
+ */
+export async function sendEventPush(
+  params: EventPushParams,
+  registry: NotifierRegistry = getNotifierRegistry(),
+): Promise<InviteEmailOutcome> {
+  const notifier = registry.get("push");
+  if (!(notifier instanceof ExpoPushNotifier) || !notifier.isConfigured) {
+    return "not_configured";
+  }
+  try {
+    await notifier.sendEvent(params);
+    return "sent";
+  } catch (error) {
+    console.error("[events] failed to send event push", { error });
+    return "failed";
+  }
+}
+
+/** True when a push transport is wired (EXPO_ACCESS_TOKEN present). */
+export function isPushConfigured(
+  registry: NotifierRegistry = getNotifierRegistry(),
+): boolean {
+  const notifier = registry.get("push");
+  return notifier instanceof ExpoPushNotifier && notifier.isConfigured;
 }

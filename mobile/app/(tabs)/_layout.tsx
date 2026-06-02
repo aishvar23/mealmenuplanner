@@ -9,25 +9,41 @@ import {
 import { ActivityIndicator, View } from "react-native";
 
 import { useAuth } from "@/auth/context";
+import { useActiveHousehold } from "@/household/use-household";
+
+function FullScreenSpinner() {
+  return (
+    <View className="flex-1 items-center justify-center bg-white">
+      <ActivityIndicator size="large" color="#16a34a" />
+    </View>
+  );
+}
 
 /**
  * Primary navigation (design/10 § 5): a bottom tab bar over Today / Week /
  * Grocery / Household / More. Guards the whole group — an unauthenticated user is
- * sent to the sign-in flow.
+ * sent to the sign-in flow, and a signed-in user with no household yet is sent to
+ * onboarding (M2-1) before any tab renders.
  */
 export default function TabsLayout() {
   const { session, loading } = useAuth();
 
-  if (loading) {
-    return (
-      <View className="flex-1 items-center justify-center bg-white">
-        <ActivityIndicator size="large" color="#16a34a" />
-      </View>
-    );
-  }
-  if (!session) {
-    return <Redirect href="/(auth)/sign-in" />;
-  }
+  if (loading) return <FullScreenSpinner />;
+  if (!session) return <Redirect href="/(auth)/sign-in" />;
+
+  // Session exists — resolve the household in a child so the hook only runs (and
+  // only fetches) once we're past the auth gate (Rules of Hooks: no early-return
+  // before the household query).
+  return <GatedTabs />;
+}
+
+function GatedTabs() {
+  const { hasNoHousehold, isLoading } = useActiveHousehold();
+
+  // Only block on the first load (no cached list yet); a background refetch keeps
+  // the last list so we don't flash the spinner or bounce to onboarding.
+  if (isLoading) return <FullScreenSpinner />;
+  if (hasNoHousehold) return <Redirect href="/onboarding" />;
 
   return (
     <Tabs

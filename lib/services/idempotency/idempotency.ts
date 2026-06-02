@@ -80,6 +80,7 @@ export async function withIdempotency<T>(
 
   // Fresh path: run the generator, then persist the response under the key.
   const result = await run();
+  const responseBody = result as Json;
 
   const { error } = await supabase.from("idempotency_keys").insert({
     household_id: householdId,
@@ -87,44 +88,98 @@ export async function withIdempotency<T>(
     endpoint,
     request_hash: hash,
     response_status: successStatus,
-    response_body: result as Json,
+    response_body: responseBody,
   });
 
-  if (error) {
-    // A concurrent request with the same key won the insert race. Re-read and
-    // replay its stored response (or 409 if it was a different request).
-    if (error.code === UNIQUE_VIOLATION) {
-      const winner = await loadKey(supabase, householdId, key);
-      if (winner) {
-        if (authorize) await authorize();
-        return replayOrConflict(winner, hash);
-      }
-    }
-    throw error;
+  if (!error) {
+    return Response.json(result, { status: successStatus });
   }
 
+  if (error.code === UNIQUE_VIOLATION) {
+    // The (household, key) row already exists. Re-read it ignoring expiry to tell
+    // a live concurrent winner from a stale, not-yet-purged expired row.
+    const colliding = await loadKey(supabase, householdId, key, {
+      includeExpired: true,
+    });
+    if (colliding && !isExpired(colliding)) {
+      // A concurrent request won the insert race — replay it (or 409 on a
+      // different request). The generator above is idempotent at the DB layer
+      // (uq_active_plan_per_start / per-cell unique), so the duplicate run is safe.
+      if (authorize) await authorize();
+      return replayOrConflict(colliding, hash);
+    }
+    // The collision is an expired leftover (no purge job runs yet) — overwrite it
+    // with this run's fresh response and a new window, so an expired key behaves
+    // like a fresh one instead of surfacing the raw unique-violation as a 500.
+    const { error: overwriteError } = await supabase
+      .from("idempotency_keys")
+      .update({
+        endpoint,
+        request_hash: hash,
+        response_status: successStatus,
+        response_body: responseBody,
+        expires_at: new Date(Date.now() + REPLAY_WINDOW_MS).toISOString(),
+      })
+      .eq("household_id", householdId)
+      .eq("idempotency_key", key);
+    if (overwriteError) {
+      console.error("[idempotency] failed to overwrite expired key", {
+        endpoint,
+        householdId,
+        error: overwriteError,
+      });
+    }
+    return Response.json(result, { status: successStatus });
+  }
+
+  // Any other persistence failure: the generation already ran and committed, so
+  // return its result rather than 500-ing a successful action. We forfeit replay
+  // protection for this one key (the DB uniqueness constraints still backstop
+  // against duplicate rows), which is strictly better than throwing — a thrown
+  // 500 guarantees the client retries and re-runs the (now lost) generation.
+  console.error("[idempotency] failed to persist key; returning fresh result", {
+    endpoint,
+    householdId,
+    error,
+  });
   return Response.json(result, { status: successStatus });
 }
+
+/** The 24h replay window, mirroring the `idempotency_keys.expires_at` default. */
+const REPLAY_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 type StoredKey = {
   request_hash: string;
   response_status: number;
   response_body: Json;
+  expires_at: string;
 };
 
-/** Look up a live (unexpired) idempotency row for this household + key. */
+/** True when a stored key's replay window has elapsed. */
+function isExpired(stored: StoredKey): boolean {
+  return Date.parse(stored.expires_at) <= Date.now();
+}
+
+/**
+ * Look up an idempotency row for this household + key. Live-only by default
+ * (an expired key re-executes); pass `includeExpired` to also see stale rows so
+ * a unique-violation recovery can distinguish a concurrent winner from a leftover.
+ */
 async function loadKey(
   supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
   householdId: string,
   key: string,
+  options: { includeExpired?: boolean } = {},
 ): Promise<StoredKey | null> {
-  const { data } = await supabase
+  let query = supabase
     .from("idempotency_keys")
-    .select("request_hash, response_status, response_body")
+    .select("request_hash, response_status, response_body, expires_at")
     .eq("household_id", householdId)
-    .eq("idempotency_key", key)
-    .gt("expires_at", new Date().toISOString())
-    .maybeSingle();
+    .eq("idempotency_key", key);
+  if (!options.includeExpired) {
+    query = query.gt("expires_at", new Date().toISOString());
+  }
+  const { data } = await query.maybeSingle();
   return data ?? null;
 }
 

@@ -6,11 +6,15 @@ import { NotFoundError } from "@/lib/errors";
 // (param + body parse → service call → envelope/status).
 vi.mock("@/lib/services/household", () => ({
   updateMyFoodPreferences: vi.fn(),
+  getMyLikedDishes: vi.fn(),
 }));
 
-import { updateMyFoodPreferences } from "@/lib/services/household";
+import {
+  getMyLikedDishes,
+  updateMyFoodPreferences,
+} from "@/lib/services/household";
 
-import { PATCH } from "./route";
+import { GET, PATCH } from "./route";
 
 const HOUSEHOLD_ID = "22222222-2222-2222-2222-222222222222";
 
@@ -25,12 +29,30 @@ function patchRequest(rawBody: string): Request {
   );
 }
 
+function getRequest(): Request {
+  return new Request(
+    `http://test.local/api/households/${HOUSEHOLD_ID}/food-preferences`,
+  );
+}
+
 function routeContext(householdId: string) {
   return { params: Promise.resolve({ householdId }) };
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
+});
+
+describe("GET /api/households/{householdId}/food-preferences", () => {
+  it("returns 200 with the caller's liked dishes wrapped in the DTO", async () => {
+    vi.mocked(getMyLikedDishes).mockResolvedValue(["Rajma Chawal"]);
+
+    const res = await GET(getRequest(), routeContext(HOUSEHOLD_ID));
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ likedDishes: ["Rajma Chawal"] });
+    expect(getMyLikedDishes).toHaveBeenCalledWith(HOUSEHOLD_ID);
+  });
 });
 
 describe("PATCH /api/households/{householdId}/food-preferences", () => {
