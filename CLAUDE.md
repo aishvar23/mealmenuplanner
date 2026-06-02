@@ -29,6 +29,11 @@ Three sources of truth, all authoritative:
   stable IDs (e.g. `P5-2`); saying "work on P5-2" scopes a unit of work. Tick a
   box and update the progress summary when a task is done and verified.
 
+The **native mobile app** (React Native + Expo, post-MVP) has its own pair:
+`design/10_mobile_app_design.md` (engineering design — it consumes the existing
+`/api/*` backend) and `MOBILE_IMPLEMENTATION_TRACKER.md` (task list, IDs `M0-1`
+… `M3-7`).
+
 ## Product spec map (`docs/`)
 
 | File                                 | Contents                                            |
