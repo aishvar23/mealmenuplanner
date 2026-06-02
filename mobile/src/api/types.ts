@@ -171,13 +171,55 @@ export interface HouseholdSummary {
   isPreferred: boolean;
 }
 
-/**
- * Household preferences the daily loop needs (`PreferencesDto` subset). The DTO
- * carries more fields; the app reads only what it renders/acts on.
- */
+/** Household preferences as the API exposes them (`PreferencesDto`). */
 export interface HouseholdPreferences {
-  mealsToPlan: string[];
+  familySize: number;
+  adultsCount: number;
+  kidsCount: number;
+  /** The household's diet(s); multi-select (BETA). Always non-empty. */
+  dietTypes: DietType[];
+  /** @deprecated Legacy single diet, mirrors `dietTypes[0]`. */
+  dietType: DietType;
+  preferredCuisines: string[];
+  spiceLevel: SpiceLevel;
+  weekdayCookingTimeMinutes: number | null;
+  weekendCookingTimeMinutes: number | null;
+  mealsToPlan: MealSlot[];
   varietyGapDays: number;
+  allowLeftovers: boolean;
+  budgetPreference: BudgetPreference;
+}
+
+/** `PATCH .../preferences` body — any subset of the editable preference fields. */
+export type PreferencesPatch = Partial<{
+  familySize: number;
+  adultsCount: number;
+  kidsCount: number;
+  dietTypes: DietType[];
+  preferredCuisines: string[];
+  spiceLevel: SpiceLevel;
+  weekdayCookingTimeMinutes: number | null;
+  weekendCookingTimeMinutes: number | null;
+  mealsToPlan: MealSlot[];
+  varietyGapDays: number;
+  allowLeftovers: boolean;
+  budgetPreference: BudgetPreference;
+}>;
+
+/** The caller's member-level food preferences (`MyFoodPreferencesDto`). */
+export interface MyFoodPreferences {
+  /** Dish names the household likes; feed the engine's liked-dish bonus. */
+  likedDishes: string[];
+}
+
+/** `POST /api/households` response. */
+export interface CreateHouseholdResult {
+  householdId: string;
+}
+
+/** `DELETE /api/households/{id}` response — the caller's remaining households. */
+export interface DeleteHouseholdResult {
+  households: HouseholdSummary[];
 }
 
 /** The eight `can_*` permission flags in camelCase (`CanFlagsDto`). */

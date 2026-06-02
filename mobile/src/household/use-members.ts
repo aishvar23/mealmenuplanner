@@ -73,8 +73,8 @@ export function useMembers(householdId: string) {
     }) => updateMemberApi(householdId, memberId, input),
   });
 
-  const canManage =
-    householdQuery.data?.currentUserPermissions.canRemoveMembers ?? false;
+  const permissions = householdQuery.data?.currentUserPermissions;
+  const canManage = permissions?.canRemoveMembers ?? false;
 
   // Active first, then by join time; removed/expired/declined sink to the bottom.
   const members = (membersQuery.data ?? []).slice().sort(sortMembers);
@@ -86,6 +86,8 @@ export function useMembers(householdId: string) {
     refreshing: membersQuery.isRefetching,
     refetch: () => void membersQuery.refetch(),
     canManage,
+    canEditPreferences: permissions?.canEditHouseholdPreferences ?? false,
+    isOwner: permissions?.role === "owner",
     currentUserId: user?.id ?? null,
     busyMemberId,
     actionError,

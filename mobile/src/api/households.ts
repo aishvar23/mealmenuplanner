@@ -1,8 +1,13 @@
 import { apiRequest, getCollection } from "./client";
 import type {
+  CreateHouseholdResult,
+  DeleteHouseholdResult,
   Household,
+  HouseholdPreferences,
   HouseholdSummary,
   Member,
+  MyFoodPreferences,
+  PreferencesPatch,
   RemoveMemberResult,
   UpdateMemberInput,
 } from "./types";
@@ -23,6 +28,68 @@ export async function listHouseholds(): Promise<HouseholdSummary[]> {
  */
 export function getHousehold(householdId: string): Promise<Household> {
   return apiRequest<Household>(`/api/households/${householdId}`);
+}
+
+// ─────────────────────── create / delete / prefs (M2-3) ───────────────────────
+
+/** `POST /api/households` — create a household; the caller becomes its owner. */
+export function createHousehold(name: string): Promise<CreateHouseholdResult> {
+  return apiRequest<CreateHouseholdResult>("/api/households", {
+    method: "POST",
+    body: { name },
+  });
+}
+
+/**
+ * `DELETE /api/households/{id}` — permanently delete a household (owner-only).
+ * Returns the caller's remaining households so the switcher updates in place.
+ */
+export function deleteHousehold(
+  householdId: string,
+): Promise<DeleteHouseholdResult> {
+  return apiRequest<DeleteHouseholdResult>(`/api/households/${householdId}`, {
+    method: "DELETE",
+  });
+}
+
+/**
+ * `PATCH .../preferences` — partial update of household preferences, gated by
+ * `can_edit_household_preferences`. Returns the full updated preferences.
+ */
+export function updatePreferences(
+  householdId: string,
+  patch: PreferencesPatch,
+): Promise<HouseholdPreferences> {
+  return apiRequest<HouseholdPreferences>(
+    `/api/households/${householdId}/preferences`,
+    { method: "PATCH", body: patch },
+  );
+}
+
+/**
+ * `GET .../food-preferences` — the caller's own liked dish names (additive read
+ * for mobile). Self-scoped; an empty list when none are set.
+ */
+export function getMyFoodPreferences(
+  householdId: string,
+): Promise<MyFoodPreferences> {
+  return apiRequest<MyFoodPreferences>(
+    `/api/households/${householdId}/food-preferences`,
+  );
+}
+
+/**
+ * `PATCH .../food-preferences` — replace the caller's liked dish names (self-write,
+ * gated by active membership). Returns the updated list.
+ */
+export function updateMyFoodPreferences(
+  householdId: string,
+  likedDishes: string[],
+): Promise<MyFoodPreferences> {
+  return apiRequest<MyFoodPreferences>(
+    `/api/households/${householdId}/food-preferences`,
+    { method: "PATCH", body: { likedDishes } },
+  );
 }
 
 // ───────────────────────────── members (M2-2) ─────────────────────────────

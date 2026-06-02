@@ -1,6 +1,15 @@
-import { ChevronRight } from "lucide-react-native";
-import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { router } from "expo-router";
 import {
+  ChevronRight,
+  Heart,
+  PlusCircle,
+  SlidersHorizontal,
+  Trash2,
+} from "lucide-react-native";
+import { useState, type ReactNode } from "react";
+import {
+  Alert,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -8,7 +17,12 @@ import {
   View,
 } from "react-native";
 
-import type { HouseholdSummary, Member } from "@/api";
+import {
+  deleteHousehold,
+  isApiError,
+  type HouseholdSummary,
+  type Member,
+} from "@/api";
 import {
   EmptyState,
   ErrorBanner,
@@ -16,7 +30,10 @@ import {
   LoadingState,
 } from "@/components/Feedback";
 import { MemberSheet } from "@/components/MemberSheet";
-import { useActiveHousehold } from "@/household/use-household";
+import {
+  householdsQueryKey,
+  useActiveHousehold,
+} from "@/household/use-household";
 import { ROLE_LABELS, STATUS_LABELS } from "@/household/labels";
 import { useMembers } from "@/household/use-members";
 
@@ -49,7 +66,10 @@ export default function HouseholdScreen() {
 
 function HouseholdMembers({ household }: { household: HouseholdSummary }) {
   const m = useMembers(household.householdId);
+  const qc = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   if (m.isLoading) return <LoadingState />;
   if (m.error) {
@@ -57,6 +77,38 @@ function HouseholdMembers({ household }: { household: HouseholdSummary }) {
   }
 
   const selected = m.members.find((x) => x.memberId === selectedId) ?? null;
+
+  async function doDelete() {
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteHousehold(household.householdId);
+      // Refetch the list; the tabs gate re-resolves the active household (or
+      // routes to onboarding if this was the last one).
+      await qc.invalidateQueries({ queryKey: householdsQueryKey });
+    } catch (e) {
+      setDeleteError(
+        isApiError(e) ? e.message : "Couldn't delete the household.",
+      );
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  function confirmDelete() {
+    Alert.alert(
+      "Delete household?",
+      `"${household.name}" and all its plans, groceries, and members will be permanently deleted.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => void doDelete(),
+        },
+      ],
+    );
+  }
 
   return (
     <View className="flex-1 bg-gray-50">
@@ -87,6 +139,44 @@ function HouseholdMembers({ household }: { household: HouseholdSummary }) {
               onPress={() => setSelectedId(member.memberId)}
             />
           ))}
+        </View>
+
+        {deleteError ? <ErrorBanner message={deleteError} /> : null}
+
+        <Text className="mt-2 px-1 text-xs font-medium tracking-wide text-gray-400 uppercase">
+          Manage
+        </Text>
+        <View className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+          <ActionRow
+            icon={<SlidersHorizontal color="#16a34a" size={20} />}
+            label={
+              m.canEditPreferences
+                ? "Household preferences"
+                : "View preferences"
+            }
+            onPress={() => router.push("/(household)/preferences")}
+          />
+          <ActionRow
+            icon={<Heart color="#16a34a" size={20} />}
+            label="My liked dishes"
+            onPress={() => router.push("/(household)/food")}
+          />
+          <ActionRow
+            icon={<PlusCircle color="#16a34a" size={20} />}
+            label="Create a household"
+            onPress={() => router.push("/(household)/create")}
+            isLast={!m.isOwner}
+          />
+          {m.isOwner ? (
+            <ActionRow
+              icon={<Trash2 color="#dc2626" size={20} />}
+              label="Delete this household"
+              destructive
+              busy={deleting}
+              onPress={confirmDelete}
+              isLast
+            />
+          ) : null}
         </View>
       </ScrollView>
 
@@ -146,6 +236,39 @@ function MemberRow({
         </Text>
       </View>
       <ChevronRight color="#9ca3af" size={20} />
+    </Pressable>
+  );
+}
+
+function ActionRow({
+  icon,
+  label,
+  onPress,
+  destructive,
+  busy,
+  isLast,
+}: {
+  icon: ReactNode;
+  label: string;
+  onPress: () => void;
+  destructive?: boolean;
+  busy?: boolean;
+  isLast?: boolean;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      disabled={busy}
+      className={`flex-row items-center gap-3 px-4 py-3.5 active:bg-gray-50 ${isLast ? "" : "border-b border-gray-100"} ${busy ? "opacity-50" : ""}`}
+    >
+      {icon}
+      <Text
+        className={`flex-1 text-base ${destructive ? "text-red-600" : "text-gray-900"}`}
+      >
+        {label}
+      </Text>
+      {!destructive ? <ChevronRight color="#9ca3af" size={20} /> : null}
     </Pressable>
   );
 }

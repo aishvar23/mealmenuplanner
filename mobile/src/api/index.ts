@@ -16,6 +16,11 @@ export {
   listMembers,
   updateMember,
   removeMember,
+  createHousehold,
+  deleteHousehold,
+  updatePreferences,
+  getMyFoodPreferences,
+  updateMyFoodPreferences,
 } from "./households";
 export * as mealPlanApi from "./meal-plan";
 export * as groceryApi from "./grocery";
