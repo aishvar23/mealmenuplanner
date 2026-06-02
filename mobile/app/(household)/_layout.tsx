@@ -17,6 +17,7 @@ export default function HouseholdManageLayout() {
       <Stack.Screen name="preferences" options={{ title: "Preferences" }} />
       <Stack.Screen name="food" options={{ title: "My dishes" }} />
       <Stack.Screen name="create" options={{ title: "New household" }} />
+      <Stack.Screen name="invite" options={{ title: "Invite someone" }} />
     </Stack>
   );
 }

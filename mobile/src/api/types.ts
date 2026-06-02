@@ -327,3 +327,56 @@ export interface OnboardingCompleteResult {
   householdId: string;
   status: DraftStatus;
 }
+
+// ───────────────────────────── invites (M2-4) ─────────────────────────────
+
+/** Roles an invite may grant (owner is reached only via transfer). */
+export type InvitableRole = "admin" | "member" | "viewer";
+
+/** `POST .../invites` body — at least one of email / phone is required. */
+export interface CreateInviteInput {
+  email?: string;
+  phone?: string;
+  role?: InvitableRole;
+  membershipType?: MembershipType;
+  /** ISO instant; required for a `temporary_guest`, defaulted for permanent. */
+  expiresAt?: string;
+}
+
+/** `POST .../invites` response — the link carries the plaintext token, shown once. */
+export interface CreateInviteResult {
+  inviteId: string;
+  inviteLink: string;
+  emailStatus: string;
+}
+
+/** One pending invite (`PendingInviteDto`, `GET .../invites` `data[]` item). */
+export interface PendingInvite {
+  inviteId: string;
+  invitedEmail: string | null;
+  invitedPhone: string | null;
+  role: MemberRole;
+  membershipType: MembershipType;
+  expiresAt: string;
+  createdAt: string;
+}
+
+/** Unauthenticated invite preview (`GET /api/invites/{token}`). */
+export interface InvitePreview {
+  householdName: string;
+  invitedBy: string | null;
+  membershipType: MembershipType;
+  role: MemberRole;
+  expiresAt: string;
+}
+
+/** `POST /api/invites/{token}/accept` response. */
+export interface AcceptInviteResult {
+  householdId: string;
+  membershipStatus: "active";
+}
+
+/** `POST /api/invites/{token}/decline` response. */
+export interface DeclineInviteResult {
+  status: "declined";
+}

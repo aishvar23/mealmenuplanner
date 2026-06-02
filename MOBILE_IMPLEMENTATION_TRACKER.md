@@ -35,13 +35,13 @@ This tracker is separate from the web build's
 | ----- | -------------------------- | ------------ | ----------- |
 | M0    | Foundations & backend auth | 8 / 8        | Complete    |
 | M1    | Auth + core daily loop     | 7 / 7        | Complete    |
-| M2    | Full parity                | 3 / 6        | In progress |
+| M2    | Full parity                | 4 / 6        | In progress |
 | M3    | Native push + store launch | 0 / 7        | Not started |
-|       | **Total**                  | **18 / 28**  |             |
+|       | **Total**                  | **19 / 28**  |             |
 
-**Suggested next task:** `M2-4` — invites (create, accept, decline, list).
-Onboarding (`M2-1`), the members list (`M2-2`), and household management (`M2-3`)
-are live; `M2` continues with invites, notifications, and settings.
+**Suggested next task:** `M2-5` — notifications (list, mark read, read-all,
+preferences). Onboarding, members, household management, and invites are live;
+`M2` finishes with notifications and settings.
 
 > **Backend reads added for M1.** The web app reads plans / household lists /
 > the grocery screen server-side in React Server Components, so those had no HTTP
@@ -141,16 +141,16 @@ are live; `M2` continues with invites, notifications, and settings.
       `MemberSheet`; a caller with `can_remove_members` can change a non-owner /
       non-self member's role (`PATCH …/members/{id}`) — re-applying that role's
       default flags — toggle individual `can_\*` flags, or remove them
-  (`POST …/members/{id}/remove`). Owner + self rows are read-only (ownership
-  transfer not exposed in M2-2). Extended the mobile wire types with the full
-  `CanFlags`set +`Member`DTO (and corrected`MemberRole` `guest`→`viewer`to
-  match the DB enum). Mobile`tsc` clean, Prettier clean. Device run deferred.\_
+(`POST …/members/{id}/remove`). Owner + self rows are read-only (ownership
+transfer not exposed in M2-2). Extended the mobile wire types with the full
+`CanFlags`set +`Member`DTO (and corrected`MemberRole` `guest`→`viewer`to
+match the DB enum). Mobile`tsc` clean, Prettier clean. Device run deferred.\_
 - [x] **M2-3** Household: create / delete, preferences, food / dish preferences.
       _Done: a `(household)` stack with **Preferences** (`PATCH …/preferences`,
       reusing the onboarding option lists + controls, gated by
       `can_edit_household_preferences` — read-only otherwise), **My dishes**
       (`GET`/`PATCH …/food-preferences` liked-dish names), and **Create** (`POST
-    /api/households`). The Household tab gained a Manage section linking these
+  /api/households`). The Household tab gained a Manage section linking these
       plus owner-only **Delete** (`DELETE …`, confirm dialog → refetch households
       → gate re-resolves). Expanded the wire `HouseholdPreferences`/`PreferencesPatch`
       types. **Additive backend:** `GET /api/households/{id}/food-preferences`
@@ -158,7 +158,15 @@ are live; `M2` continues with invites, notifications, and settings.
       test. The P10 dish-catalog/combinations builder (`…/dish-preferences`) stays
       deferred, as in M2-1's onboarding. Mobile + web `tsc` clean, route tests +
       Prettier pass. Device run deferred._
-- [ ] **M2-4** Invites: create, accept, decline, list.
+- [x] **M2-4** Invites: create, accept, decline, list. _Done: `src/api/invites.ts` + `usePendingInvites`. The Household tab shows **Pending invites** and an
+      **Invite someone** action (gated by `can_invite_members`) →
+      `(household)/invite` (email + role + optional guest window → `POST …/invites`,
+      then the one-time link with native Share). An `app/invite/[token]` landing
+      screen previews (`GET /api/invites/{token}`, unauthenticated) and accepts
+      (`POST …/accept` → refetch households → Today) or declines (`POST …/decline`);
+      reachable via the `mmp://invite/{token}` deep link (https universal links are
+      M3). **Additive backend:** `GET /api/households/{id}/invites` (reuses
+      `listPendingInvites`) with a route test. Mobile + web `tsc` clean, route tests + Prettier pass. Device run deferred._
 - [ ] **M2-5** Notifications: list, mark read, read-all, preferences.
 - [ ] **M2-6** Settings: profile, household switcher, sign out.
 

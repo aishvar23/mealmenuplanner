@@ -2,11 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ForbiddenError } from "@/lib/errors";
 
-vi.mock("@/lib/services/invite", () => ({ createInvite: vi.fn() }));
+vi.mock("@/lib/services/invite", () => ({
+  createInvite: vi.fn(),
+  listPendingInvites: vi.fn(),
+}));
 
-import { createInvite } from "@/lib/services/invite";
+import { createInvite, listPendingInvites } from "@/lib/services/invite";
 
-import { POST } from "./route";
+import { GET, POST } from "./route";
 
 const HOUSEHOLD_ID = "22222222-2222-2222-2222-222222222222";
 
@@ -26,6 +29,35 @@ function routeContext(householdId: string) {
 }
 
 beforeEach(() => vi.clearAllMocks());
+
+describe("GET /api/households/{householdId}/invites", () => {
+  it("returns 200 with the pending-invites collection from the service", async () => {
+    const collection = {
+      data: [
+        {
+          inviteId: "inv-1",
+          invitedEmail: "g@example.com",
+          invitedPhone: null,
+          role: "member" as const,
+          membershipType: "permanent" as const,
+          expiresAt: "2026-07-01T00:00:00.000Z",
+          createdAt: "2026-06-02T00:00:00.000Z",
+        },
+      ],
+      page: { nextCursor: null, hasMore: false },
+    };
+    vi.mocked(listPendingInvites).mockResolvedValue(collection);
+
+    const res = await GET(
+      new Request(`http://test.local/api/households/${HOUSEHOLD_ID}/invites`),
+      routeContext(HOUSEHOLD_ID),
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(collection);
+    expect(listPendingInvites).toHaveBeenCalledWith(HOUSEHOLD_ID);
+  });
+});
 
 describe("POST /api/households/{householdId}/invites", () => {
   it("returns 201 with the invite id + link from the service", async () => {

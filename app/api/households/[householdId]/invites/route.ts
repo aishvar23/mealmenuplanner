@@ -1,10 +1,24 @@
 import { withErrorBoundary } from "@/lib/errors";
 import { readJsonObject } from "@/lib/http";
-import { createInvite } from "@/lib/services/invite";
+import { createInvite, listPendingInvites } from "@/lib/services/invite";
 
 export const dynamic = "force-dynamic";
 
 type RouteContext = { params: Promise<{ householdId: string }> };
+
+/**
+ * `GET /api/households/{householdId}/invites` — list the household's pending
+ * invites (design/07 § 8). Additive read for the mobile client; the web renders
+ * this in a Server Component, so it had no HTTP route. Gated by
+ * `can_invite_members` (non-inviters get an empty list); a non-member is surfaced
+ * as `NOT_FOUND`. Returns the `{ data, page }` collection envelope.
+ */
+export const GET = withErrorBoundary(
+  async (_request: Request, context: RouteContext) => {
+    const { householdId } = await context.params;
+    return Response.json(await listPendingInvites(householdId));
+  },
+);
 
 /**
  * `POST /api/households/{householdId}/invites` — create an invite (design/04

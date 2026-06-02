@@ -3,9 +3,11 @@ import { router } from "expo-router";
 import {
   ChevronRight,
   Heart,
+  Mail,
   PlusCircle,
   SlidersHorizontal,
   Trash2,
+  UserPlus,
 } from "lucide-react-native";
 import { useState, type ReactNode } from "react";
 import {
@@ -22,6 +24,7 @@ import {
   isApiError,
   type HouseholdSummary,
   type Member,
+  type PendingInvite,
 } from "@/api";
 import {
   EmptyState,
@@ -35,13 +38,14 @@ import {
   useActiveHousehold,
 } from "@/household/use-household";
 import { ROLE_LABELS, STATUS_LABELS } from "@/household/labels";
+import { usePendingInvites } from "@/household/use-invites";
 import { useMembers } from "@/household/use-members";
 
 /**
- * Household tab — members list with roles / permissions (M2-2, design/10 § 6).
- * Everyone sees the roster; a member with `can_remove_members` can tap a row to
- * change a member's role / permissions or remove them. Create / delete,
- * preferences, and invites arrive in M2-3 / M2-4.
+ * Household tab — members, roles / permissions, management, and invites (M2-2 /
+ * M2-3 / M2-4, design/10 § 6). Everyone sees the roster; a member with
+ * `can_remove_members` can edit roles / remove members, and one with
+ * `can_invite_members` sees pending invites and can create new ones.
  */
 export default function HouseholdScreen() {
   const { household, hasNoHousehold, isLoading, error, refetch } =
@@ -66,6 +70,7 @@ export default function HouseholdScreen() {
 
 function HouseholdMembers({ household }: { household: HouseholdSummary }) {
   const m = useMembers(household.householdId);
+  const invites = usePendingInvites(household.householdId);
   const qc = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -141,12 +146,36 @@ function HouseholdMembers({ household }: { household: HouseholdSummary }) {
           ))}
         </View>
 
+        {invites.canInvite && invites.invites.length > 0 ? (
+          <>
+            <Text className="mt-2 px-1 text-xs font-medium tracking-wide text-gray-400 uppercase">
+              Pending invites
+            </Text>
+            <View className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+              {invites.invites.map((invite, i) => (
+                <PendingInviteRow
+                  key={invite.inviteId}
+                  invite={invite}
+                  isLast={i === invites.invites.length - 1}
+                />
+              ))}
+            </View>
+          </>
+        ) : null}
+
         {deleteError ? <ErrorBanner message={deleteError} /> : null}
 
         <Text className="mt-2 px-1 text-xs font-medium tracking-wide text-gray-400 uppercase">
           Manage
         </Text>
         <View className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+          {invites.canInvite ? (
+            <ActionRow
+              icon={<UserPlus color="#16a34a" size={20} />}
+              label="Invite someone"
+              onPress={() => router.push("/(household)/invite")}
+            />
+          ) : null}
           <ActionRow
             icon={<SlidersHorizontal color="#16a34a" size={20} />}
             label={
@@ -237,6 +266,33 @@ function MemberRow({
       </View>
       <ChevronRight color="#9ca3af" size={20} />
     </Pressable>
+  );
+}
+
+function PendingInviteRow({
+  invite,
+  isLast,
+}: {
+  invite: PendingInvite;
+  isLast: boolean;
+}) {
+  const target = invite.invitedEmail ?? invite.invitedPhone ?? "Invited";
+  return (
+    <View
+      className={`flex-row items-center gap-3 px-4 py-3 ${isLast ? "" : "border-b border-gray-100"}`}
+    >
+      <View className="h-10 w-10 items-center justify-center rounded-full bg-amber-100">
+        <Mail color="#d97706" size={18} />
+      </View>
+      <View className="flex-1">
+        <Text className="text-base text-gray-900" numberOfLines={1}>
+          {target}
+        </Text>
+        <Text className="text-sm text-gray-500">
+          {ROLE_LABELS[invite.role]} · Invited
+        </Text>
+      </View>
+    </View>
   );
 }
 

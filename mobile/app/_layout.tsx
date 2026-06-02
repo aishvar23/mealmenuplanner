@@ -29,6 +29,7 @@ export default function RootLayout() {
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="onboarding" />
             <Stack.Screen name="(household)" />
+            <Stack.Screen name="invite/[token]" />
           </Stack>
         </SafeAreaProvider>
       </AuthProvider>
