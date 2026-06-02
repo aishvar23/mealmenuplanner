@@ -855,6 +855,41 @@ export type Database = {
           },
         ];
       };
+      device_tokens: {
+        Row: {
+          created_at: string;
+          id: string;
+          platform: string;
+          token: string;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          platform: string;
+          token: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          platform?: string;
+          token?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "device_tokens_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       idempotency_keys: {
         Row: {
           created_at: string;
@@ -1570,6 +1605,10 @@ export type Database = {
           p_household_id: string;
           p_name: string;
         };
+        Returns: string;
+      };
+      register_device_token: {
+        Args: { p_platform: string; p_token: string };
         Returns: string;
       };
       replace_grocery_list: {

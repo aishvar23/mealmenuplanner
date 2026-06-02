@@ -17,3 +17,8 @@ export {
   markAllNotificationsRead,
   type MarkReadResult,
 } from "./mark-read";
+export {
+  registerDeviceToken,
+  type DevicePlatform,
+  type RegisterDeviceTokenResult,
+} from "./device-token";

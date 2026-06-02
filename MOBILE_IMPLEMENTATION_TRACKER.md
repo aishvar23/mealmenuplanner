@@ -172,15 +172,15 @@ match the DB enum). Mobile`tsc` clean, Prettier clean. Device run deferred.\_
       `(settings)` stack with **Notifications** (`GET /api/notifications` inbox,
       unread dots, tap-to-read `POST …/{id}/read`, "Mark all read"
       `POST …/read-all`) and **Email notifications** (`GET`/`PUT
-  /api/notification-preferences` per the active household, settable categories
+/api/notification-preferences` per the active household, settable categories
       mirroring the web). The More tab links to both and shows an unread badge. All
       endpoints already existed — no backend change. Mobile `tsc` clean, Prettier
       pass. Device run deferred._
 - [x] **M2-6** Settings: profile, household switcher, sign out. _Done: the More
       tab shows a read-only profile (email + display name from the session — no
       profile-edit endpoint exists), a **Switch household** row → `(settings)/
-    households` (`useHouseholdSwitcher`: tap to switch active via `PUT
-    …/active`, star to set preferred via `PUT …/preferred`, seeding the
+  households` (`useHouseholdSwitcher`: tap to switch active via `PUT
+  …/active`, star to set preferred via `PUT …/preferred`, seeding the
       refreshed list into the shared cache so the daily loop follows instantly),
       links to Notifications / Email notifications, and Sign out. Mobile `tsc`
       clean, Prettier pass. Device run deferred._
@@ -189,9 +189,16 @@ match the DB enum). Mobile`tsc` clean, Prettier clean. Device run deferred.\_
 
 > Design: §7 (push), §8 (distribution).
 
-- [ ] **M3-1** `device_tokens` table (migration applied to cloud dev via Supabase
+- [x] **M3-1** `device_tokens` table (migration applied to cloud dev via Supabase
       MCP) + `POST /api/notifications/device-tokens` to upsert the current user's
-      token (RLS-scoped).
+      token (RLS-scoped). _Done: migration `20260602130000_m3_1_device_tokens`
+      (applied to cloud dev) — `device_tokens` keyed to `user_id` with
+      `{ token unique, platform }`, self-only RLS, and a `register_device_token`
+      SECURITY DEFINER RPC that upserts on `token` and reassigns across users on a
+      shared device (stamps `user_id = auth.uid()`). `database.types.ts` hand-patched
+      (table + RPC). Service `lib/services/notification/device-token.ts`
+      (`registerDeviceToken`) + the route with 3 tests. Web `tsc` + tests pass; the
+      0029 SECURITY DEFINER advisor is the same by-design lint as the other RPCs._
 - [ ] **M3-2** Expo Push adapter in the notifier — additive; email + in-app stay
       intact.
 - [ ] **M3-3** Device push registration after sign-in.
