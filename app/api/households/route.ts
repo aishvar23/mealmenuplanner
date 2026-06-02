@@ -1,9 +1,21 @@
 import { ValidationError, withErrorBoundary } from "@/lib/errors";
-import { readJsonObject } from "@/lib/http";
-import { createHousehold } from "@/lib/services/household";
+import { boundedCollection, readJsonObject } from "@/lib/http";
+import { createHousehold, listUserHouseholds } from "@/lib/services/household";
 
 // Resolves the session from cookies and writes; never statically cached.
 export const dynamic = "force-dynamic";
+
+/**
+ * `GET /api/households` — the caller's active households, each tagged with its
+ * `isActive` / `isPreferred` pointer (design/04 § 4.1; design/10 § 6). The web
+ * app resolves this server-side in a React Server Component, so it never needed
+ * an HTTP route; the mobile client has no such server context and discovers the
+ * household to operate on through this read. Member-scoped via the per-request
+ * RLS client; returns the standard `{ data, page }` collection envelope.
+ */
+export const GET = withErrorBoundary(async () => {
+  return Response.json(boundedCollection(await listUserHouseholds()));
+});
 
 /**
  * `POST /api/households` — create a household (design/04 § 4.1).

@@ -2,11 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // The route delegates to the `household` service; mock it so the test exercises
 // only the boundary wiring (body parse → service call → envelope/status).
-vi.mock("@/lib/services/household", () => ({ createHousehold: vi.fn() }));
+vi.mock("@/lib/services/household", () => ({
+  createHousehold: vi.fn(),
+  listUserHouseholds: vi.fn(),
+}));
 
-import { createHousehold } from "@/lib/services/household";
+import { createHousehold, listUserHouseholds } from "@/lib/services/household";
 
-import { POST } from "./route";
+import { GET, POST } from "./route";
 
 const HOUSEHOLD_ID = "22222222-2222-2222-2222-222222222222";
 
@@ -54,5 +57,39 @@ describe("POST /api/households", () => {
     expect(res.status).toBe(400);
     expect((await res.json()).error.code).toBe("VALIDATION_ERROR");
     expect(createHousehold).not.toHaveBeenCalled();
+  });
+});
+
+describe("GET /api/households", () => {
+  it("returns the caller's households in the collection envelope", async () => {
+    const households = [
+      {
+        householdId: HOUSEHOLD_ID,
+        name: "Suhane Household",
+        role: "owner" as const,
+        isActive: true,
+        isPreferred: true,
+      },
+    ];
+    vi.mocked(listUserHouseholds).mockResolvedValue(households);
+
+    const res = await GET();
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      data: households,
+      page: { nextCursor: null, hasMore: false },
+    });
+  });
+
+  it("returns an empty collection when the caller has no households", async () => {
+    vi.mocked(listUserHouseholds).mockResolvedValue([]);
+
+    const res = await GET();
+
+    expect(await res.json()).toEqual({
+      data: [],
+      page: { nextCursor: null, hasMore: false },
+    });
   });
 });
