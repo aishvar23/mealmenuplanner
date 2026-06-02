@@ -1,0 +1,17 @@
+{
+  "name": "@mmp/shared",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pure, platform-agnostic TypeScript shared between the Next.js web app and the Expo mobile app. No I/O, no server-only.",
+  "type": "module",
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./recommendation": "./recommendation/index.ts",
+    "./types": "./types/index.ts",
+    "./validation": "./validation/index.ts"
+  },
+  "sideEffects": false,
+  "license": "UNLICENSED"
+}

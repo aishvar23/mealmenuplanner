@@ -855,6 +855,60 @@ export type Database = {
           },
         ];
       };
+      idempotency_keys: {
+        Row: {
+          created_at: string;
+          endpoint: string;
+          expires_at: string;
+          household_id: string;
+          id: string;
+          idempotency_key: string;
+          request_hash: string;
+          response_body: Json;
+          response_status: number;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          endpoint: string;
+          expires_at?: string;
+          household_id: string;
+          id?: string;
+          idempotency_key: string;
+          request_hash: string;
+          response_body: Json;
+          response_status: number;
+          user_id?: string;
+        };
+        Update: {
+          created_at?: string;
+          endpoint?: string;
+          expires_at?: string;
+          household_id?: string;
+          id?: string;
+          idempotency_key?: string;
+          request_hash?: string;
+          response_body?: Json;
+          response_status?: number;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "idempotency_keys_household_id_fkey";
+            columns: ["household_id"];
+            isOneToOne: false;
+            referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "idempotency_keys_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       ingredients: {
         Row: {
           allergen_type: string | null;

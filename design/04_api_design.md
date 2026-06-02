@@ -58,17 +58,43 @@ re-checked by RLS.
 
 **Authentication.** Every endpoint requires an authenticated Supabase session
 **except** the unauthenticated invite preview (`GET /api/invites/{token}`, served
-via a `security definer` RPC per doc 01 § RLS). The session travels as the
-Supabase JWT:
+via a `security definer` RPC per doc 01 § RLS). The session JWT reaches the server
+by **either of two transports**, and the per-request RLS client
+(`createServerSupabaseClient`, doc 02 § Supabase client strategy) resolves the
+same user from whichever is present:
+
+| Caller            | Transport                              | How it's read                                                          |
+| ----------------- | -------------------------------------- | ---------------------------------------------------------------------- |
+| Browser (web app) | Supabase auth **cookies** (`sb-*`)     | `createServerSupabaseClient` seeds the client from `cookies()`.        |
+| Native (mobile)   | `Authorization: Bearer <access-token>` | `createServerSupabaseClient` forwards the header via `global.headers`. |
 
 ```
 Authorization: Bearer <supabase-access-token>
 ```
 
-The route handler constructs the **per-request RLS client** with this JWT (doc
-02 § Supabase client strategy) so `auth.uid()` and RLS apply to every query.
-Missing/expired token → `UNAUTHENTICATED` (401). The service-role client is
-**never** reachable from these request paths.
+**Bearer-token contract (mobile).** Native clients
+([`design/10_mobile_app_design.md` § 3](10_mobile_app_design.md)) carry no auth
+cookies, so they attach the Supabase access token as an `Authorization: Bearer`
+header on **every** `/api/*` call. When that header is present,
+`createServerSupabaseClient` passes it through `global.headers.Authorization` on
+`createServerClient`; that single header makes **both** `supabase.auth.getUser()`
+(the `getAuthUser` session resolver) and PostgREST/RLS resolve the bearer user's
+JWT. Properties of this path:
+
+- **Additive / zero web change.** The cookie path is unchanged; the header path
+  only engages when an `Authorization` header is present, which browser requests
+  never send. (Verified by `lib/db/server.test.ts`.)
+- **No `proxy.ts` change.** The edge proxy does cookie refresh + HTML redirect
+  gating only; `/api` is not a protected prefix, so a header-auth request falls
+  straight through as a harmless no-op.
+- **Defense-in-depth intact.** `can_*` permission checks, active-membership
+  checks, and RLS all run exactly as before — they key off the resolved user,
+  regardless of how the JWT arrived.
+
+The route handler constructs the **per-request RLS client** with this JWT so
+`auth.uid()` and RLS apply to every query. Missing/expired token →
+`UNAUTHENTICATED` (401). The service-role client is **never** reachable from
+these request paths.
 
 **Pagination (list endpoints).** List endpoints use **cursor pagination** —
 stable under inserts, and a natural fit for the
