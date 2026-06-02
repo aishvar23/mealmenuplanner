@@ -126,6 +126,9 @@ create type invite_status       as enum ('pending', 'accepted', 'declined',
 
 create type meal_slot           as enum ('breakfast', 'lunch', 'dinner', 'snack');
 create type dish_status         as enum ('draft', 'active', 'archived');
+-- P11: human-scaled serving unit a dish's nutrition values are measured in.
+-- `piece` covers countable items (idli, roti); the rest are volume servings.
+create type serving_unit        as enum ('cup', 'bowl', 'plate', 'glass', 'piece');
 create type pairing_type        as enum ('main_side', 'rice_pairing',
                                           'bread_pairing', 'condiment', 'beverage');
 
@@ -380,6 +383,15 @@ create table dishes (
   low_sodium        boolean not null default false,
   high_protein      boolean not null default false,
   low_carb          boolean not null default false,
+  -- P11 nutrition profile (display-only; the engine never scores on it). All
+  -- nullable, anchored to one per-person serving; absent → UI shows nothing.
+  serving_qty       numeric(6,2) check (serving_qty is null or serving_qty > 0),
+  serving_unit      serving_unit,
+  calories_kcal     int  check (calories_kcal is null or calories_kcal >= 0),
+  protein_g         numeric(6,2) check (protein_g is null or protein_g >= 0),
+  carbs_g           numeric(6,2) check (carbs_g is null or carbs_g >= 0),
+  fat_g             numeric(6,2) check (fat_g is null or fat_g >= 0),
+  glycemic_index    int  check (glycemic_index is null or glycemic_index between 0 and 110),
   status            dish_status not null default 'draft',
   created_at        timestamptz not null default now(),
   updated_at        timestamptz not null default now()

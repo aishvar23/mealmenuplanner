@@ -9,18 +9,23 @@ import {
   sumNutrition,
   type DishNutrition,
   type GiBand,
+  type NutritionTotals,
 } from "@/lib/meal-plan/nutrition";
-import type { PairedDishDto } from "@/lib/services/meal-plan/dto";
+import type {
+  MealPlanItemDto,
+  PairedDishDto,
+} from "@/lib/services/meal-plan/dto";
 import { cn } from "@/lib/utils";
 
 /**
- * Per-meal nutrition strip (P11). Shows the serving the figures are anchored to,
- * the calories + macros for the whole plate (main dish **plus** its paired
- * sides), and a Low/Med/High glycemic-index band for the main dish. All values
- * are estimates and per person — never a medical claim (CLAUDE.md, docs/10).
+ * Per-meal nutrition strip (P11). Shows the calories + macros for the whole plate
+ * (main dish **plus** its paired sides), the serving the main is measured in (with
+ * a "+ N sides" hint so the calorie total isn't misread as the main's serving
+ * alone), and a Low/Med/High glycemic-index band for the main dish. All values are
+ * estimates and per person — never a medical claim (CLAUDE.md, docs/10).
  *
- * Renders nothing when there's no nutrition data, so a dish without a profile (or
- * an eating-out slot) simply shows nothing rather than zeros.
+ * Renders nothing when there's no nutrition data at all, so a dish without a
+ * profile (or an eating-out slot) simply shows nothing rather than zeros.
  */
 
 const GI_BADGE_VARIANT: Record<GiBand, "emerald" | "marigold" | "ember"> = {
@@ -32,6 +37,43 @@ const GI_BADGE_VARIANT: Record<GiBand, "emerald" | "marigold" | "ember"> = {
 /** `12g` etc., rounded to the nearest gram; drops a zero to keep the strip terse. */
 function grams(value: number): string {
   return `${Math.round(value)}g`;
+}
+
+/**
+ * Shared calories + macros figures, used by both the per-meal strip and the daily
+ * summary so the rounding rule and macro labels can't drift between them. `full`
+ * spells out Protein/Carbs/Fat and renders the calories larger.
+ */
+function NutritionFigures({
+  totals,
+  full = false,
+}: {
+  totals: NutritionTotals;
+  full?: boolean;
+}) {
+  return (
+    <>
+      <span
+        className={cn(
+          "inline-flex items-center gap-1",
+          full ? "gap-1.5 font-heading text-lg font-bold" : "font-semibold",
+        )}
+      >
+        <Flame
+          className={cn(
+            "text-saffron-foreground",
+            full ? "size-4" : "size-3.5",
+          )}
+        />
+        {Math.round(totals.calories)} kcal
+      </span>
+      <span className="text-sm text-muted-foreground">
+        {full ? "Protein" : "P"} {grams(totals.proteinG)} ·{" "}
+        {full ? "Carbs" : "C"} {grams(totals.carbsG)} · {full ? "Fat" : "F"}{" "}
+        {grams(totals.fatG)}
+      </span>
+    </>
+  );
 }
 
 export function MealNutrition({
@@ -47,11 +89,25 @@ export function MealNutrition({
     nutrition,
     ...pairedDishes.map((p) => p.nutrition),
   ]);
-  if (!hasNutrition(totals)) return null;
 
-  // Serving + GI describe the *main* dish (the anchor); macros are the whole plate.
+  // The serving describes the *main* dish; GI is the main's. The calorie/macro
+  // total is the whole plate, so when sides contribute we note them next to the
+  // serving rather than letting "1 bowl" read as the combined figure (BUG fix).
   const serving = formatServing(nutrition?.servingQty, nutrition?.servingUnit);
   const band = giBand(nutrition?.glycemicIndex);
+  const sideCount = pairedDishes.filter((p) =>
+    hasNutrition(p.nutrition),
+  ).length;
+
+  // Show whenever there's anything worth showing — macros, a serving, or a GI
+  // band — so a genuine 0-calorie item (known serving/GI) still renders.
+  if (!hasNutrition(totals) && !serving && !band) return null;
+
+  const servingLabel = serving
+    ? sideCount > 0
+      ? `${serving} + ${sideCount} ${sideCount === 1 ? "side" : "sides"}`
+      : serving
+    : null;
 
   return (
     <div
@@ -60,17 +116,10 @@ export function MealNutrition({
         className,
       )}
     >
-      <span className="inline-flex items-center gap-1 font-semibold">
-        <Flame className="size-3.5 text-saffron-foreground" />
-        {Math.round(totals.calories)} kcal
-      </span>
-      {serving ? (
-        <span className="text-muted-foreground">per {serving}</span>
+      <NutritionFigures totals={totals} />
+      {servingLabel ? (
+        <span className="text-muted-foreground">{servingLabel}</span>
       ) : null}
-      <span className="text-muted-foreground">
-        P {grams(totals.proteinG)} · C {grams(totals.carbsG)} · F{" "}
-        {grams(totals.fatG)}
-      </span>
       {band ? (
         <Badge
           variant={GI_BADGE_VARIANT[band]}
@@ -87,23 +136,18 @@ export function MealNutrition({
   );
 }
 
-/** One meal's contribution to the day — its main dish plus paired sides. */
-export interface DailyNutritionItem {
-  nutrition: DishNutrition | null;
-  pairedDishes: PairedDishDto[];
-}
-
 /**
  * Daily totals across the household's planned slots (P11). Sums calories + macros
- * for every meal (each = main + sides). GI is intentionally omitted — averaging
- * glycemic index across a day is misleading. Renders nothing until at least one
- * planned dish carries nutrition data.
+ * for every passed meal (each = main + sides). GI is intentionally omitted —
+ * averaging glycemic index across a day is misleading. Callers pass the meals that
+ * should count (e.g. excluding rejected/eating-out slots). Renders nothing until
+ * at least one carries nutrition data.
  */
 export function DailyNutritionSummary({
   items,
   className,
 }: {
-  items: DailyNutritionItem[];
+  items: MealPlanItemDto[];
   className?: string;
 }) {
   const totals = sumNutrition(
@@ -125,14 +169,7 @@ export function DailyNutritionSummary({
         <span className="text-xs font-bold tracking-[0.16em] text-muted-foreground uppercase">
           Daily total · per person
         </span>
-        <span className="inline-flex items-center gap-1.5 font-heading text-lg font-bold">
-          <Flame className="size-4 text-saffron-foreground" />
-          {Math.round(totals.calories)} kcal
-        </span>
-        <span className="text-sm text-muted-foreground">
-          Protein {grams(totals.proteinG)} · Carbs {grams(totals.carbsG)} · Fat{" "}
-          {grams(totals.fatG)}
-        </span>
+        <NutritionFigures totals={totals} full />
       </div>
       <span className="text-xs text-muted-foreground">
         Estimated values for dietary reference only.

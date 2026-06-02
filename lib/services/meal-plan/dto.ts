@@ -99,23 +99,35 @@ export interface MealPlanItemDto {
 }
 
 /**
- * Map a `meal_plan_items` row to its DTO. `dishName` comes from a joined
- * `dishes(name)` when present; pass it explicitly to override (e.g. a name the
- * caller already resolved from the candidate set during generation).
+ * Per-dish fields that can be supplied directly instead of read from the joined
+ * `dishes(...)` row. Generation passes these from the candidate set because the
+ * freshly-written row it has in hand carries no dish join. An omitted key falls
+ * back to the joined row; pass an explicit value (incl. `null`) to override.
+ */
+export interface DishFieldOverrides {
+  dishName?: string | null;
+  dishImage?: {
+    imageUrl: string | null;
+    imageAltText: string | null;
+    imageStatus: ImageStatus;
+  } | null;
+  nutrition?: DishNutrition | null;
+}
+
+/**
+ * Map a `meal_plan_items` row to its DTO. Dish fields come from the joined
+ * `dishes(...)` when present; pass `overrides` to supply them directly (e.g.
+ * values the caller already resolved from the candidate set during generation,
+ * where the written row has no dish join).
  *
  * `pairedDishes` defaults to `[]` — package resolution needs a DB lookup, so the
  * server-only `attachPackages` helper fills it in after this pure mapping.
  */
 export function toMealPlanItemDto(
   row: MealPlanItemRow,
-  dishName?: string | null,
-  dishImage?: {
-    imageUrl: string | null;
-    imageAltText: string | null;
-    imageStatus: ImageStatus;
-  } | null,
-  nutrition?: DishNutrition | null,
+  overrides: DishFieldOverrides = {},
 ): MealPlanItemDto {
+  const { dishName, dishImage, nutrition } = overrides;
   return {
     mealPlanItemId: row.id,
     mealPlanId: row.meal_plan_id,

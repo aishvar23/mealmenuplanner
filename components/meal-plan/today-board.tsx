@@ -43,6 +43,17 @@ function needsDecision(item: MealPlanItemDto | null): boolean {
 }
 
 /**
+ * Whether a slot's nutrition should count — it has a dish AND the household still
+ * intends to eat it. Rejected/skipped cells keep their dish_id on the row, so
+ * presence of a dish alone would wrongly fold them into the per-meal strip and the
+ * daily total (BUG fix).
+ */
+function countsForNutrition(item: MealPlanItemDto | null | undefined): boolean {
+  if (!item?.dishId) return false;
+  return item.status !== "rejected" && item.status !== "skipped";
+}
+
+/**
  * Today screen board (P5-1/P5-2/P5-5/P5-6, design/08 § 2). One card per planned
  * slot: generate a suggestion, see its recommendation reason, then accept,
  * suggest another, reject (with a reason → recorded feedback), replace with an
@@ -87,13 +98,12 @@ export function TodayBoard({
   const setSlotItem = (slot: string, item: MealPlanItemDto | null) =>
     setItems((prev) => ({ ...prev, [slot]: item }));
 
+  // The daily total only counts meals the household actually intends to eat —
+  // a dish that was rejected or skipped keeps its dish_id on the row, so filter
+  // on status too, not just presence of a dish.
   const dailyItems = slots
     .map((slot) => items[slot])
-    .filter((item): item is MealPlanItemDto => Boolean(item?.dishId))
-    .map((item) => ({
-      nutrition: item.nutrition,
-      pairedDishes: item.pairedDishes,
-    }));
+    .filter((item): item is MealPlanItemDto => countsForNutrition(item));
 
   return (
     <div className="flex flex-col gap-5">
@@ -336,7 +346,7 @@ function SlotCard({
           </p>
         ) : null}
 
-        {hasDish && item ? (
+        {countsForNutrition(item) && item ? (
           <MealNutrition
             nutrition={item.nutrition}
             pairedDishes={item.pairedDishes}

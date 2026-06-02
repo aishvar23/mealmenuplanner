@@ -305,6 +305,25 @@ for (const [name, role] of Object.entries(MEAL_ROLE_OVERRIDES)) {
     fail(`MEAL_ROLE_OVERRIDES["${name}"]: invalid meal_role "${role}"`);
 }
 
+// Validate nutrition (P11): every key is a real dish and every field is present
+// and well-formed, so a missing/typo'd key can't emit a literal `undefined` into
+// the generated SQL (which would fail to apply). Mirrors the migration's checks.
+const SERVING_UNITS = ["cup", "bowl", "plate", "glass", "piece"];
+for (const [name, n] of Object.entries(DISH_NUTRITION)) {
+  const where = `DISH_NUTRITION["${name}"]`;
+  if (!dishNames.has(name)) fail(`${where}: "${name}" is not a seeded dish`);
+  if (!SERVING_UNITS.includes(n.unit))
+    fail(`${where}: invalid serving_unit "${n.unit}"`);
+  if (typeof n.qty !== "number" || !(n.qty > 0))
+    fail(`${where}: serving qty must be a number > 0`);
+  for (const key of ["kcal", "protein", "carbs", "fat"]) {
+    if (typeof n[key] !== "number" || n[key] < 0)
+      fail(`${where}: ${key} must be a number >= 0`);
+  }
+  if (typeof n.gi !== "number" || n.gi < 0 || n.gi > 110)
+    fail(`${where}: gi must be a number in 0..110`);
+}
+
 // ── Validate meal combinations (P10) ────────────────────────────────────────────
 // Every combo: unique name, valid diet, ≥1 distinct member dish that all exist,
 // and diet-coherent with its dishes (a vegetarian combo can't hide a non-veg dish).

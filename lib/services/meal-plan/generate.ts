@@ -123,12 +123,13 @@ export async function generateToday(
 
   return finalizeTodayResult(supabase, {
     mealPlanId: plan.id,
-    mealPlanItem: toMealPlanItemDto(
-      saved,
-      nameById.get(top.dishId) ?? null,
-      imageById.get(top.dishId) ?? null,
-      nutritionById.get(top.dishId) ?? null,
-    ),
+    mealPlanItem: toMealPlanItemDto(saved, {
+      dishName: nameById.get(top.dishId) ?? null,
+      dishImage: imageById.get(top.dishId) ?? null,
+      // Leave undefined on a map miss so the joined row (if any) still wins,
+      // rather than forcing a null that suppresses the fallback.
+      nutrition: nutritionById.get(top.dishId) ?? undefined,
+    }),
     alternatives: toAlternatives(
       recommendations.slice(1),
       nameById,
