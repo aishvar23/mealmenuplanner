@@ -22,6 +22,7 @@ GitHub.
 | 07  | [Household Collaboration Design](07_household_collaboration_design.md)          | Roles, invites, guest lifecycle            | 01, 03, 04 | P2             |
 | 08  | [Meal Planning, Grocery & Prep Design](08_meal_planning_grocery_prep_design.md) | Plan generation, grocery, prep             | 01, 04, 05 | P2             |
 | 09  | [Notifications Design](09_notifications_design.md)                              | Event fan-out, channels                    | 01, 04, 07 | P2             |
+| 10  | [Mobile App Design](10_mobile_app_design.md)                                    | Native iOS/Android (RN + Expo) on the API  | 02, 03, 04 | Post-MVP       |
 
 ## How these map to the MVP roadmap
 
