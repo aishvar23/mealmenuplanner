@@ -35,13 +35,13 @@ This tracker is separate from the web build's
 | ----- | -------------------------- | ------------ | ----------- |
 | M0    | Foundations & backend auth | 8 / 8        | Complete    |
 | M1    | Auth + core daily loop     | 7 / 7        | Complete    |
-| M2    | Full parity                | 0 / 6        | Not started |
+| M2    | Full parity                | 1 / 6        | In progress |
 | M3    | Native push + store launch | 0 / 7        | Not started |
-|       | **Total**                  | **15 / 28**  |             |
+|       | **Total**                  | **16 / 28**  |             |
 
-**Suggested next task:** `M2-1` — onboarding (multi-step, autosave + resume). The
-core daily loop (Today / Week / Grocery) is live; `M2` brings full parity
-(onboarding, household, invites, notifications, settings).
+**Suggested next task:** `M2-2` — household members list + roles / permissions.
+Onboarding (`M2-1`) is live; `M2` continues with household, invites,
+notifications, and settings for full parity.
 
 > **Backend reads added for M1.** The web app reads plans / household lists /
 > the grocery screen server-side in React Server Components, so those had no HTTP
@@ -124,7 +124,17 @@ core daily loop (Today / Week / Grocery) is live; `M2` brings full parity
 
 > Design: §6 (Onboarding / Household / Invites / Notifications / Settings).
 
-- [ ] **M2-1** Onboarding: multi-step flow with autosave + resume.
+- [x] **M2-1** Onboarding: multi-step flow with autosave + resume. _Done:
+      `app/onboarding.tsx` + `src/onboarding/` (draft types, options, completion
+      helpers, step metadata, `useOnboarding`). Six steps (basics → food → schedule
+      → allergies/health → budget → review) mirroring design/06 § 2; debounced
+      field autosave + immediate save on step nav (`PUT /api/onboarding/draft`),
+      the design/06 § 5 save-status strings, resume prompt (Resume / Start over)
+      from `GET …/draft`, and `POST …/complete` on finish (gated on the minimum
+      required set). The tabs layout now routes a signed-in user with no household
+      to onboarding; completion force-refetches households and lands on Today.
+      Reusable `SelectChips` / `TagInput` / `NumberField` added. Mobile `tsc` clean,
+      Prettier clean. Device run deferred (no emulator here)._
 - [ ] **M2-2** Household: members list, roles / permissions.
 - [ ] **M2-3** Household: create / delete, preferences, food / dish preferences.
 - [ ] **M2-4** Invites: create, accept, decline, list.

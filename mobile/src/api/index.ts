@@ -13,6 +13,8 @@ export { newIdempotencyKey } from "./idempotency";
 export { listHouseholds, getHousehold } from "./households";
 export * as mealPlanApi from "./meal-plan";
 export * as groceryApi from "./grocery";
+export * as onboardingApi from "./onboarding";
+export type { OnboardingDraft, SaveDraftInput } from "./onboarding";
 
 // Wire-format types (mirror the backend DTOs — see ./types).
 export type * from "./types";

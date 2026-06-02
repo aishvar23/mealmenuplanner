@@ -12,6 +12,20 @@
 
 export type MealSlot = "breakfast" | "lunch" | "dinner" | "snack";
 
+export type DietType =
+  | "vegetarian"
+  | "vegan"
+  | "eggetarian"
+  | "non_vegetarian"
+  | "jain"
+  | "pescatarian";
+
+export type SpiceLevel = "mild" | "medium" | "spicy";
+
+export type BudgetPreference = "low" | "medium" | "high";
+
+export type DraftStatus = "in_progress" | "completed" | "abandoned";
+
 export type MealItemStatus =
   | "suggested"
   | "accepted"
@@ -205,4 +219,10 @@ export interface GroceryPlanRef {
 export interface GroceryScreen {
   plan: GroceryPlanRef | null;
   list: GroceryList | null;
+}
+
+/** `POST /api/onboarding/complete` — promotes a draft into a live household. */
+export interface OnboardingCompleteResult {
+  householdId: string;
+  status: DraftStatus;
 }

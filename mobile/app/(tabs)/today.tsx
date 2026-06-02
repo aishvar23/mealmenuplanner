@@ -36,7 +36,7 @@ export default function TodayScreen() {
     return (
       <EmptyState
         title="No household yet"
-        hint="Finish setting up your household to start planning meals. Onboarding lands on mobile in M2 — for now, complete it on the web."
+        hint="Finish setting up your household to start planning meals."
       />
     );
   }
@@ -90,7 +90,7 @@ function TodayBoard({ household }: { household: HouseholdSummary }) {
               {canGenerate
                 ? "Generate today's meals from your household preferences."
                 : board.canChange
-                  ? "Choose which meals to plan in your household preferences (on the web for now) to start generating meals."
+                  ? "Choose which meals to plan in your household preferences to start generating meals."
                   : "No meals have been planned for today."}
             </Text>
             {canGenerate ? (
