@@ -10,7 +10,13 @@ export {
 export { newIdempotencyKey } from "./idempotency";
 
 // Endpoint wrappers, grouped by domain.
-export { listHouseholds, getHousehold } from "./households";
+export {
+  listHouseholds,
+  getHousehold,
+  listMembers,
+  updateMember,
+  removeMember,
+} from "./households";
 export * as mealPlanApi from "./meal-plan";
 export * as groceryApi from "./grocery";
 export * as onboardingApi from "./onboarding";
@@ -18,3 +24,5 @@ export type { OnboardingDraft, SaveDraftInput } from "./onboarding";
 
 // Wire-format types (mirror the backend DTOs — see ./types).
 export type * from "./types";
+// Runtime constant (not a type — can't ride the `export type *` above).
+export { CAN_FLAG_KEYS } from "./types";

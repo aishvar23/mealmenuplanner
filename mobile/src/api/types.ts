@@ -45,7 +45,17 @@ export type FeedbackType =
   | "do_not_suggest_again"
   | "other";
 
-export type MemberRole = "owner" | "admin" | "member" | "guest";
+export type MemberRole = "owner" | "admin" | "member" | "viewer";
+
+export type MembershipType = "permanent" | "temporary_guest";
+
+export type MemberStatus =
+  | "invited"
+  | "active"
+  | "declined"
+  | "expired"
+  | "removed"
+  | "left";
 
 /** Per-serving nutrition (P11). Every field independently nullable. */
 export interface DishNutrition {
@@ -170,12 +180,61 @@ export interface HouseholdPreferences {
   varietyGapDays: number;
 }
 
-/** The caller's own permissions, embedded in the household read (`can_*` subset). */
-export interface CurrentUserPermissions {
-  role: MemberRole;
+/** The eight `can_*` permission flags in camelCase (`CanFlagsDto`). */
+export interface CanFlags {
+  canViewPlan: boolean;
+  canSuggestMeals: boolean;
   canChangeTodayMenu: boolean;
   canChangeWeeklySchedule: boolean;
   canManageGroceryList: boolean;
+  canInviteMembers: boolean;
+  canRemoveMembers: boolean;
+  canEditHouseholdPreferences: boolean;
+}
+
+/** The ordered `can_*` flag keys, for iterating permission toggles in the UI. */
+export const CAN_FLAG_KEYS = [
+  "canViewPlan",
+  "canSuggestMeals",
+  "canChangeTodayMenu",
+  "canChangeWeeklySchedule",
+  "canManageGroceryList",
+  "canInviteMembers",
+  "canRemoveMembers",
+  "canEditHouseholdPreferences",
+] as const satisfies readonly (keyof CanFlags)[];
+
+/** The caller's own role + permissions, embedded in the household read. */
+export interface CurrentUserPermissions extends CanFlags {
+  role: MemberRole;
+  membershipType: MembershipType;
+}
+
+/** One household member (`MemberDto`, `GET .../members` `data[]` item). */
+export interface Member {
+  memberId: string;
+  userId: string;
+  /** Null until the user sets a name. */
+  displayName: string | null;
+  role: MemberRole;
+  membershipType: MembershipType;
+  status: MemberStatus;
+  /** Null for permanent members; a deadline for temporary guests. */
+  expiresAt: string | null;
+  joinedAt: string | null;
+  permissions: CanFlags;
+}
+
+/** `PATCH .../members/{memberId}` body — a role change and/or flag overrides. */
+export interface UpdateMemberInput {
+  role?: MemberRole;
+  permissions?: Partial<CanFlags>;
+}
+
+/** `POST .../members/{memberId}/remove` response. */
+export interface RemoveMemberResult {
+  memberId: string;
+  status: "removed";
 }
 
 /** `GET /api/households/{householdId}` (`HouseholdDto` subset). */

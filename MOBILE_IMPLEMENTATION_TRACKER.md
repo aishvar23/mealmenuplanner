@@ -35,13 +35,13 @@ This tracker is separate from the web build's
 | ----- | -------------------------- | ------------ | ----------- |
 | M0    | Foundations & backend auth | 8 / 8        | Complete    |
 | M1    | Auth + core daily loop     | 7 / 7        | Complete    |
-| M2    | Full parity                | 1 / 6        | In progress |
+| M2    | Full parity                | 2 / 6        | In progress |
 | M3    | Native push + store launch | 0 / 7        | Not started |
-|       | **Total**                  | **16 / 28**  |             |
+|       | **Total**                  | **17 / 28**  |             |
 
-**Suggested next task:** `M2-2` — household members list + roles / permissions.
-Onboarding (`M2-1`) is live; `M2` continues with household, invites,
-notifications, and settings for full parity.
+**Suggested next task:** `M2-3` — household create / delete, preferences, food /
+dish preferences. Onboarding (`M2-1`) and the members list (`M2-2`) are live; `M2`
+continues with household management, invites, notifications, and settings.
 
 > **Backend reads added for M1.** The web app reads plans / household lists /
 > the grocery screen server-side in React Server Components, so those had no HTTP
@@ -135,7 +135,16 @@ notifications, and settings for full parity.
       to onboarding; completion force-refetches households and lands on Today.
       Reusable `SelectChips` / `TagInput` / `NumberField` added. Mobile `tsc` clean,
       Prettier clean. Device run deferred (no emulator here)._
-- [ ] **M2-2** Household: members list, roles / permissions.
+- [x] **M2-2** Household: members list, roles / permissions. _Done: the Household
+      tab (`app/(tabs)/household.tsx`) now lists the roster via
+      `GET …/members` (`useMembers`), sorted active-first. Tapping a member opens
+      `MemberSheet`; a caller with `can_remove_members` can change a non-owner /
+      non-self member's role (`PATCH …/members/{id}`) — re-applying that role's
+      default flags — toggle individual `can_\*` flags, or remove them
+    (`POST …/members/{id}/remove`). Owner + self rows are read-only (ownership
+    transfer not exposed in M2-2). Extended the mobile wire types with the full
+    `CanFlags`set +`Member`DTO (and corrected`MemberRole` `guest`→`viewer`to
+    match the DB enum). Mobile`tsc` clean, Prettier clean. Device run deferred.\_
 - [ ] **M2-3** Household: create / delete, preferences, food / dish preferences.
 - [ ] **M2-4** Invites: create, accept, decline, list.
 - [ ] **M2-5** Notifications: list, mark read, read-all, preferences.
