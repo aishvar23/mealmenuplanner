@@ -14,6 +14,17 @@ export {
   type RenderedEmail,
 } from "./invite-email";
 export { renderEventEmail, type EventEmailParams } from "./event-email";
+export {
+  ExpoPushNotifier,
+  type EventPushParams,
+  type PushTarget,
+} from "./expo-push";
+export {
+  HttpExpoPushTransport,
+  getExpoPushTransport,
+  type ExpoPushMessage,
+  type ExpoPushTransport,
+} from "./expo-push-transport";
 export { retryWithBackoff, type RetryOptions } from "./retry";
 export { escapeHtml } from "./html";
 export {
@@ -21,4 +32,10 @@ export {
   buildDefaultRegistry,
   getNotifierRegistry,
 } from "./registry";
-export { sendInviteEmail, sendEventEmail, isEmailConfigured } from "./router";
+export {
+  sendInviteEmail,
+  sendEventEmail,
+  isEmailConfigured,
+  sendEventPush,
+  isPushConfigured,
+} from "./router";

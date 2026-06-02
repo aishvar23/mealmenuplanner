@@ -36,12 +36,13 @@ This tracker is separate from the web build's
 | M0    | Foundations & backend auth | 8 / 8        | Complete    |
 | M1    | Auth + core daily loop     | 7 / 7        | Complete    |
 | M2    | Full parity                | 6 / 6        | Complete    |
-| M3    | Native push + store launch | 0 / 7        | Not started |
-|       | **Total**                  | **21 / 28**  |             |
+| M3    | Native push + store launch | 2 / 7        | In progress |
+|       | **Total**                  | **23 / 28**  |             |
 
-**Suggested next task:** `M3-1` — `device_tokens` table + `POST
-/api/notifications/device-tokens`. M2 brought the app to full feature parity with
-the web; M3 adds native push and store distribution.
+**Suggested next task:** `M3-3` — device push registration after sign-in (Expo
+token → `POST …/device-tokens`). `M3-4` / `M3-6` / `M3-7` (developer accounts,
+store builds, submission) need external accounts + real devices and can't be done
+from this environment.
 
 > **Backend reads added for M1.** The web app reads plans / household lists /
 > the grocery screen server-side in React Server Components, so those had no HTTP
@@ -179,8 +180,8 @@ match the DB enum). Mobile`tsc` clean, Prettier clean. Device run deferred.\_
 - [x] **M2-6** Settings: profile, household switcher, sign out. _Done: the More
       tab shows a read-only profile (email + display name from the session — no
       profile-edit endpoint exists), a **Switch household** row → `(settings)/
-  households` (`useHouseholdSwitcher`: tap to switch active via `PUT
-  …/active`, star to set preferred via `PUT …/preferred`, seeding the
+households` (`useHouseholdSwitcher`: tap to switch active via `PUT
+…/active`, star to set preferred via `PUT …/preferred`, seeding the
       refreshed list into the shared cache so the daily loop follows instantly),
       links to Notifications / Email notifications, and Sign out. Mobile `tsc`
       clean, Prettier pass. Device run deferred._
@@ -199,8 +200,17 @@ match the DB enum). Mobile`tsc` clean, Prettier clean. Device run deferred.\_
       (table + RPC). Service `lib/services/notification/device-token.ts`
       (`registerDeviceToken`) + the route with 3 tests. Web `tsc` + tests pass; the
       0029 SECURITY DEFINER advisor is the same by-design lint as the other RPCs._
-- [ ] **M3-2** Expo Push adapter in the notifier — additive; email + in-app stay
-      intact.
+- [x] **M3-2** Expo Push adapter in the notifier — additive; email + in-app stay
+      intact. _Done: `ExpoPushNotifier` + `HttpExpoPushTransport` (batches to the
+      Expo Push API, gated on `EXPO_ACCESS_TOKEN` — a true no-op when unset, like
+      the Resend email gate), registered in the notifier registry and exposed via
+      the router (`sendEventPush` / `isPushConfigured`). A `push-fanout` runs in
+      `safeEmitHouseholdEvent` AFTER the in-app write + email fan-out, resolving
+      recipient device tokens via a new `get_event_push_tokens` SECURITY DEFINER
+      RPC (migration `20260602140000`, applied to cloud dev) — push opt-in = having
+      a registered token, so it's not gated by the email prefs. `database.types.ts`
+      hand-patched for the RPC. 7 new tests; full `lib/events` suite + web `tsc`
+      pass._
 - [ ] **M3-3** Device push registration after sign-in.
 - [ ] **M3-4** Set up Apple Developer + Google Play Console accounts.
 - [ ] **M3-5** EAS Build config + signing credentials; bundle / application IDs.

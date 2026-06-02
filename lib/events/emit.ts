@@ -6,6 +6,7 @@ import type { Database } from "@/lib/db/database.types";
 import { InternalError } from "@/lib/errors";
 
 import { sendEventEmails } from "./email-fanout";
+import { sendEventPushes } from "./push-fanout";
 import { renderNotification } from "./templates";
 import type { EmitEventInput } from "./types";
 
@@ -85,6 +86,19 @@ export async function safeEmitHouseholdEvent(
     await sendEventEmails(supabase, input);
   } catch (error) {
     console.error("[events] failed to fan out event email", {
+      eventType: input.eventType,
+      householdId: input.householdId,
+      error,
+    });
+  }
+
+  // Native push (M3-2), best-effort and a no-op when EXPO_ACCESS_TOKEN is unset.
+  // Kept separate from email so a push glitch never masks the committed in-app
+  // notification or the email send.
+  try {
+    await sendEventPushes(supabase, input);
+  } catch (error) {
+    console.error("[events] failed to fan out event push", {
       eventType: input.eventType,
       householdId: input.householdId,
       error,

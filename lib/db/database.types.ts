@@ -1542,6 +1542,19 @@ export type Database = {
           user_id: string;
         }[];
       };
+      get_event_push_tokens: {
+        // p_extra_recipient_ids hand-adjusted to `| null` (the push fan-out passes
+        // null when there are no extra recipients), matching the email recipients fn.
+        Args: {
+          p_extra_recipient_ids: string[] | null;
+          p_household_id: string;
+        };
+        Returns: {
+          platform: string;
+          token: string;
+          user_id: string;
+        }[];
+      };
       get_invite_preview: {
         Args: { p_token_hash: string };
         Returns: {
