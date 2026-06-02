@@ -34,14 +34,21 @@ This tracker is separate from the web build's
 | Phase | Area                       | Done / Total | Status      |
 | ----- | -------------------------- | ------------ | ----------- |
 | M0    | Foundations & backend auth | 8 / 8        | Complete    |
-| M1    | Auth + core daily loop     | 0 / 7        | Not started |
+| M1    | Auth + core daily loop     | 7 / 7        | Complete    |
 | M2    | Full parity                | 0 / 6        | Not started |
 | M3    | Native push + store launch | 0 / 7        | Not started |
-|       | **Total**                  | **8 / 28**   |             |
+|       | **Total**                  | **15 / 28**  |             |
 
-**Suggested next task:** `M1-1` — sign in / sign up / magic-link screens with
-secure session persistence (the auth client + secure-store session from M0-7 are
-ready). `M1` then builds the core daily loop (Today / Week / Grocery).
+**Suggested next task:** `M2-1` — onboarding (multi-step, autosave + resume). The
+core daily loop (Today / Week / Grocery) is live; `M2` brings full parity
+(onboarding, household, invites, notifications, settings).
+
+> **Backend reads added for M1.** The web app reads plans / household lists /
+> the grocery screen server-side in React Server Components, so those had no HTTP
+> routes. M1 added thin, additive, member-gated GET routes the mobile client
+> needs (zero web change, documented in `design/04_api_design.md`):
+> `GET /api/households`, `GET …/meal-plans/today`, `GET …/meal-plans/week`, and
+> `GET …/grocery-list/current`. All reuse existing services + have route tests.
 
 ---
 
@@ -89,15 +96,29 @@ ready). `M1` then builds the core daily loop (Today / Week / Grocery).
 
 > Design: §3 (auth), §6 (Today / Week / Grocery).
 
-- [ ] **M1-1** Sign in / sign up / magic-link screens; secure session
-      persistence and refresh.
-- [ ] **M1-2** Google OAuth deep-link flow (`expo-auth-session` +
-      `myapp://auth-callback`).
-- [ ] **M1-3** Today board: generate, view, accept / reject a meal.
-- [ ] **M1-4** Today: swap / suggest-another / lock-unlock.
-- [ ] **M1-5** Today: eating-out + mark-cooked.
-- [ ] **M1-6** Week plan view.
-- [ ] **M1-7** Grocery list: view, check off items, regenerate (idempotent).
+- [x] **M1-1** Sign in / sign up / magic-link screens; secure session
+      persistence and refresh. _Done: `(auth)/sign-in` with email/password,
+      sign-up, and magic-link modes (`src/auth/actions.ts`), friendly error
+      mapping, and a "check your email" confirmation state. Session persists via
+      the M0 secure-store adapter; the auth gate redirects on `onAuthStateChange`._
+- [x] **M1-2** Google OAuth deep-link flow (`expo-auth-session` +
+      `mmp://auth-callback`). _Done: `signInWithGoogle` (`src/auth/oauth.ts`) via
+      `signInWithOAuth({ skipBrowserRedirect })` + `WebBrowser.openAuthSessionAsync`,
+      handling both PKCE (`exchangeCodeForSession`) and implicit (`setSession`)
+      redirects. `useAuthDeepLinks` (root layout) also turns magic-link / OAuth
+      deep links arriving through the OS into a session (warm + cold start)._
+- [x] **M1-3** Today board: generate, view, accept / reject a meal. _Done:
+      `(tabs)/today` + `useTodayBoard`; reads `GET …/meal-plans/today`, generates
+      missing configured slots (idempotent), reject-with-reason sheet._
+- [x] **M1-4** Today: swap / suggest-another / lock-unlock. _Done: candidates
+      picker (`SwapSheet` → `replace`), `suggest-another`, lock/unlock toggle._
+- [x] **M1-5** Today: eating-out + mark-cooked. _Done: eating-out + cooked
+      actions on the `MealCard`, with the eating-out body + "plan a dish" return._
+- [x] **M1-6** Week plan view. _Done: `(tabs)/week` + `useWeekBoard`; reads
+      `GET …/meal-plans/week` grouped by day, with idempotent week generation._
+- [x] **M1-7** Grocery list: view, check off items, regenerate (idempotent).
+      _Done: `(tabs)/grocery` + `useGrocery`; reads `GET …/grocery-list/current`,
+      optimistic check-off, category grouping, idempotent regenerate._
 
 ## M2 — Full parity
 

@@ -235,6 +235,30 @@ plus a `household_members.can_*` flag or `role`, per doc 01); `(member)` means
 
 ### 4.1 Households
 
+#### `GET /api/households` — List the caller's households
+
+- **Permission:** any authenticated user (member-scoped result).
+- **Service:** `household` (`listUserHouseholds`).
+- **Success — 200 OK:** the standard `{ data, page }` collection envelope (§1),
+  each item a household the caller is an active member of:
+  ```json
+  {
+    "data": [
+      {
+        "householdId": "5b1f8c0e-9a2d-4e7b-bc31-2f0a6d4e1c88",
+        "name": "Suhane Household",
+        "role": "owner",
+        "isActive": true,
+        "isPreferred": true
+      }
+    ],
+    "page": { "nextCursor": null, "hasMore": false }
+  }
+  ```
+  The web app resolves this server-side (a React Server Component), so it never
+  needed an HTTP route; the **mobile client** (design/10 § 6) has no server
+  context and discovers the household to operate on through this read.
+
 #### `POST /api/households` — Create household
 
 - **Permission:** any authenticated user (becomes `owner`).
@@ -548,6 +572,45 @@ Backed by `meal_plans` / `meal_plan_items` (doc 01). Services: `mealPlan` (+
 `recommendation` for dish selection). Generation endpoints honor
 `Idempotency-Key` (§3).
 
+> **Plan reads (`GET`)** below render server-side in the web app (React Server
+> Components calling `getDayPlan` / `getWeekPlan`), so they were never exposed as
+> HTTP routes. The **mobile client** (design/10 § 6) reads the _existing_ plan
+> through them rather than re-`generate`-ing (a write that would produce a fresh
+> suggestion). Both are `(member)`-gated in the service (404 for a non-member).
+
+#### `GET /api/households/{householdId}/meal-plans/today?date={YYYY-MM-DD}` — Read a day's plan
+
+- **Permission:** `(member)`.
+- **Query:** `date` — optional, defaults to today (UTC).
+- **Success — 200 OK:** the day's items ordered by slot, each a
+  `MealPlanItemDto` (the same shape generation returns):
+  ```json
+  {
+    "date": "2026-05-22",
+    "items": [
+      /* MealPlanItemDto[] */
+    ]
+  }
+  ```
+- **Errors:** `VALIDATION_ERROR` (malformed `date`), `NOT_FOUND` (non-member).
+
+#### `GET /api/households/{householdId}/meal-plans/week?startDate={…}&endDate={…}` — Read a date range
+
+- **Permission:** `(member)`.
+- **Query:** `startDate`, `endDate` — both required real calendar dates,
+  `endDate >= startDate`, span at most 31 days (mirrors weekly generation).
+- **Success — 200 OK:** items ordered by date then slot:
+  ```json
+  {
+    "startDate": "2026-05-19",
+    "endDate": "2026-05-25",
+    "items": [
+      /* … */
+    ]
+  }
+  ```
+- **Errors:** `VALIDATION_ERROR` (malformed/out-of-range window), `NOT_FOUND`.
+
 #### `POST /api/households/{householdId}/meal-plans/today/generate` — Generate today's meal
 
 - **Permission:** `can_change_today_menu`.
@@ -663,6 +726,24 @@ Backed by `meal_plans` / `meal_plan_items` (doc 01). Services: `mealPlan` (+
 ### 4.6 Grocery
 
 Backed by `grocery_lists` / `grocery_list_items` (doc 01). Service: `grocery`.
+
+#### `GET /api/households/{householdId}/grocery-list/current` — Current plan's grocery screen
+
+- **Permission:** `(member)`.
+- **Success — 200 OK:** the household's **current** plan and its list, resolved
+  server-side (the active plan covering today, preferring the longest horizon):
+  ```json
+  {
+    "plan": { "mealPlanId": "p8...", "startDate": "…", "endDate": "…" },
+    "list": {
+      /* the GroceryList object below, or null if the plan has no list yet */
+    }
+  }
+  ```
+  `plan` is `null` when the household has no active plan. The web grocery page
+  resolves this in a React Server Component (`getGroceryScreen`); the **mobile
+  client** (design/10 § 6) uses this endpoint so it can show the list — and offer
+  "generate" when `list` is `null` — without first knowing the `mealPlanId`.
 
 #### `GET /api/households/{householdId}/grocery-list?mealPlanId={mealPlanId}` — Get grocery list
 
@@ -859,6 +940,7 @@ guard (active membership plus the `household_members.can_*` flag or `role` from
 
 | Method & Path                                                  | Service                       | Permission                                 |
 | -------------------------------------------------------------- | ----------------------------- | ------------------------------------------ |
+| `GET /api/households`                                          | `household`                   | auth (member-scoped)                       |
 | `POST /api/households`                                         | `household`                   | auth (becomes `owner`)                     |
 | `GET /api/households/{householdId}`                            | `household`                   | `(member)`                                 |
 | `PATCH /api/households/{householdId}/preferences`              | `household`                   | `can_edit_household_preferences` / `owner` |
@@ -873,12 +955,15 @@ guard (active membership plus the `household_members.can_*` flag or `role` from
 | `PATCH /api/households/{householdId}/members/{memberId}`       | `household`                   | `can_remove_members` / `owner`             |
 | `POST /api/households/{householdId}/members/{memberId}/remove` | `household`                   | `can_remove_members` / `owner`             |
 | `POST /api/households/{householdId}/leave`                     | `household`                   | `(member)` (self)                          |
+| `GET /api/households/{householdId}/meal-plans/today`           | `mealPlan`                    | `(member)`                                 |
+| `GET /api/households/{householdId}/meal-plans/week`            | `mealPlan`                    | `(member)`                                 |
 | `POST /api/households/{householdId}/meal-plans/today/generate` | `mealPlan` + `recommendation` | `can_change_today_menu`                    |
 | `POST /api/households/{householdId}/meal-plans/week/generate`  | `mealPlan` + `recommendation` | `can_change_weekly_schedule`               |
 | `POST /api/meal-plan-items/{mealPlanItemId}/replace`           | `mealPlan`                    | `can_change_today_menu`                    |
 | `POST /api/meal-plan-items/{mealPlanItemId}/eating-out`        | `mealPlan`                    | `can_change_today_menu`                    |
 | `POST /api/meal-plan-items/{mealPlanItemId}/lock`              | `mealPlan`                    | `can_change_today_menu`                    |
 | `POST /api/meal-plan-items/{mealPlanItemId}/unlock`            | `mealPlan`                    | `can_change_today_menu`                    |
+| `GET /api/households/{householdId}/grocery-list/current`       | `grocery`                     | `(member)`                                 |
 | `GET /api/households/{householdId}/grocery-list`               | `grocery`                     | `(member)`                                 |
 | `POST /api/households/{householdId}/grocery-list/regenerate`   | `grocery`                     | `can_manage_grocery_list`                  |
 | `GET /api/notifications`                                       | `notification`                | auth (recipient)                           |

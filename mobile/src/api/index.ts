@@ -8,3 +8,11 @@ export {
   type ClientErrorCode,
 } from "./errors";
 export { newIdempotencyKey } from "./idempotency";
+
+// Endpoint wrappers, grouped by domain.
+export { listHouseholds, getHousehold } from "./households";
+export * as mealPlanApi from "./meal-plan";
+export * as groceryApi from "./grocery";
+
+// Wire-format types (mirror the backend DTOs — see ./types).
+export type * from "./types";
