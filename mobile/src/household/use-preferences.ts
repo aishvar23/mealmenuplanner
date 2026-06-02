@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   getHousehold,
@@ -11,6 +11,7 @@ import {
   type DietType,
   type HouseholdPreferences,
   type MealSlot,
+  type MyFoodPreferences,
   type PreferencesPatch,
   type SpiceLevel,
 } from "@/api";
@@ -88,10 +89,17 @@ export function usePreferencesEditor(householdId: string) {
     householdQuery.data?.currentUserPermissions.canEditHouseholdPreferences ??
     false;
 
-  // Seed the form once the preferences load (and re-seed if they change underneath).
+  // Seed the form from the server prefs, and re-seed whenever they actually
+  // change underneath (react-query's structural sharing keeps the same object
+  // reference until the data changes). Without this the form would seed once and
+  // then silently save a stale snapshot over a concurrent edit by another member.
+  const seededFrom = useRef<HouseholdPreferences | null>(null);
   useEffect(() => {
-    if (prefs && form === null) setForm(toForm(prefs));
-  }, [prefs, form]);
+    if (prefs && prefs !== seededFrom.current) {
+      seededFrom.current = prefs;
+      setForm(toForm(prefs));
+    }
+  }, [prefs]);
 
   const save = useMutation({
     mutationFn: (f: PrefsForm) => updatePreferencesApi(householdId, toPatch(f)),
@@ -145,10 +153,16 @@ export function useFoodPreferences(householdId: string) {
     queryFn: () => getMyFoodPreferences(householdId),
   });
 
+  // Seed from the server, re-seeding when the liked-dishes read changes
+  // underneath (same rationale as usePreferencesEditor — avoid stale-snapshot
+  // saves that clobber a concurrent edit).
+  const seededFrom = useRef<MyFoodPreferences | null>(null);
   useEffect(() => {
-    if (query.data && likedDishes === null)
+    if (query.data && query.data !== seededFrom.current) {
+      seededFrom.current = query.data;
       setLikedDishes(query.data.likedDishes);
-  }, [query.data, likedDishes]);
+    }
+  }, [query.data]);
 
   const save = useMutation({
     mutationFn: (dishes: string[]) => updateFoodApi(householdId, dishes),

@@ -19,6 +19,8 @@ export {
 } from "./mark-read";
 export {
   registerDeviceToken,
+  deregisterDeviceToken,
   type DevicePlatform,
   type RegisterDeviceTokenResult,
+  type DeregisterDeviceTokenResult,
 } from "./device-token";

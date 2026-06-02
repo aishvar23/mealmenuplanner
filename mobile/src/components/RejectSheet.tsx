@@ -13,13 +13,14 @@ import { Sheet } from "./Sheet";
  * feeds the exclusion logic server-side.
  */
 
+// Mirrors the web's REJECT_FEEDBACK_OPTIONS (lib/meal-plan/labels.ts): only
+// `feedback_type` enum values the reject validator accepts (design/08 § 2).
 const OPTIONS: { value: FeedbackType; label: string }[] = [
-  { value: "disliked", label: "Don't like this dish" },
-  { value: "too_spicy", label: "Too spicy" },
-  { value: "too_healthy", label: "Too healthy" },
-  { value: "too_involved", label: "Too much effort" },
+  { value: "too_much_effort", label: "Too much effort" },
+  { value: "ingredients_unavailable", label: "Ingredients unavailable" },
+  { value: "kids_disliked", label: "Kids didn't like it" },
+  { value: "disliked", label: "Didn't like it" },
   { value: "do_not_suggest_again", label: "Never suggest this again" },
-  { value: "other", label: "Other reason" },
 ];
 
 export function RejectSheet({

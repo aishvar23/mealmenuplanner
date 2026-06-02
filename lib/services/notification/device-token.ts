@@ -56,3 +56,43 @@ export async function registerDeviceToken(
 
   return { deviceTokenId: data };
 }
+
+export interface DeregisterDeviceTokenResult {
+  removed: boolean;
+}
+
+/**
+ * Remove the caller's device token on sign-out (design/10 § 7), so a signed-out
+ * user stops receiving the household's push on this device. Deletes only a row
+ * the caller still owns (`user_id = auth.uid()`, enforced by RLS and the explicit
+ * filter), so it can't disturb a token already reassigned to another account on a
+ * shared device. Idempotent: deleting an already-gone token reports `removed:false`.
+ */
+export async function deregisterDeviceToken(
+  body: JsonObject,
+): Promise<DeregisterDeviceTokenResult> {
+  const user = await requireAuthUser();
+
+  const token = typeof body.token === "string" ? body.token.trim() : "";
+  if (token.length === 0) {
+    throw new ValidationError("A device token is required.", [
+      { field: "token", rule: "required" },
+    ]);
+  }
+
+  const supabase = await createServerSupabaseClient();
+  const { data, error } = await supabase
+    .from("device_tokens")
+    .delete()
+    .eq("user_id", user.id)
+    .eq("token", token)
+    .select("id");
+
+  if (error) {
+    throw new InternalError("Failed to deregister the device token.", {
+      cause: error,
+    });
+  }
+
+  return { removed: (data?.length ?? 0) > 0 };
+}

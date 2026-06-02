@@ -8,7 +8,7 @@ import { InternalError } from "@/lib/errors";
 import { sendEventEmails } from "./email-fanout";
 import { sendEventPushes } from "./push-fanout";
 import { renderNotification } from "./templates";
-import type { EmitEventInput } from "./types";
+import type { EmitEventInput, RenderedNotification } from "./types";
 
 /**
  * `lib/events` — the activity-event writer + notification fan-out (P8-1/P8-2,
@@ -36,8 +36,10 @@ type ServerClient = SupabaseClient<Database>;
 export async function emitHouseholdEvent(
   supabase: ServerClient,
   input: EmitEventInput,
+  rendered?: RenderedNotification,
 ): Promise<void> {
-  const { title, message } = renderNotification(input.eventType, input.vars);
+  const { title, message } =
+    rendered ?? renderNotification(input.eventType, input.vars);
 
   const { error } = await supabase.rpc("emit_household_event", {
     p_household_id: input.householdId,
@@ -68,8 +70,13 @@ export async function safeEmitHouseholdEvent(
   supabase: ServerClient,
   input: EmitEventInput,
 ): Promise<void> {
+  // Render the title/message once and reuse it for the in-app row and both
+  // fan-outs, so email and push read identically (design/09 § 6) without
+  // re-rendering the same template three times.
+  const rendered = renderNotification(input.eventType, input.vars);
+
   try {
-    await emitHouseholdEvent(supabase, input);
+    await emitHouseholdEvent(supabase, input, rendered);
   } catch (error) {
     console.error("[events] failed to emit household event", {
       eventType: input.eventType,
@@ -79,29 +86,27 @@ export async function safeEmitHouseholdEvent(
     return;
   }
 
-  // In-app write committed — now fan out opt-in email (P9), best-effort and a
-  // no-op when no email transport is configured. Kept separate so an email
-  // glitch never rolls back or masks the committed in-app notification.
-  try {
-    await sendEventEmails(supabase, input);
-  } catch (error) {
+  // In-app write committed — now fan out opt-in email (P9) and native push
+  // (M3-2). Both are best-effort, independent, and no-ops when their transport
+  // is unconfigured, so run them concurrently rather than serializing the two
+  // independent RPC + send round-trips. allSettled keeps one channel's failure
+  // from masking the other or the committed in-app notification.
+  const [emailResult, pushResult] = await Promise.allSettled([
+    sendEventEmails(supabase, input, rendered),
+    sendEventPushes(supabase, input, rendered),
+  ]);
+  if (emailResult.status === "rejected") {
     console.error("[events] failed to fan out event email", {
       eventType: input.eventType,
       householdId: input.householdId,
-      error,
+      error: emailResult.reason,
     });
   }
-
-  // Native push (M3-2), best-effort and a no-op when EXPO_ACCESS_TOKEN is unset.
-  // Kept separate from email so a push glitch never masks the committed in-app
-  // notification or the email send.
-  try {
-    await sendEventPushes(supabase, input);
-  } catch (error) {
+  if (pushResult.status === "rejected") {
     console.error("[events] failed to fan out event push", {
       eventType: input.eventType,
       householdId: input.householdId,
-      error,
+      error: pushResult.reason,
     });
   }
 }

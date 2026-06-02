@@ -1,7 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
 
-import { isApiError, notificationsApi, type NotificationItem } from "@/api";
+import {
+  isApiError,
+  notificationsApi,
+  type NotificationInbox,
+  type NotificationItem,
+} from "@/api";
 
 /**
  * Notifications inbox orchestration (M2-5, design/09 § 7). Loads the first page
@@ -21,27 +26,53 @@ export function useNotifications() {
   const query = useQuery({
     queryKey: notificationsQueryKey,
     queryFn: () => notificationsApi.listNotifications({ limit: PAGE_SIZE }),
+    staleTime: 60_000,
   });
 
   const items: NotificationItem[] = query.data?.items ?? [];
   const unreadCount = query.data?.unreadCount ?? 0;
 
-  const markRead = useCallback(
-    async (id: string) => {
-      const item = items.find((n) => n.id === id);
-      if (item?.readAt) return; // already read — no-op
+  // Optimistic mark-read: flip the one item's readAt and decrement the badge in
+  // the cache instead of refetching the whole inbox on every tap (which caused a
+  // request-per-tap storm + list flicker). Rolls back on error.
+  const markReadMutation = useMutation({
+    mutationFn: (id: string) => notificationsApi.markRead(id),
+    onMutate: async (id: string) => {
       setBusyId(id);
       setActionError(null);
-      try {
-        await notificationsApi.markRead(id);
-        await qc.invalidateQueries({ queryKey: notificationsQueryKey });
-      } catch (e) {
-        setActionError(errorMessage(e));
-      } finally {
-        setBusyId(null);
+      await qc.cancelQueries({ queryKey: notificationsQueryKey });
+      const previous = qc.getQueryData<NotificationInbox>(
+        notificationsQueryKey,
+      );
+      if (previous) {
+        qc.setQueryData<NotificationInbox>(notificationsQueryKey, {
+          ...previous,
+          unreadCount: Math.max(0, previous.unreadCount - 1),
+          items: previous.items.map((n) =>
+            n.id === id && !n.readAt
+              ? { ...n, readAt: new Date().toISOString() }
+              : n,
+          ),
+        });
       }
+      return { previous };
     },
-    [items, qc],
+    onError: (e, _id, context) => {
+      if (context?.previous) {
+        qc.setQueryData(notificationsQueryKey, context.previous);
+      }
+      setActionError(errorMessage(e));
+    },
+    onSettled: () => setBusyId(null),
+  });
+
+  const markRead = useCallback(
+    (id: string) => {
+      const item = items.find((n) => n.id === id);
+      if (item?.readAt) return; // already read — no-op
+      markReadMutation.mutate(id);
+    },
+    [items, markReadMutation],
   );
 
   const readAll = useMutation({

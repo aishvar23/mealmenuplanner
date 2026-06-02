@@ -6,7 +6,7 @@ import type { Database } from "@/lib/db/database.types";
 
 import { isPushConfigured, sendEventPush } from "./notifier";
 import { renderNotification } from "./templates";
-import type { EmitEventInput } from "./types";
+import type { EmitEventInput, RenderedNotification } from "./types";
 
 /**
  * Native-push fan-out for a household event (M3-2, design/10 § 7). The additive
@@ -30,6 +30,7 @@ type ServerClient = SupabaseClient<Database>;
 export async function sendEventPushes(
   supabase: ServerClient,
   input: EmitEventInput,
+  rendered?: RenderedNotification,
 ): Promise<void> {
   // No transport → nothing to do, and crucially no DB round-trip.
   if (!isPushConfigured()) return;
@@ -49,7 +50,8 @@ export async function sendEventPushes(
   if (!targets || targets.length === 0) return;
 
   // Reuse the in-app render so push and inbox read identically (design/09 § 6).
-  const { title, message } = renderNotification(input.eventType, input.vars);
+  const { title, message } =
+    rendered ?? renderNotification(input.eventType, input.vars);
 
   // sendEventPush already swallows transport errors and batches internally.
   await sendEventPush({

@@ -7,7 +7,7 @@ import type { Database } from "@/lib/db/database.types";
 import { categoryForEvent } from "./categories";
 import { isEmailConfigured, sendEventEmail } from "./notifier";
 import { renderNotification } from "./templates";
-import type { EmitEventInput } from "./types";
+import type { EmitEventInput, RenderedNotification } from "./types";
 
 /**
  * Email fan-out for a household event (P9). The opt-in companion to the in-app
@@ -30,6 +30,7 @@ type ServerClient = SupabaseClient<Database>;
 export async function sendEventEmails(
   supabase: ServerClient,
   input: EmitEventInput,
+  rendered?: RenderedNotification,
 ): Promise<void> {
   // No transport → nothing to do, and crucially no DB round-trip.
   if (!isEmailConfigured()) return;
@@ -55,7 +56,8 @@ export async function sendEventEmails(
   if (!recipients || recipients.length === 0) return;
 
   // Reuse the in-app render so email and inbox read identically (design/09 § 6).
-  const { title, message } = renderNotification(input.eventType, input.vars);
+  const { title, message } =
+    rendered ?? renderNotification(input.eventType, input.vars);
   const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
 
   // One failed send must not abort the rest; sendEventEmail already swallows

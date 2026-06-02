@@ -1,5 +1,6 @@
 import { apiRequest } from "./client";
 import type {
+  DeregisterDeviceTokenResult,
   DevicePlatform,
   MarkReadResult,
   NotificationEmailPreferences,
@@ -85,5 +86,18 @@ export function registerDeviceToken(
   return apiRequest<RegisterDeviceTokenResult>(
     "/api/notifications/device-tokens",
     { method: "POST", body: { token, platform } },
+  );
+}
+
+/**
+ * `DELETE /api/notifications/device-tokens` — remove this device's push token on
+ * sign-out so a signed-out user stops receiving the household's push (M3-3).
+ */
+export function deregisterDeviceToken(
+  token: string,
+): Promise<DeregisterDeviceTokenResult> {
+  return apiRequest<DeregisterDeviceTokenResult>(
+    "/api/notifications/device-tokens",
+    { method: "DELETE", body: { token } },
   );
 }

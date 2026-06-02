@@ -1,11 +1,12 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { invitesApi, isApiError } from "@/api";
 import { useAuth } from "@/auth/context";
+import { clearPendingInvite, setPendingInvite } from "@/auth/pending-invite";
 import { Button } from "@/components/Button";
 import { ErrorBanner, ErrorState, LoadingState } from "@/components/Feedback";
 import { householdsQueryKey } from "@/household/use-household";
@@ -25,6 +26,12 @@ export default function InviteScreen() {
   const [busy, setBusy] = useState<"accept" | "decline" | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
+  // We've arrived at the invite (possibly via the post-sign-in redirect), so the
+  // parked token has served its purpose — drop it to avoid a stale redirect later.
+  useEffect(() => {
+    clearPendingInvite();
+  }, []);
+
   const preview = useQuery({
     queryKey: ["invitePreview", token],
     queryFn: () => invitesApi.getInvitePreview(token),
@@ -42,6 +49,8 @@ export default function InviteScreen() {
 
   async function accept() {
     if (!session) {
+      // Park the token so sign-in returns here instead of dropping us on Today.
+      setPendingInvite(token);
       router.push("/(auth)/sign-in");
       return;
     }

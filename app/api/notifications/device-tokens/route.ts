@@ -1,6 +1,9 @@
 import { withErrorBoundary } from "@/lib/errors";
 import { readJsonObject } from "@/lib/http";
-import { registerDeviceToken } from "@/lib/services/notification";
+import {
+  deregisterDeviceToken,
+  registerDeviceToken,
+} from "@/lib/services/notification";
 
 // Resolves the session from cookies / bearer token and writes; never cached.
 export const dynamic = "force-dynamic";
@@ -17,4 +20,15 @@ export const POST = withErrorBoundary(async (request: Request) => {
   const body = await readJsonObject(request);
   const result = await registerDeviceToken(body);
   return Response.json(result, { status: 201 });
+});
+
+/**
+ * `DELETE /api/notifications/device-tokens` — remove the caller's Expo push token
+ * on sign-out (design/10 § 7), so a signed-out user stops receiving push on this
+ * device. Body `{ token }`. Self-guarded and idempotent; returns `200 { removed }`.
+ */
+export const DELETE = withErrorBoundary(async (request: Request) => {
+  const body = await readJsonObject(request);
+  const result = await deregisterDeviceToken(body);
+  return Response.json(result, { status: 200 });
 });

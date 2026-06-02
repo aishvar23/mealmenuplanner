@@ -8,6 +8,8 @@ import {
   type ReactNode,
 } from "react";
 
+import { deregisterForPushNotifications } from "@/notifications/push-registration";
+
 import { supabase } from "./supabase";
 
 interface AuthState {
@@ -58,6 +60,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user: session?.user ?? null,
       loading,
       signOut: async () => {
+        // Remove this device's push token first, while the bearer token is still
+        // valid, so the signed-out user stops receiving the household's push.
+        // Best-effort — never block sign-out on it.
+        await deregisterForPushNotifications();
         await supabase.auth.signOut();
       },
     }),

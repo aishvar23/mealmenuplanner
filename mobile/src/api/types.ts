@@ -37,13 +37,19 @@ export type ImageStatus = "pending" | "ready" | "failed";
 
 export type PairingType = "starch_base" | "condiment";
 
+/**
+ * Mirrors the DB `feedback_type` enum (`Constants.public.Enums.feedback_type`,
+ * the source of truth the reject/replace validators check against). Keep these
+ * values in lockstep with that enum — a value the server doesn't accept is a 400.
+ */
 export type FeedbackType =
+  | "liked"
   | "disliked"
-  | "too_healthy"
-  | "too_spicy"
-  | "too_involved"
+  | "too_much_effort"
+  | "ingredients_unavailable"
+  | "kids_disliked"
   | "do_not_suggest_again"
-  | "other";
+  | "suggest_more_often";
 
 export type MemberRole = "owner" | "admin" | "member" | "viewer";
 
@@ -430,4 +436,9 @@ export type DevicePlatform = "ios" | "android";
 /** `POST /api/notifications/device-tokens` response. */
 export interface RegisterDeviceTokenResult {
   deviceTokenId: string;
+}
+
+/** `DELETE /api/notifications/device-tokens` response. */
+export interface DeregisterDeviceTokenResult {
+  removed: boolean;
 }
