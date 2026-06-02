@@ -26,6 +26,7 @@ export * as mealPlanApi from "./meal-plan";
 export * as groceryApi from "./grocery";
 export * as onboardingApi from "./onboarding";
 export * as invitesApi from "./invites";
+export * as notificationsApi from "./notifications";
 export type { OnboardingDraft, SaveDraftInput } from "./onboarding";
 
 // Wire-format types (mirror the backend DTOs — see ./types).

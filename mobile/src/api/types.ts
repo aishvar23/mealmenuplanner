@@ -380,3 +380,41 @@ export interface AcceptInviteResult {
 export interface DeclineInviteResult {
   status: "declined";
 }
+
+// ─────────────────────────── notifications (M2-5) ───────────────────────────
+
+/** One in-app notification (`NotificationDto`). */
+export interface NotificationItem {
+  id: string;
+  householdId: string;
+  actorUserId: string | null;
+  eventType: string;
+  title: string;
+  message: string;
+  readAt: string | null;
+  createdAt: string;
+}
+
+/** `GET /api/notifications` — cursor-paginated inbox with the badge count. */
+export interface NotificationInbox {
+  items: NotificationItem[];
+  unreadCount: number;
+  nextCursor: string | null;
+}
+
+/** `POST /api/notifications/{id}/read` response. */
+export interface MarkReadResult {
+  id: string;
+  readAt: string;
+}
+
+/** `POST /api/notifications/read-all` response. */
+export interface ReadAllResult {
+  updated: number;
+}
+
+/** `GET`/`PUT /api/notification-preferences` — email opt-ins for one household. */
+export interface NotificationEmailPreferences {
+  householdId: string;
+  categories: Record<string, boolean>;
+}
