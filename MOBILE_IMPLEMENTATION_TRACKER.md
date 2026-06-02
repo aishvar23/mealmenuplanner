@@ -39,10 +39,14 @@ This tracker is separate from the web build's
 | M3    | Native push + store launch | 3 / 7        | In progress |
 |       | **Total**                  | **24 / 28**  |             |
 
-**Suggested next task:** `M3-5` — EAS Build config + signing credentials; bundle /
-application IDs. `M3-4` / `M3-6` / `M3-7` (developer accounts, store builds,
-submission) need external accounts + real devices and can't be done from this
-environment.
+**Status:** all _codeable_ work is complete — the daily loop + full parity (M0–M2)
+and native-push plumbing (M3-1/2/3) plus the EAS build config (M3-5 scaffolding,
+`eas.json`). The remaining tasks are **account-bound and can't run from this
+environment**: `M3-4` (Apple/Google accounts), the rest of `M3-5` (`eas login` +
+`eas init` to mint the EAS `projectId` + signing credentials), `M3-6` (TestFlight /
+Play internal builds via `eas build`), and `M3-7` (store listings + submission).
+Once `eas init` injects `extra.eas.projectId`, push registration (M3-3) starts
+minting tokens automatically.
 
 > **Backend reads added for M1.** The web app reads plans / household lists /
 > the grocery screen server-side in React Server Components, so those had no HTTP
@@ -221,8 +225,20 @@ households` (`useHouseholdSwitcher`: tap to switch active via `PUT
       simulator, on denied permission, or before an EAS `projectId` exists (M3-5),
       never surfacing an error. Mobile `tsc` clean; `expo config` resolves with the
       plugin. Device run deferred._
-- [ ] **M3-4** Set up Apple Developer + Google Play Console accounts.
-- [ ] **M3-5** EAS Build config + signing credentials; bundle / application IDs.
-- [ ] **M3-6** TestFlight + Play internal testing builds.
+- [ ] **M3-4** Set up Apple Developer + Google Play Console accounts. _Blocked:
+      account-bound (Apple $99/yr + Google $25), external to this environment._
+- [~] **M3-5** EAS Build config + signing credentials; bundle / application IDs.
+  _Scaffolding done: `mobile/eas.json` with `development` (dev-client, iOS
+  simulator), `preview` (internal), and `production` profiles, each setting
+  `EXPO_PUBLIC_API_BASE_URL` (`:3100` for dev, prod otherwise); bundle /
+  application IDs already set in `app.json` (`com.mealmenuplanner.app`), and the
+  `expo-notifications` plugin wired (M3-3). **Blocked (account-bound):**
+  generating signing credentials + the EAS `projectId` needs `eas login` +
+  `eas init` / first `eas build` against your Expo account — that also injects
+  `extra.eas.projectId` (which push registration waits on) and the iOS/Android
+  signing keys. Set the Supabase `EXPO_PUBLIC_\*` values as EAS environment
+  variables/secrets, not committed.\_
+- [ ] **M3-6** TestFlight + Play internal testing builds. _Blocked: needs the
+      M3-4 accounts + an `eas build` run (account-bound)._
 - [ ] **M3-7** Store listings, privacy labels / data-safety form; public
-      submission.
+      submission. _Blocked: account-bound store-console work._
