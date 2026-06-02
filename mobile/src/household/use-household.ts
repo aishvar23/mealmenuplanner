@@ -1,6 +1,17 @@
-import { useQuery, type UseQueryResult } from "@tanstack/react-query";
+import {
+  useQuery,
+  useQueryClient,
+  type UseQueryResult,
+} from "@tanstack/react-query";
+import { useState } from "react";
 
-import { listHouseholds, type HouseholdSummary } from "@/api";
+import {
+  isApiError,
+  listHouseholds,
+  setActiveHousehold,
+  setPreferredHousehold,
+  type HouseholdSummary,
+} from "@/api";
 
 /**
  * Active-household resolution (design/10 § 6). The daily-loop screens operate on
@@ -46,5 +57,48 @@ export function useActiveHousehold(): ActiveHousehold {
     isLoading: query.isLoading,
     error: query.error,
     refetch: query.refetch,
+  };
+}
+
+/**
+ * Household switcher (M2-6, design/10 § 6). Lists the caller's households and
+ * switches the active (currently-viewed) or preferred (default-on-login) pointer
+ * via the BETA `PUT …/active` / `…/preferred` endpoints, seeding the refreshed
+ * list straight into the shared cache so the daily-loop screens follow instantly.
+ */
+export function useHouseholdSwitcher() {
+  const qc = useQueryClient();
+  const query = useHouseholds();
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const run = async (
+    householdId: string,
+    fn: (id: string) => Promise<{ households: HouseholdSummary[] }>,
+  ) => {
+    setBusyId(householdId);
+    setError(null);
+    try {
+      const { households } = await fn(householdId);
+      qc.setQueryData(householdsQueryKey, households);
+    } catch (e) {
+      setError(
+        isApiError(e) ? e.message : "Couldn't update your household selection.",
+      );
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const list = query.data ?? [];
+  return {
+    households: list,
+    activeId: list.find((h) => h.isActive)?.householdId ?? null,
+    preferredId: list.find((h) => h.isPreferred)?.householdId ?? null,
+    isLoading: query.isLoading,
+    error: query.error ? "Couldn't load your households." : error,
+    busyId,
+    switchActive: (id: string) => run(id, setActiveHousehold),
+    setPreferred: (id: string) => run(id, setPreferredHousehold),
   };
 }

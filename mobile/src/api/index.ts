@@ -21,6 +21,8 @@ export {
   updatePreferences,
   getMyFoodPreferences,
   updateMyFoodPreferences,
+  setActiveHousehold,
+  setPreferredHousehold,
 } from "./households";
 export * as mealPlanApi from "./meal-plan";
 export * as groceryApi from "./grocery";

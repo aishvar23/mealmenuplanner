@@ -3,6 +3,7 @@ import type {
   CreateHouseholdResult,
   DeleteHouseholdResult,
   Household,
+  HouseholdListResult,
   HouseholdPreferences,
   HouseholdSummary,
   Member,
@@ -90,6 +91,34 @@ export function updateMyFoodPreferences(
     `/api/households/${householdId}/food-preferences`,
     { method: "PATCH", body: { likedDishes } },
   );
+}
+
+// ─────────────────────────── switcher (M2-6) ───────────────────────────
+
+/**
+ * `PUT /api/households/active` — switch the caller's currently-viewed household.
+ * Returns the refreshed list (with the moved `isActive` pointer).
+ */
+export function setActiveHousehold(
+  householdId: string,
+): Promise<HouseholdListResult> {
+  return apiRequest<HouseholdListResult>("/api/households/active", {
+    method: "PUT",
+    body: { householdId },
+  });
+}
+
+/**
+ * `PUT /api/households/preferred` — set the caller's default-on-login household.
+ * Returns the refreshed list (with the moved `isPreferred` pointer).
+ */
+export function setPreferredHousehold(
+  householdId: string,
+): Promise<HouseholdListResult> {
+  return apiRequest<HouseholdListResult>("/api/households/preferred", {
+    method: "PUT",
+    body: { householdId },
+  });
 }
 
 // ───────────────────────────── members (M2-2) ─────────────────────────────

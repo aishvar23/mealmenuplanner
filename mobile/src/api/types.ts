@@ -222,6 +222,11 @@ export interface DeleteHouseholdResult {
   households: HouseholdSummary[];
 }
 
+/** `PUT /api/households/active` and `/preferred` — the refreshed household list. */
+export interface HouseholdListResult {
+  households: HouseholdSummary[];
+}
+
 /** The eight `can_*` permission flags in camelCase (`CanFlagsDto`). */
 export interface CanFlags {
   canViewPlan: boolean;

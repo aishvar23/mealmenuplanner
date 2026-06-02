@@ -35,13 +35,13 @@ This tracker is separate from the web build's
 | ----- | -------------------------- | ------------ | ----------- |
 | M0    | Foundations & backend auth | 8 / 8        | Complete    |
 | M1    | Auth + core daily loop     | 7 / 7        | Complete    |
-| M2    | Full parity                | 5 / 6        | In progress |
+| M2    | Full parity                | 6 / 6        | Complete    |
 | M3    | Native push + store launch | 0 / 7        | Not started |
-|       | **Total**                  | **20 / 28**  |             |
+|       | **Total**                  | **21 / 28**  |             |
 
-**Suggested next task:** `M2-6` — settings (profile, household switcher, sign
-out). The final M2 task; after it M2 is complete and M3 (native push + store
-launch) begins.
+**Suggested next task:** `M3-1` — `device_tokens` table + `POST
+/api/notifications/device-tokens`. M2 brought the app to full feature parity with
+the web; M3 adds native push and store distribution.
 
 > **Backend reads added for M1.** The web app reads plans / household lists /
 > the grocery screen server-side in React Server Components, so those had no HTTP
@@ -172,11 +172,18 @@ match the DB enum). Mobile`tsc` clean, Prettier clean. Device run deferred.\_
       `(settings)` stack with **Notifications** (`GET /api/notifications` inbox,
       unread dots, tap-to-read `POST …/{id}/read`, "Mark all read"
       `POST …/read-all`) and **Email notifications** (`GET`/`PUT
-    /api/notification-preferences` per the active household, settable categories
+  /api/notification-preferences` per the active household, settable categories
       mirroring the web). The More tab links to both and shows an unread badge. All
       endpoints already existed — no backend change. Mobile `tsc` clean, Prettier
       pass. Device run deferred._
-- [ ] **M2-6** Settings: profile, household switcher, sign out.
+- [x] **M2-6** Settings: profile, household switcher, sign out. _Done: the More
+      tab shows a read-only profile (email + display name from the session — no
+      profile-edit endpoint exists), a **Switch household** row → `(settings)/
+    households` (`useHouseholdSwitcher`: tap to switch active via `PUT
+    …/active`, star to set preferred via `PUT …/preferred`, seeding the
+      refreshed list into the shared cache so the daily loop follows instantly),
+      links to Notifications / Email notifications, and Sign out. Mobile `tsc`
+      clean, Prettier pass. Device run deferred._
 
 ## M3 — Native push + store launch
 

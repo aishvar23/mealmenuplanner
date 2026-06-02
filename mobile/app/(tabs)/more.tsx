@@ -1,34 +1,53 @@
 import { router } from "expo-router";
-import { Bell, ChevronRight, Mail } from "lucide-react-native";
+import { Bell, ChevronRight, Mail, Users } from "lucide-react-native";
 import type { ReactNode } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { useAuth } from "@/auth/context";
+import { useActiveHousehold } from "@/household/use-household";
 import { useUnreadCount } from "@/notifications/use-notifications";
 
 /**
- * "More" tab — settings entry point. Notifications + email preferences (M2-5);
- * profile + household switcher land in M2-6. Sign-out ends the session.
+ * "More" tab — profile, household switcher, notifications, and sign-out (M2-5 /
+ * M2-6, design/10 § 6). Profile is read-only (no profile-edit endpoint yet).
  */
 export default function MoreScreen() {
   const { user, signOut } = useAuth();
   const unread = useUnreadCount();
+  const { household } = useActiveHousehold();
+  const displayName =
+    (user?.user_metadata?.full_name as string | undefined) ??
+    (user?.user_metadata?.name as string | undefined) ??
+    null;
 
   return (
     <ScrollView
       className="flex-1 bg-gray-50"
       contentContainerClassName="gap-6 p-4"
     >
-      <View>
+      <View className="rounded-2xl border border-gray-200 bg-white p-4">
         <Text className="text-xs tracking-wide text-gray-400 uppercase">
           Signed in as
         </Text>
-        <Text className="mt-1 text-base font-medium text-gray-900">
+        {displayName ? (
+          <Text className="mt-1 text-lg font-semibold text-gray-900">
+            {displayName}
+          </Text>
+        ) : null}
+        <Text
+          className={`${displayName ? "text-sm text-gray-500" : "mt-1 text-base font-medium text-gray-900"}`}
+        >
           {user?.email ?? "—"}
         </Text>
       </View>
 
       <View className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+        <Row
+          icon={<Users color="#16a34a" size={20} />}
+          label="Switch household"
+          value={household?.name}
+          onPress={() => router.push("/(settings)/households")}
+        />
         <Row
           icon={<Bell color="#16a34a" size={20} />}
           label="Notifications"
@@ -59,12 +78,15 @@ export default function MoreScreen() {
 function Row({
   icon,
   label,
+  value,
   badge,
   onPress,
   isLast,
 }: {
   icon: ReactNode;
   label: string;
+  /** Optional trailing summary text (e.g. the current household name). */
+  value?: string;
   badge?: string;
   onPress: () => void;
   isLast?: boolean;
@@ -76,7 +98,13 @@ function Row({
       className={`flex-row items-center gap-3 px-4 py-3.5 active:bg-gray-50 ${isLast ? "" : "border-b border-gray-100"}`}
     >
       {icon}
-      <Text className="flex-1 text-base text-gray-900">{label}</Text>
+      <Text className="text-base text-gray-900">{label}</Text>
+      <View className="flex-1" />
+      {value ? (
+        <Text className="max-w-[45%] text-sm text-gray-400" numberOfLines={1}>
+          {value}
+        </Text>
+      ) : null}
       {badge ? (
         <View className="min-w-6 items-center rounded-full bg-green-600 px-2 py-0.5">
           <Text className="text-xs font-semibold text-white">{badge}</Text>

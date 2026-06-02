@@ -1,8 +1,8 @@
 import { Stack } from "expo-router";
 
 /**
- * Settings stack (M2-5 / M2-6): notifications inbox, email preferences, and
- * (later) profile. Pushed over the tabs from the More tab with native headers.
+ * Settings stack (M2-5 / M2-6): notifications inbox, email preferences, and the
+ * household switcher. Pushed over the tabs from the More tab with native headers.
  */
 export default function SettingsLayout() {
   return (
@@ -18,6 +18,7 @@ export default function SettingsLayout() {
         name="notification-settings"
         options={{ title: "Email notifications" }}
       />
+      <Stack.Screen name="households" options={{ title: "Switch household" }} />
     </Stack>
   );
 }
