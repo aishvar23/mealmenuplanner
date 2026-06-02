@@ -1,18 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Mock the barrel, but source the real validators the route uses
-// (`isCalendarDate`, `daysBetweenInclusive`, `MAX_PLAN_RANGE_DAYS`) from the pure
-// `validate` submodule (no `server-only`), so the test exercises the real
-// validation without pulling the server-only read modules into a node test.
+// Mock the barrel, but source the real `validateWeekRequest` the route uses from
+// the pure `validate` submodule (no `server-only`), so the test exercises the
+// real validation without pulling the server-only read modules into a node test.
 vi.mock("@/lib/services/meal-plan", async () => {
   const validate = await vi.importActual<
     typeof import("@/lib/services/meal-plan/validate")
   >("@/lib/services/meal-plan/validate");
   return {
     getWeekPlan: vi.fn(),
-    isCalendarDate: validate.isCalendarDate,
-    daysBetweenInclusive: validate.daysBetweenInclusive,
-    MAX_PLAN_RANGE_DAYS: validate.MAX_PLAN_RANGE_DAYS,
+    validateWeekRequest: validate.validateWeekRequest,
   };
 });
 

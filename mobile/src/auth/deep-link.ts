@@ -1,5 +1,6 @@
 import * as Linking from "expo-linking";
 import { useEffect } from "react";
+import { Alert } from "react-native";
 
 import { createSessionFromUrl } from "./oauth";
 
@@ -11,6 +12,11 @@ import { createSessionFromUrl } from "./oauth";
  *
  * OAuth via `WebBrowser.openAuthSessionAsync` returns its redirect URL directly,
  * so this listener is the safety net for links that arrive through the OS.
+ *
+ * This is the *only* entry point for a magic link opened from email, so a failure
+ * here (expired/used link, or a callback URL with no session in it) must be
+ * surfaced — otherwise the user lands back on sign-in with no idea why and keeps
+ * retrying the dead link.
  */
 export function useAuthDeepLinks(): void {
   useEffect(() => {
@@ -19,9 +25,21 @@ export function useAuthDeepLinks(): void {
     async function handle(url: string | null) {
       if (!active || !url || !url.includes("auth-callback")) return;
       try {
-        await createSessionFromUrl(url);
+        const created = await createSessionFromUrl(url);
+        if (!created && active) {
+          Alert.alert(
+            "Couldn't sign you in",
+            "That sign-in link didn't contain a valid session. Please request a new link and try again.",
+          );
+        }
       } catch {
-        // A malformed/expired link can't sign in; the user stays on sign-in.
+        // A malformed/expired/already-used link can't sign in.
+        if (active) {
+          Alert.alert(
+            "Sign-in link expired",
+            "That sign-in link has expired or was already used. Please request a new link and try again.",
+          );
+        }
       }
     }
 

@@ -72,7 +72,10 @@ function WeekBoard({ household }: { household: HouseholdSummary }) {
       <ScrollView
         contentContainerClassName="gap-3 p-4"
         refreshControl={
-          <RefreshControl refreshing={false} onRefresh={board.refetch} />
+          <RefreshControl
+            refreshing={board.refreshing}
+            onRefresh={board.refetch}
+          />
         }
       >
         <Text className="text-2xl font-bold text-gray-900">This week</Text>

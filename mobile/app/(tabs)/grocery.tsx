@@ -103,7 +103,10 @@ function GroceryView({ household }: { household: HouseholdSummary }) {
       <ScrollView
         contentContainerClassName="gap-3 p-4"
         refreshControl={
-          <RefreshControl refreshing={false} onRefresh={grocery.refetch} />
+          <RefreshControl
+            refreshing={grocery.refreshing}
+            onRefresh={grocery.refetch}
+          />
         }
       >
         <View>
@@ -123,7 +126,7 @@ function GroceryView({ household }: { household: HouseholdSummary }) {
             className="gap-1 rounded-2xl border border-gray-200 bg-white p-4"
           >
             <Text className="mb-1 text-sm font-semibold tracking-wide text-gray-400 uppercase">
-              {category}
+              {categoryLabel(category)}
             </Text>
             {rows.map((item) => (
               <GroceryRow
@@ -197,7 +200,32 @@ function groupByCategory(items: GroceryItem[]): [string, GroceryItem[]][] {
   return [...groups.entries()];
 }
 
-/** Trim trailing zeros so 1.0 → "1" and 1.5 → "1.5". */
+/**
+ * Human label for a stored grocery category (raw `ingredients.category` text,
+ * e.g. `eggs_meat`). Mirrors the web's `lib/grocery/labels.ts` so both platforms
+ * read "Eggs & meat" rather than the raw enum; an unknown value is humanized
+ * rather than shown raw. (Duplicated, not imported: that module uses the web `@/`
+ * alias and isn't resolvable from the Expo bundle — keep the two in lockstep.)
+ */
+const CATEGORY_LABELS: Record<string, string> = {
+  vegetables: "Vegetables",
+  fruits: "Fruits",
+  dairy: "Dairy",
+  grains: "Grains",
+  lentils: "Lentils",
+  spices: "Spices",
+  eggs_meat: "Eggs & meat",
+  pantry: "Pantry staples",
+};
+
+function categoryLabel(category: string): string {
+  if (CATEGORY_LABELS[category]) return CATEGORY_LABELS[category];
+  const cleaned = category.replace(/[_-]+/g, " ").trim();
+  if (cleaned.length === 0) return "Other";
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+}
+
+/** Trim trailing zeros so 1.000 → "1" and 1.5 → "1.5" (3-dp, matching the web). */
 function formatQty(qty: number): string {
-  return Number.isInteger(qty) ? `${qty}` : `${parseFloat(qty.toFixed(2))}`;
+  return `${Math.round(qty * 1000) / 1000}`;
 }

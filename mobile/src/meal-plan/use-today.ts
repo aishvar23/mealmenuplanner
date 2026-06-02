@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import {
   getHousehold,
@@ -27,7 +27,10 @@ const SLOT_ORDER: MealSlot[] = ["breakfast", "lunch", "dinner", "snack"];
 export function useTodayBoard(householdId: string) {
   const date = todayISO();
   const qc = useQueryClient();
-  const dayKey = ["dayPlan", householdId, date] as const;
+  const dayKey = useMemo(
+    () => ["dayPlan", householdId, date] as const,
+    [householdId, date],
+  );
 
   const [busyItemId, setBusyItemId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -43,9 +46,17 @@ export function useTodayBoard(householdId: string) {
     queryFn: () => mealPlanApi.getDayPlan(householdId, date),
   });
 
-  const invalidateDay = useCallback(
-    () => qc.invalidateQueries({ queryKey: dayKey }),
-    [qc, dayKey],
+  // A change to today's plan can also change the grocery list (replace/eating-out
+  // trigger a recalc server-side) and what the Week view shows, so refresh those
+  // alongside the day plan rather than letting them drift until staleTime.
+  const invalidatePlanViews = useCallback(
+    () =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: dayKey }),
+        qc.invalidateQueries({ queryKey: ["grocery", householdId] }),
+        qc.invalidateQueries({ queryKey: ["weekPlan", householdId] }),
+      ]),
+    [qc, dayKey, householdId],
   );
 
   const items = dayQuery.data?.items;
@@ -59,36 +70,46 @@ export function useTodayBoard(householdId: string) {
     (slot) => configured.includes(slot) && !plannedSlots.has(slot),
   );
 
-  /** Run a single-item action, flag the item busy, then re-read the day. */
+  /** Run a single-item action, flag the item busy, then re-read the affected views. */
   const runItem = useCallback(
     async (id: string, fn: () => Promise<unknown>) => {
       setActionError(null);
       setBusyItemId(id);
       try {
         await fn();
-        await invalidateDay();
+        await invalidatePlanViews();
+        // The slot's eligible swap candidates may have changed (the dish moved,
+        // variety/rotation shifted), so drop them — the next SwapSheet re-reads.
+        void qc.invalidateQueries({ queryKey: ["candidates", id] });
       } catch (e) {
         setActionError(errorMessage(e));
       } finally {
         setBusyItemId(null);
       }
     },
-    [invalidateDay],
+    [invalidatePlanViews, qc],
   );
 
   const generate = useMutation({
     mutationFn: async (slots: MealSlot[]) => {
-      // Generate each missing slot with its own reusable idempotency key.
-      for (const slot of slots) {
-        await mealPlanApi.generateToday(
-          householdId,
-          date,
-          slot,
-          newIdempotencyKey(),
-        );
-      }
+      // Generate each missing slot independently (distinct idempotency keys, no
+      // ordering dependency) so one slot failing doesn't abort the rest.
+      const results = await Promise.allSettled(
+        slots.map((slot) =>
+          mealPlanApi.generateToday(
+            householdId,
+            date,
+            slot,
+            newIdempotencyKey(),
+          ),
+        ),
+      );
+      const failure = results.find((r) => r.status === "rejected");
+      if (failure) throw (failure as PromiseRejectedResult).reason;
     },
-    onSuccess: invalidateDay,
+    // Re-read regardless of outcome: on a partial failure the slots that DID
+    // generate must still appear (not stay hidden until a manual refresh).
+    onSettled: () => invalidatePlanViews(),
     onError: (e) => setActionError(errorMessage(e)),
   });
 
@@ -104,8 +125,11 @@ export function useTodayBoard(householdId: string) {
     busyItemId,
     actionError,
     clearActionError: () => setActionError(null),
+    /** True while a pull-to-refresh re-read of the day plan is in flight. */
+    refreshing: dayQuery.isRefetching,
     refetch: () => {
-      void householdQuery.refetch();
+      // Pull-to-refresh re-reads the plan; the household (perms/prefs) is
+      // 5-min-stale and rarely changes, so don't re-fetch it on every pull.
       void dayQuery.refetch();
     },
     generateMissing: () => generate.mutate(missingSlots),

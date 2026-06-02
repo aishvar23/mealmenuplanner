@@ -66,7 +66,10 @@ function TodayBoard({ household }: { household: HouseholdSummary }) {
       <ScrollView
         contentContainerClassName="gap-3 p-4"
         refreshControl={
-          <RefreshControl refreshing={false} onRefresh={board.refetch} />
+          <RefreshControl
+            refreshing={board.refreshing}
+            onRefresh={board.refetch}
+          />
         }
       >
         <View>
@@ -84,9 +87,11 @@ function TodayBoard({ household }: { household: HouseholdSummary }) {
               Nothing planned yet
             </Text>
             <Text className="text-center text-base text-gray-500">
-              {board.canChange
+              {canGenerate
                 ? "Generate today's meals from your household preferences."
-                : "No meals have been planned for today."}
+                : board.canChange
+                  ? "Choose which meals to plan in your household preferences (on the web for now) to start generating meals."
+                  : "No meals have been planned for today."}
             </Text>
             {canGenerate ? (
               <View className="w-64">

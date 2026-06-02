@@ -41,7 +41,13 @@ export function useWeekBoard(householdId: string) {
         endDate,
         newIdempotencyKey(),
       ),
-    onSuccess: () => qc.invalidateQueries({ queryKey: weekKey }),
+    // A new week plan also changes today's board and the grocery list it feeds.
+    onSuccess: () =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: weekKey }),
+        qc.invalidateQueries({ queryKey: ["dayPlan", householdId] }),
+        qc.invalidateQueries({ queryKey: ["grocery", householdId] }),
+      ]),
   });
 
   const items: MealPlanItem[] = weekQuery.data?.items ?? [];
@@ -62,8 +68,11 @@ export function useWeekBoard(householdId: string) {
         ? generate.error.message
         : "Couldn't generate the week. Please try again."
       : null,
+    /** True while a pull-to-refresh re-read of the week plan is in flight. */
+    refreshing: weekQuery.isRefetching,
     refetch: () => {
-      void householdQuery.refetch();
+      // Re-read the plan; household (perms/prefs) is 5-min-stale and rarely
+      // changes, so it isn't re-fetched on every pull-to-refresh.
       void weekQuery.refetch();
     },
     generateWeek: () => generate.mutate(),

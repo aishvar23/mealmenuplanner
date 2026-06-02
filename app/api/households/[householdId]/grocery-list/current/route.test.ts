@@ -14,9 +14,9 @@ function ctx() {
   return { params: Promise.resolve({ householdId: HOUSEHOLD_ID }) };
 }
 
-function getRequest(): Request {
+function getRequest(query = ""): Request {
   return new Request(
-    `http://test.local/api/households/${HOUSEHOLD_ID}/grocery-list/current`,
+    `http://test.local/api/households/${HOUSEHOLD_ID}/grocery-list/current${query}`,
   );
 }
 
@@ -54,5 +54,21 @@ describe("GET /api/households/[householdId]/grocery-list/current", () => {
     const res = await GET(getRequest(), ctx());
 
     expect(await res.json()).toEqual({ plan: null, list: null });
+  });
+
+  it("forwards an explicit device-local date to the service", async () => {
+    vi.mocked(getGroceryScreen).mockResolvedValue({ plan: null, list: null });
+
+    await GET(getRequest("?date=2026-06-02"), ctx());
+
+    expect(getGroceryScreen).toHaveBeenCalledWith(HOUSEHOLD_ID, "2026-06-02");
+  });
+
+  it("returns a 400 VALIDATION_ERROR for a malformed date", async () => {
+    const res = await GET(getRequest("?date=06-02-2026"), ctx());
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).error.code).toBe("VALIDATION_ERROR");
+    expect(getGroceryScreen).not.toHaveBeenCalled();
   });
 });
