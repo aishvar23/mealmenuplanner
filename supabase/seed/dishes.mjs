@@ -7600,4 +7600,293 @@ export const DISH_IMAGES = {
     url: "/images/dishes/remaining_meal_images/oats%20cheela.png",
     alt: "Savoury oats cheela pancakes served with green chutney and curd.",
   },
+  // P12 dietician weight-loss dishes (public/images/dishes/final-weightloss-diet).
+  "Sprouts Sandwich": {
+    url: "/images/dishes/final-weightloss-diet/sprouts%20sandwich.png",
+    alt: "A whole-grain sandwich filled with spiced moong sprouts and vegetables.",
+  },
+  "Berry Granola Bowl": {
+    url: "/images/dishes/final-weightloss-diet/berry%20granola%20bowl.png",
+    alt: "A bowl of yogurt topped with granola and mixed berries.",
+  },
+  "Overnight Oats with Chia Seeds": {
+    url: "/images/dishes/final-weightloss-diet/overnight%20oats%20with%20chia%20seeds.png",
+    alt: "A jar of overnight oats with chia seeds and sliced banana.",
+  },
+  "Homemade Masala Oats": {
+    url: "/images/dishes/final-weightloss-diet/homemade%20masala%20oats.png",
+    alt: "A bowl of savoury masala oats with vegetables.",
+  },
+  "Oats Curd and Fruits": {
+    url: "/images/dishes/final-weightloss-diet/oats%20curd%20and%20fruits.png",
+    alt: "A bowl of oats stirred into curd with fresh fruit.",
+  },
+  "Buttermilk Ragi Porridge": {
+    url: "/images/dishes/final-weightloss-diet/buttermilk%20ragi%20porridge.png",
+    alt: "A bowl of savoury ragi (finger-millet) buttermilk porridge.",
+  },
+  "Paneer Sandwich": {
+    url: "/images/dishes/final-weightloss-diet/paneer%20sandwich.png",
+    alt: "A whole-grain sandwich with spiced crumbled paneer and veggies.",
+  },
+  "Moong Dal Dosa": {
+    url: "/images/dishes/final-weightloss-diet/moong%20dal%20dosa.png",
+    alt: "A thin golden moong dal dosa on a plate.",
+  },
+  "Tomato Sprouts Rice": {
+    url: "/images/dishes/final-weightloss-diet/tomato%20sprouts%20rice.png",
+    alt: "A plate of tangy tomato rice tossed with moong sprouts.",
+  },
+  "Paneer Tikka Kathi Roll": {
+    url: "/images/dishes/final-weightloss-diet/paneer%20tikka%20kathi%20roll.png",
+    alt: "A whole-wheat roll wrapped around paneer tikka and vegetables.",
+  },
+  "Sprouts Salad": {
+    url: "/images/dishes/final-weightloss-diet/sprouts%20salad.png",
+    alt: "A bowl of fresh moong-sprout salad with onion, tomato and lemon.",
+  },
+  Pesarattu: {
+    url: "/images/dishes/final-weightloss-diet/pesarattu.png",
+    alt: "An Andhra green-gram dosa (pesarattu) on a plate.",
+  },
+  "Oats Upma": {
+    url: "/images/dishes/final-weightloss-diet/oats%20upma.png",
+    alt: "A bowl of oats upma with vegetables.",
+  },
+  "Greek Yogurt": {
+    url: "/images/dishes/final-weightloss-diet/greek%20yogurt.png",
+    alt: "A bowl of thick strained Greek yogurt.",
+  },
+  "Lobia Curry": {
+    url: "/images/dishes/final-weightloss-diet/lobia%20curry.png",
+    alt: "A bowl of black-eyed pea (lobia) curry in onion-tomato gravy.",
+  },
+  "Moong Dal Varan": {
+    url: "/images/dishes/final-weightloss-diet/moong%20dal%20varan.png",
+    alt: "A bowl of plain Maharashtrian moong dal with a ghee tempering.",
+  },
+  "Capsicum Sabji": {
+    url: "/images/dishes/final-weightloss-diet/capsicum%20sabji.png",
+    alt: "A bowl of dry capsicum sabji.",
+  },
+  "Sauteed Sprouts with Onion Capsicum": {
+    url: "/images/dishes/final-weightloss-diet/sauteed%20sprouts%20with%20onion%20capsicum.png",
+    alt: "A bowl of stir-fried moong sprouts tossed with onion and capsicum.",
+  },
+  "Steamed Paneer Kofta": {
+    url: "/images/dishes/final-weightloss-diet/steamed%20paneer%20kofta.png",
+    alt: "Steamed paneer koftas in a light tomato gravy.",
+  },
+  "Moong Dal Khichdi": {
+    url: "/images/dishes/final-weightloss-diet/moong%20dal%20khichdi.png",
+    alt: "A bowl of one-pot rice-and-moong-dal khichdi.",
+  },
+  Kadhi: {
+    url: "/images/dishes/final-weightloss-diet/kadhi.png",
+    alt: "A bowl of light yogurt-and-gram-flour kadhi.",
+  },
+  "Dhuli Masoor Dal": {
+    url: "/images/dishes/final-weightloss-diet/dhuli%20masoor%20dal.png",
+    alt: "A bowl of split red-lentil dal with an onion-tomato tadka.",
+  },
+  "Quinoa Moong Dal Khichdi": {
+    url: "/images/dishes/final-weightloss-diet/quinoa%20moong%20dal%20khichdi.png",
+    alt: "A bowl of quinoa-and-moong-dal khichdi with vegetables.",
+  },
+  "Quinoa Lentil Khichdi": {
+    url: "/images/dishes/final-weightloss-diet/quinoa%20lentil%20khichdi.png",
+    alt: "A bowl of vegan quinoa-and-lentil khichdi with mixed vegetables.",
+  },
+  "Matki Curry": {
+    url: "/images/dishes/final-weightloss-diet/matki%20curry.png",
+    alt: "A bowl of sprouted moth-bean (matki) usal in spiced gravy.",
+  },
+  "Moong Dal with Methi": {
+    url: "/images/dishes/final-weightloss-diet/moong%20dal%20with%20methi.png",
+    alt: "A bowl of yellow moong dal cooked with fenugreek leaves.",
+  },
+  "Paneer Sweet Corn Sabji": {
+    url: "/images/dishes/final-weightloss-diet/paneer%20sweet%20corn%20sabji.png",
+    alt: "A semi-dry sabji of paneer and sweet corn.",
+  },
+  "Mexican Bean Wrap": {
+    url: "/images/dishes/final-weightloss-diet/mexican%20bean%20wrap.png",
+    alt: "A whole-wheat wrap stuffed with spiced rajma and vegetables.",
+  },
+  "Sattu Paratha": {
+    url: "/images/dishes/final-weightloss-diet/sattu%20paratha.png",
+    alt: "A Bihari paratha stuffed with spiced roasted-gram-flour (sattu).",
+  },
+  "Multigrain Roti": {
+    url: "/images/dishes/final-weightloss-diet/multigrain%20roti.png",
+    alt: "A soft multigrain flatbread.",
+  },
+  "Brown Rice Pulao": {
+    url: "/images/dishes/final-weightloss-diet/brown%20rice%20pulao.png",
+    alt: "A plate of brown-rice pulao with mixed vegetables.",
+  },
+  "Cooked Brown Rice": {
+    url: "/images/dishes/final-weightloss-diet/cooked%20brown%20rice.png",
+    alt: "A bowl of plain cooked brown rice.",
+  },
+  "Boiled Barley": {
+    url: "/images/dishes/final-weightloss-diet/boiled%20barley.png",
+    alt: "A bowl of boiled pearl barley.",
+  },
+  "Moong Dal Daliya": {
+    url: "/images/dishes/final-weightloss-diet/moong%20dal%20daliya.png",
+    alt: "A bowl of savoury broken-wheat daliya with moong dal and veg.",
+  },
+  "Green Gram Dal": {
+    url: "/images/dishes/final-weightloss-diet/green%20gram%20dal.png",
+    alt: "A bowl of whole green-gram dal.",
+  },
+  "Sauteed Vegetables": {
+    url: "/images/dishes/final-weightloss-diet/sauteed%20vegetables.png",
+    alt: "A bowl of lightly stir-fried seasonal vegetables.",
+  },
+  "Sauteed Mushrooms with Tomatoes": {
+    url: "/images/dishes/final-weightloss-diet/sauteed%20mushrooms%20with%20tomatoes.png",
+    alt: "Garlicky sautéed mushrooms with tomatoes.",
+  },
+  "Sauteed Paneer Onions and Capsicum": {
+    url: "/images/dishes/final-weightloss-diet/sauteed%20paneer%20onions%20and%20capsicum.png",
+    alt: "Pan-tossed paneer with onions and capsicum.",
+  },
+  "Grilled Paneer": {
+    url: "/images/dishes/final-weightloss-diet/grilled%20paneer.png",
+    alt: "Marinated paneer cubes grilled till golden.",
+  },
+  "Grilled Vegetables": {
+    url: "/images/dishes/final-weightloss-diet/grilled%20vegetables.png",
+    alt: "A plate of char-grilled vegetables.",
+  },
+  "Boiled Vegetables": {
+    url: "/images/dishes/final-weightloss-diet/boiled%20vegetables.png",
+    alt: "A bowl of simply steamed vegetables.",
+  },
+  "Vegetable Stew": {
+    url: "/images/dishes/final-weightloss-diet/vegetable%20stew.png",
+    alt: "A bowl of Kerala-style vegetable stew in coconut-milk broth.",
+  },
+  "Red Lentil Soup": {
+    url: "/images/dishes/final-weightloss-diet/red%20lentil%20soup.png",
+    alt: "A bowl of smooth red-lentil soup.",
+  },
+  "Carrot Pumpkin Lentil Soup": {
+    url: "/images/dishes/final-weightloss-diet/carrot%20pumpkin%20lentil%20soup.png",
+    alt: "A bowl of velvety carrot-pumpkin lentil soup.",
+  },
+  "Pumpkin Soup with Thai Basil": {
+    url: "/images/dishes/final-weightloss-diet/pumpkin%20soup%20with%20thai%20basil.png",
+    alt: "A bowl of creamy pumpkin soup with fresh herbs.",
+  },
+  "Bottle Gourd Tomato Soup": {
+    url: "/images/dishes/final-weightloss-diet/bottle%20gourd%20tomato%20soup.png",
+    alt: "A bowl of light bottle-gourd and tomato soup.",
+  },
+  "Spinach Carrot Soup": {
+    url: "/images/dishes/final-weightloss-diet/spinach%20carrot%20soup.png",
+    alt: "A bowl of blended spinach-and-carrot soup.",
+  },
+  "Moong Dal Soup": {
+    url: "/images/dishes/final-weightloss-diet/moong%20dal%20soup.png",
+    alt: "A bowl of thin moong dal soup.",
+  },
+  "Carrot Soup": {
+    url: "/images/dishes/final-weightloss-diet/carrot%20soup.png",
+    alt: "A bowl of smooth carrot soup with ginger.",
+  },
+  "Barley Dal Soup": {
+    url: "/images/dishes/final-weightloss-diet/barley%20dal%20soup.png",
+    alt: "A bowl of hearty barley-and-lentil soup.",
+  },
+  "Cucumber Tomato Salad": {
+    url: "/images/dishes/final-weightloss-diet/cucumber%20tomato%20salad.png",
+    alt: "A bowl of cucumber-tomato salad with lemon.",
+  },
+  "Carrot Cucumber Tomato Salad": {
+    url: "/images/dishes/final-weightloss-diet/carrot%20cucumber%20tomato%20salad.png",
+    alt: "A bowl of grated carrot, cucumber and tomato salad.",
+  },
+  "Cucumber Carrot Beetroot Salad": {
+    url: "/images/dishes/final-weightloss-diet/cucumber%20carrot%20beetroot%20salad.png",
+    alt: "A colourful raw salad of cucumber, carrot and beetroot.",
+  },
+  "Rajma Salad": {
+    url: "/images/dishes/final-weightloss-diet/rajma%20salad.png",
+    alt: "A bowl of boiled-rajma salad with crunchy vegetables.",
+  },
+  "Paneer Tomato Salad": {
+    url: "/images/dishes/final-weightloss-diet/paneer%20tomato%20salad.png",
+    alt: "A bowl of fresh paneer cubes with tomato and cucumber.",
+  },
+  "Boiled Moong": {
+    url: "/images/dishes/final-weightloss-diet/boiled%20moong.png",
+    alt: "A bowl of boiled whole green gram with onion and tomato.",
+  },
+  Makhana: {
+    url: "/images/dishes/final-weightloss-diet/makhana.png",
+    alt: "A bowl of roasted fox nuts (makhana).",
+  },
+  "Roasted Walnuts": {
+    url: "/images/dishes/final-weightloss-diet/roasted%20walnuts.png",
+    alt: "A small handful of dry-roasted walnuts.",
+  },
+  "Mixed Nuts": {
+    url: "/images/dishes/final-weightloss-diet/mixed%20nuts.png",
+    alt: "A small bowl of mixed almonds, walnuts and cashews.",
+  },
+  "Roasted Mixed Seeds": {
+    url: "/images/dishes/final-weightloss-diet/roasted%20mixed%20seeds.png",
+    alt: "A small bowl of roasted sunflower and pumpkin seeds.",
+  },
+  "Roasted Mung": {
+    url: "/images/dishes/final-weightloss-diet/roasted%20mung.png",
+    alt: "A bowl of crunchy dry-roasted whole green gram.",
+  },
+  "Dried Fig": {
+    url: "/images/dishes/final-weightloss-diet/dried%20fig.png",
+    alt: "A few dried figs (anjeer).",
+  },
+  "Cut Fruits": {
+    url: "/images/dishes/final-weightloss-diet/cut%20fruits.png",
+    alt: "A bowl of seasonal cut fruit.",
+  },
+  "Spiced Buttermilk": {
+    url: "/images/dishes/final-weightloss-diet/spiced%20buttermilk.png",
+    alt: "A glass of cooling salted buttermilk (chaas).",
+  },
+  "Apple Carrot Beetroot Smoothie": {
+    url: "/images/dishes/final-weightloss-diet/apple%20carrot%20beetroot%20smoothie.png",
+    alt: "A glass of vibrant apple-carrot-beetroot (ABC) smoothie.",
+  },
+  "Cucumber Celery Juice": {
+    url: "/images/dishes/final-weightloss-diet/cucumber%20celery%20juice.png",
+    alt: "A glass of green cucumber-celery-parsley juice.",
+  },
+  "Apple Oats Smoothie": {
+    url: "/images/dishes/final-weightloss-diet/apple%20oats%20smoothie.png",
+    alt: "A glass of apple-and-oats breakfast smoothie.",
+  },
+  "Sprouted Moong Bhel": {
+    url: "/images/dishes/final-weightloss-diet/sprouted%20moong%20bhel.png",
+    alt: "A bowl of light bhel with boiled moong sprouts.",
+  },
+  "Green Chutney": {
+    url: "/images/dishes/final-weightloss-diet/green%20chutney.png",
+    alt: "A small bowl of fresh coriander-mint chutney.",
+  },
+  "Tomato Chutney": {
+    url: "/images/dishes/final-weightloss-diet/tomato%20chutney.png",
+    alt: "A small bowl of tangy South-Indian tomato chutney.",
+  },
+  "Green Curd Chutney": {
+    url: "/images/dishes/final-weightloss-diet/green%20curd%20chutney.png",
+    alt: "A small bowl of creamy coriander-mint curd chutney.",
+  },
+  "Pudina Raita": {
+    url: "/images/dishes/final-weightloss-diet/pudina%20raita.png",
+    alt: "A bowl of whisked curd flavoured with mint and cumin.",
+  },
 };
