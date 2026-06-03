@@ -77,10 +77,16 @@ export const COMBINATIONS = [
   c("Paneer Lababdar", "North Indian", "vegetarian", main("Paneer Lababdar"), {
     description: "Goes with roti or paratha, and rice.",
   }),
-  c("Corn Spinach Rice", "North Indian", "vegan", main("Corn Spinach Rice"), {
-    description: "Goes with raita.",
-  }),
-  c("Thecha Rice", "Maharashtrian", "vegan", main("Thecha Rice"), {
+  c(
+    "Corn Spinach Rice",
+    "North Indian",
+    "vegetarian",
+    main("Corn Spinach Rice"),
+    {
+      description: "Goes with raita.",
+    },
+  ),
+  c("Thecha Rice", "Maharashtrian", "vegetarian", main("Thecha Rice"), {
     description: "Goes with raita.",
   }),
   c("Pasta Arrabbiata", "Italian", "vegan", main("Pasta Arrabbiata"), {
@@ -186,5 +192,251 @@ export const COMBINATIONS = [
   }),
   c("Egg Paratha", "North Indian", "eggetarian", main("Egg Paratha"), {
     description: "Paratha rolled with a spiced egg coating.",
+  }),
+
+  // ── Dietician weight-loss plan meal options (P12) ───────────────────────────
+  // Each recreates a meal-slot option from the dietician's weight-loss plans:
+  // one light main, with its accompaniments described in the "goes with" text.
+
+  // Breakfasts.
+  c(
+    "Sprouts Sandwich Breakfast",
+    "North Indian",
+    "vegan",
+    main("Sprouts Sandwich"),
+    {
+      description: "A grilled moong-sprouts sandwich. Goes with green chutney.",
+    },
+  ),
+  c(
+    "Berry Granola Breakfast",
+    "Continental",
+    "vegetarian",
+    main("Berry Granola Bowl"),
+    {
+      description: "Greek-yogurt granola bowl with berries and a little honey.",
+    },
+  ),
+  c(
+    "Paneer Sandwich Breakfast",
+    "North Indian",
+    "vegetarian",
+    main("Paneer Sandwich"),
+    {
+      description: "A whole-grain paneer sandwich. Goes with green chutney.",
+    },
+  ),
+  c(
+    "Masala Oats Breakfast",
+    "North Indian",
+    "vegetarian",
+    main("Homemade Masala Oats"),
+    {
+      description: "Savoury vegetable oats. Goes with a glass of buttermilk.",
+    },
+  ),
+  c("Oats Upma Breakfast", "South Indian", "vegan", main("Oats Upma"), {
+    description: "Oats upma. Goes with a bowl of boiled moong.",
+  }),
+
+  // Lunches.
+  c("Lobia Curry Meal", "North Indian", "vegetarian", main("Lobia Curry"), {
+    description:
+      "Black-eyed pea curry. Goes with sattu paratha and a bowl of low-fat curd. Needs overnight soaking.",
+  }),
+  c("Varan Bhaat", "Maharashtrian", "vegetarian", main("Moong Dal Varan"), {
+    description:
+      "Plain moong dal with ghee. Goes with rice and capsicum sabji.",
+  }),
+  c(
+    "Paneer Kofta Meal",
+    "North Indian",
+    "vegetarian",
+    main("Steamed Paneer Kofta"),
+    {
+      description: "Steamed paneer koftas in gravy. Goes with rice and curd.",
+    },
+  ),
+  c("Khichdi Kadhi", "North Indian", "vegetarian", main("Moong Dal Khichdi"), {
+    description:
+      "Moong dal khichdi. Goes with kadhi and a tomato-cucumber salad.",
+  }),
+  c(
+    "Masoor Dal Chawal",
+    "North Indian",
+    "vegetarian",
+    main("Dhuli Masoor Dal"),
+    {
+      description:
+        "Split red-lentil dal. Goes with rice and a glass of buttermilk.",
+    },
+  ),
+  c(
+    "Masala Daliya Bowl",
+    "North Indian",
+    "vegetarian",
+    main("Moong Dal Daliya"),
+    {
+      description:
+        "Broken-wheat and moong dal daliya. Goes with vegetable raita.",
+    },
+  ),
+  c(
+    "Tomato Sprouts Rice Bowl",
+    "South Indian",
+    "vegetarian",
+    main("Tomato Sprouts Rice"),
+    {
+      description: "Tomato rice with moong sprouts. Goes with a bowl of curd.",
+    },
+  ),
+  c(
+    "Paneer Kathi Roll Meal",
+    "North Indian",
+    "vegetarian",
+    main("Paneer Tikka Kathi Roll"),
+    {
+      description:
+        "A whole-wheat paneer-tikka roll — a wholesome one-hand lunch.",
+    },
+  ),
+  c("Rajma with Barley", "North Indian", "vegetarian", main("Rajma Masala"), {
+    description:
+      "Rajma curry. Goes with boiled barley and mixed-vegetable raita. Needs overnight soaking.",
+  }),
+  c(
+    "Mexican Bean Wrap Meal",
+    "Mexican",
+    "vegetarian",
+    main("Mexican Bean Wrap"),
+    {
+      description: "A rajma-stuffed wrap. Goes with a bowl of carrot soup.",
+    },
+  ),
+  c(
+    "Green Gram Dal Thali",
+    "North Indian",
+    "vegetarian",
+    main("Green Gram Dal"),
+    {
+      description:
+        "Whole green-gram dal. Goes with brown rice and mixed-vegetable raita.",
+    },
+  ),
+  c("Matki Usal Meal", "Maharashtrian", "vegan", main("Matki Curry"), {
+    description:
+      "Sprouted moth-bean usal. Goes with multigrain roti and a fresh salad. Needs sprouting.",
+  }),
+  c(
+    "Brown Rice Pulao Meal",
+    "North Indian",
+    "vegetarian",
+    main("Brown Rice Pulao"),
+    {
+      description: "Vegetable brown-rice pulao. Goes with kadhi.",
+    },
+  ),
+  c(
+    "Paneer Sweet Corn Roti",
+    "North Indian",
+    "vegetarian",
+    main("Paneer Sweet Corn Sabji"),
+    {
+      description: "Paneer and sweet-corn sabji. Goes with multigrain roti.",
+    },
+  ),
+
+  // Dinners.
+  c(
+    "Carrot Pumpkin Soup Dinner",
+    "Continental",
+    "vegan",
+    main("Carrot Pumpkin Lentil Soup"),
+    {
+      description:
+        "A protein-rich carrot-pumpkin lentil soup — a light one-bowl dinner.",
+    },
+  ),
+  c("Rajma Salad Bowl", "North Indian", "vegetarian", main("Rajma Salad"), {
+    description:
+      "A boiled-rajma salad. Goes with a bowl of curd. Needs overnight soaking.",
+  }),
+  c(
+    "Paneer Tomato Salad Dinner",
+    "North Indian",
+    "vegetarian",
+    main("Paneer Tomato Salad"),
+    {
+      description: "A light high-protein paneer-and-tomato salad.",
+    },
+  ),
+  c("Moong Dosa & Chutney", "South Indian", "vegan", main("Moong Dal Dosa"), {
+    description: "Protein moong dal dosa. Goes with tomato chutney.",
+  }),
+  c(
+    "Lauki Soup Dinner",
+    "North Indian",
+    "vegan",
+    main("Bottle Gourd Tomato Soup"),
+    {
+      description:
+        "A very light lauki-tomato soup. Goes with a boiled-moong salad.",
+    },
+  ),
+  c(
+    "Spinach Soup & Cheela",
+    "Continental",
+    "vegan",
+    main("Spinach Carrot Soup"),
+    {
+      description: "Spinach-carrot soup. Goes with a moong dal cheela.",
+    },
+  ),
+  c(
+    "Methi Moong Dal Meal",
+    "North Indian",
+    "vegan",
+    main("Moong Dal with Methi"),
+    {
+      description: "Moong dal with fenugreek. Goes with boiled barley.",
+    },
+  ),
+  c(
+    "Quinoa Khichdi Bowl",
+    "North Indian",
+    "vegetarian",
+    main("Quinoa Moong Dal Khichdi"),
+    {
+      description:
+        "Quinoa-moong khichdi. Goes with sautéed mushrooms and pudina raita.",
+    },
+  ),
+  c("Pesarattu & Dal Soup", "South Indian", "vegan", main("Pesarattu"), {
+    description: "Andhra green-gram dosa. Goes with a bowl of dal soup.",
+  }),
+  c("Kerala Veg Stew", "South Indian", "vegetarian", main("Vegetable Stew"), {
+    description: "A coconut-milk vegetable stew — a light, soupy dinner.",
+  }),
+  c(
+    "Quinoa Lentil Khichdi Bowl",
+    "North Indian",
+    "vegetarian",
+    main("Quinoa Lentil Khichdi"),
+    {
+      description: "Quinoa-and-lentil khichdi. Goes with grilled paneer.",
+    },
+  ),
+  c(
+    "Paneer & Barley Soup",
+    "North Indian",
+    "vegetarian",
+    main("Sauteed Paneer Onions and Capsicum"),
+    {
+      description:
+        "Sautéed paneer with capsicum. Goes with a bowl of barley dal soup.",
+    },
+  ),
+  c("Grilled Veg & Soup", "Continental", "vegan", main("Grilled Vegetables"), {
+    description: "Char-grilled vegetables. Goes with a bowl of carrot soup.",
   }),
 ];

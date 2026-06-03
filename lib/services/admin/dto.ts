@@ -54,6 +54,7 @@ export interface DishDto {
   lowSodium: boolean;
   highProtein: boolean;
   lowCarb: boolean;
+  weightLoss: boolean;
   imageUrl: string | null;
   imageAltText: string | null;
   imageStatus: ImageStatus;
@@ -87,6 +88,7 @@ export function toDishDto(row: DishRow): DishDto {
     lowSodium: row.low_sodium,
     highProtein: row.high_protein,
     lowCarb: row.low_carb,
+    weightLoss: row.weight_loss,
     imageUrl: row.image_url,
     imageAltText: row.image_alt_text,
     imageStatus: row.image_status,

@@ -202,6 +202,7 @@ export type Database = {
           status: Database["public"]["Enums"]["dish_status"];
           total_time_minutes: number | null;
           updated_at: string;
+          weight_loss: boolean;
         };
         Insert: {
           batch_cook_friendly?: boolean;
@@ -240,6 +241,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["dish_status"];
           total_time_minutes?: number | null;
           updated_at?: string;
+          weight_loss?: boolean;
         };
         Update: {
           batch_cook_friendly?: boolean;
@@ -278,6 +280,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["dish_status"];
           total_time_minutes?: number | null;
           updated_at?: string;
+          weight_loss?: boolean;
         };
         Relationships: [];
       };

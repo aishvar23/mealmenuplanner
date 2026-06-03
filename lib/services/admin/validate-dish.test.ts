@@ -22,6 +22,7 @@ describe("buildDishInsert", () => {
       spiceLevel: "medium",
       kidFriendly: true,
       highProtein: true,
+      weightLoss: true,
     });
 
     expect(insert).toMatchObject({
@@ -33,6 +34,7 @@ describe("buildDishInsert", () => {
       cook_time_minutes: 25,
       kid_friendly: true,
       high_protein: true,
+      weight_loss: true,
     });
   });
 

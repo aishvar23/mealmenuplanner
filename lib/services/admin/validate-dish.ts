@@ -110,6 +110,7 @@ const BOOLEAN_FLAGS: ReadonlyArray<
   ["lowSodium", "low_sodium"],
   ["highProtein", "high_protein"],
   ["lowCarb", "low_carb"],
+  ["weightLoss", "weight_loss"],
 ];
 
 /**

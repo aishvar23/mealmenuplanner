@@ -123,7 +123,8 @@ export async function getDish(dishId: string): Promise<DishDetailDto> {
       dish.diabetic_friendly ||
       dish.low_sodium ||
       dish.high_protein ||
-      dish.low_carb,
+      dish.low_carb ||
+      dish.weight_loss,
   });
 
   return {
