@@ -77,10 +77,16 @@ export const COMBINATIONS = [
   c("Paneer Lababdar", "North Indian", "vegetarian", main("Paneer Lababdar"), {
     description: "Goes with roti or paratha, and rice.",
   }),
-  c("Corn Spinach Rice", "North Indian", "vegan", main("Corn Spinach Rice"), {
-    description: "Goes with raita.",
-  }),
-  c("Thecha Rice", "Maharashtrian", "vegan", main("Thecha Rice"), {
+  c(
+    "Corn Spinach Rice",
+    "North Indian",
+    "vegetarian",
+    main("Corn Spinach Rice"),
+    {
+      description: "Goes with raita.",
+    },
+  ),
+  c("Thecha Rice", "Maharashtrian", "vegetarian", main("Thecha Rice"), {
     description: "Goes with raita.",
   }),
   c("Pasta Arrabbiata", "Italian", "vegan", main("Pasta Arrabbiata"), {
@@ -223,7 +229,7 @@ export const COMBINATIONS = [
   c(
     "Masala Oats Breakfast",
     "North Indian",
-    "vegan",
+    "vegetarian",
     main("Homemade Masala Oats"),
     {
       description: "Savoury vegetable oats. Goes with a glass of buttermilk.",
@@ -234,7 +240,7 @@ export const COMBINATIONS = [
   }),
 
   // Lunches.
-  c("Lobia Curry Meal", "North Indian", "vegan", main("Lobia Curry"), {
+  c("Lobia Curry Meal", "North Indian", "vegetarian", main("Lobia Curry"), {
     description:
       "Black-eyed pea curry. Goes with sattu paratha and a bowl of low-fat curd. Needs overnight soaking.",
   }),
@@ -255,10 +261,16 @@ export const COMBINATIONS = [
     description:
       "Moong dal khichdi. Goes with kadhi and a tomato-cucumber salad.",
   }),
-  c("Masoor Dal Chawal", "North Indian", "vegan", main("Dhuli Masoor Dal"), {
-    description:
-      "Split red-lentil dal. Goes with rice and a glass of buttermilk.",
-  }),
+  c(
+    "Masoor Dal Chawal",
+    "North Indian",
+    "vegetarian",
+    main("Dhuli Masoor Dal"),
+    {
+      description:
+        "Split red-lentil dal. Goes with rice and a glass of buttermilk.",
+    },
+  ),
   c(
     "Masala Daliya Bowl",
     "North Indian",
@@ -272,7 +284,7 @@ export const COMBINATIONS = [
   c(
     "Tomato Sprouts Rice Bowl",
     "South Indian",
-    "vegan",
+    "vegetarian",
     main("Tomato Sprouts Rice"),
     {
       description: "Tomato rice with moong sprouts. Goes with a bowl of curd.",
@@ -301,10 +313,16 @@ export const COMBINATIONS = [
       description: "A rajma-stuffed wrap. Goes with a bowl of carrot soup.",
     },
   ),
-  c("Green Gram Dal Thali", "North Indian", "vegan", main("Green Gram Dal"), {
-    description:
-      "Whole green-gram dal. Goes with brown rice and mixed-vegetable raita.",
-  }),
+  c(
+    "Green Gram Dal Thali",
+    "North Indian",
+    "vegetarian",
+    main("Green Gram Dal"),
+    {
+      description:
+        "Whole green-gram dal. Goes with brown rice and mixed-vegetable raita.",
+    },
+  ),
   c("Matki Usal Meal", "Maharashtrian", "vegan", main("Matki Curry"), {
     description:
       "Sprouted moth-bean usal. Goes with multigrain roti and a fresh salad. Needs sprouting.",
@@ -312,7 +330,7 @@ export const COMBINATIONS = [
   c(
     "Brown Rice Pulao Meal",
     "North Indian",
-    "vegan",
+    "vegetarian",
     main("Brown Rice Pulao"),
     {
       description: "Vegetable brown-rice pulao. Goes with kadhi.",
@@ -339,7 +357,7 @@ export const COMBINATIONS = [
         "A protein-rich carrot-pumpkin lentil soup — a light one-bowl dinner.",
     },
   ),
-  c("Rajma Salad Bowl", "North Indian", "vegan", main("Rajma Salad"), {
+  c("Rajma Salad Bowl", "North Indian", "vegetarian", main("Rajma Salad"), {
     description:
       "A boiled-rajma salad. Goes with a bowl of curd. Needs overnight soaking.",
   }),
@@ -402,7 +420,7 @@ export const COMBINATIONS = [
   c(
     "Quinoa Lentil Khichdi Bowl",
     "North Indian",
-    "vegan",
+    "vegetarian",
     main("Quinoa Lentil Khichdi"),
     {
       description: "Quinoa-and-lentil khichdi. Goes with grilled paneer.",
