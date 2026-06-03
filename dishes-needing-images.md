@@ -1,15 +1,14 @@
 # Dishes still missing a photo
 
-## ⭐ NEW — Dietician weight-loss plan dishes (P12): 72 dishes need images
+## ✅ DONE — Dietician weight-loss plan dishes (P12): all 72 wired
 
-These were added from the professionally-prepared weight-loss diet plans. **All 72
-ship as `image_status = 'placeholder'`** (the UI shows the neutral placeholder), so
-every one needs a photo.
+All weight-loss plan dishes added in P12 now ship verified photos from
+`public/images/dishes/final-weightloss-diet/`, wired into `DISH_IMAGES` in
+`supabase/seed/dishes.mjs` (`image_status = 'verified'`) and synced to cloud dev.
 
-**For each: generate a photo, drop it in `public/images/dishes/` (filename with
-spaces + `.png`, matching the existing `meal_photos/` convention), then I'll wire
-it into `DISH_IMAGES` in `supabase/seed/dishes.mjs` with `image_status = verified`.**
-The suggested filename and a one-line alt text are below.
+The original per-dish filename + alt-text mapping (now wired) is kept below for
+reference. `Sauteed Sprouts with Onion Capsicum` (filename
+`sauteed sprouts with onion capsicum.png`) was the last one added.
 
 ### Breakfasts & light morning meals
 
