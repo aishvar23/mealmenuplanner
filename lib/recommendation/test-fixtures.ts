@@ -77,6 +77,8 @@ export function makeDish(
     difficulty: "easy",
     kidFriendly: false,
     lunchboxFriendly: false,
+    weightLoss: false,
+    highProtein: false,
     imageUrl: null,
     imageAltText: null,
     imageStatus: "placeholder",

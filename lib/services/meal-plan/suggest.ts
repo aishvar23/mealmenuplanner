@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { DishFilterFlags } from "@/lib/meal-plan/meal-filter";
 import type { DishNutrition } from "@/lib/meal-plan/nutrition";
 import {
   recommendSlot,
@@ -34,6 +35,7 @@ export async function suggestForSlot(
   nameById: Map<string, string>;
   imageById: Map<string, DishImageMeta>;
   nutritionById: Map<string, DishNutrition | null>;
+  flagsById: Map<string, DishFilterFlags>;
 }> {
   const inputs = await loadSlotInputs(householdId, date, mealSlot);
   const excluded = new Set(options.excludeDishIds ?? []);
@@ -47,8 +49,9 @@ export async function suggestForSlot(
   const nameById = new Map(inputs.dishes.map((d) => [d.id, d.name]));
   const imageById = new Map(inputs.dishes.map((d) => [d.id, toImageMeta(d)]));
   const nutritionById = new Map(inputs.dishes.map((d) => [d.id, d.nutrition]));
+  const flagsById = new Map(inputs.dishes.map((d) => [d.id, toFilterFlags(d)]));
 
-  return { recommendations, nameById, imageById, nutritionById };
+  return { recommendations, nameById, imageById, nutritionById, flagsById };
 }
 
 /**
@@ -88,7 +91,14 @@ export async function listSlotCandidates(
   const nameById = new Map(inputs.dishes.map((d) => [d.id, d.name]));
   const imageById = new Map(inputs.dishes.map((d) => [d.id, toImageMeta(d)]));
   const nutritionById = new Map(inputs.dishes.map((d) => [d.id, d.nutrition]));
-  return toAlternatives(recommendations, nameById, imageById, nutritionById);
+  const flagsById = new Map(inputs.dishes.map((d) => [d.id, toFilterFlags(d)]));
+  return toAlternatives(
+    recommendations,
+    nameById,
+    imageById,
+    nutritionById,
+    flagsById,
+  );
 }
 
 /**
@@ -101,6 +111,7 @@ export function toAlternatives(
   nameById: Map<string, string>,
   imageById: Map<string, DishImageMeta> = new Map(),
   nutritionById: Map<string, DishNutrition | null> = new Map(),
+  flagsById: Map<string, DishFilterFlags> = new Map(),
 ): AlternativeDto[] {
   return recommendations.map((rec) => ({
     dishId: rec.dishId,
@@ -109,6 +120,8 @@ export function toAlternatives(
     dishImageAltText: imageById.get(rec.dishId)?.imageAltText ?? null,
     dishImageStatus: imageById.get(rec.dishId)?.imageStatus ?? null,
     nutrition: nutritionById.get(rec.dishId) ?? null,
+    weightLoss: flagsById.get(rec.dishId)?.weightLoss ?? false,
+    highProtein: flagsById.get(rec.dishId)?.highProtein ?? false,
     score: rec.score,
     reason: rec.reason,
     pairedDishes: [],
@@ -133,4 +146,8 @@ function toImageMeta(dish: CandidateDish): DishImageMeta {
     imageAltText: dish.imageAltText,
     imageStatus: dish.imageStatus,
   };
+}
+
+function toFilterFlags(dish: CandidateDish): DishFilterFlags {
+  return { weightLoss: dish.weightLoss, highProtein: dish.highProtein };
 }

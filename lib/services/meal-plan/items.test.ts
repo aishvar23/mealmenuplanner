@@ -26,6 +26,11 @@ vi.mock("./suggest", () => ({
         imageStatus: string;
       }
     > = new Map(),
+    nutritionById: Map<string, unknown> = new Map(),
+    flagsById: Map<
+      string,
+      { weightLoss: boolean; highProtein: boolean }
+    > = new Map(),
   ) =>
     recs.map((r) => ({
       dishId: r.dishId,
@@ -33,6 +38,9 @@ vi.mock("./suggest", () => ({
       dishImageUrl: imageById.get(r.dishId)?.imageUrl ?? null,
       dishImageAltText: imageById.get(r.dishId)?.imageAltText ?? null,
       dishImageStatus: imageById.get(r.dishId)?.imageStatus ?? null,
+      nutrition: nutritionById.get(r.dishId) ?? null,
+      weightLoss: flagsById.get(r.dishId)?.weightLoss ?? false,
+      highProtein: flagsById.get(r.dishId)?.highProtein ?? false,
       score: r.score,
       reason: r.reason,
     })),
@@ -170,6 +178,9 @@ function recommend(dishIds: string[]) {
           imageStatus: "placeholder",
         },
       ]),
+    ),
+    flagsById: new Map(
+      dishIds.map((id) => [id, { weightLoss: false, highProtein: false }]),
     ),
   };
 }

@@ -100,7 +100,7 @@ export async function generateToday(
   }
 
   // Rank candidates (existence-hidden 404 if the caller isn't a member).
-  const { recommendations, nameById, imageById, nutritionById } =
+  const { recommendations, nameById, imageById, nutritionById, flagsById } =
     await suggestForSlot(householdId, date, mealSlot, {
       excludeDishIds: options.excludeDishIds,
       now: options.now,
@@ -138,6 +138,7 @@ export async function generateToday(
       nameById,
       imageById,
       nutritionById,
+      flagsById,
     ),
   });
 }

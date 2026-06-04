@@ -62,6 +62,31 @@ describe("listSlotCandidates (BUG-022/023, SLOTPICK-005)", () => {
     expect(candidates.map((c) => c.dishId)).not.toContain("dish-1");
   });
 
+  it("propagates the weight_loss / high_protein flags onto each candidate", async () => {
+    const inputs = slotInputs(3);
+    inputs.dishes[0] = makeDish({
+      id: "dish-0",
+      name: "Sprouts Salad",
+      totalTimeMinutes: 30,
+      weightLoss: true,
+      highProtein: true,
+    });
+    vi.mocked(loadSlotInputs).mockResolvedValue(inputs as never);
+
+    const candidates = await listSlotCandidates(
+      HOUSEHOLD_ID,
+      "2026-05-25",
+      "dinner",
+    );
+
+    const flagged = candidates.find((c) => c.dishId === "dish-0");
+    expect(flagged?.weightLoss).toBe(true);
+    expect(flagged?.highProtein).toBe(true);
+    const plain = candidates.find((c) => c.dishId === "dish-1");
+    expect(plain?.weightLoss).toBe(false);
+    expect(plain?.highProtein).toBe(false);
+  });
+
   it("offers only the household's chosen dishes, not the wider catalog (BUG-027)", async () => {
     // 6 eligible catalog dishes, but the household only chose two of them.
     const inputs = slotInputs(6);

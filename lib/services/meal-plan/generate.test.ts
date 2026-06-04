@@ -27,6 +27,11 @@ vi.mock("./suggest", () => ({
         imageStatus: string;
       }
     > = new Map(),
+    nutritionById: Map<string, unknown> = new Map(),
+    flagsById: Map<
+      string,
+      { weightLoss: boolean; highProtein: boolean }
+    > = new Map(),
   ) =>
     recs.map((r) => ({
       dishId: r.dishId,
@@ -34,6 +39,9 @@ vi.mock("./suggest", () => ({
       dishImageUrl: imageById.get(r.dishId)?.imageUrl ?? null,
       dishImageAltText: imageById.get(r.dishId)?.imageAltText ?? null,
       dishImageStatus: imageById.get(r.dishId)?.imageStatus ?? null,
+      nutrition: nutritionById.get(r.dishId) ?? null,
+      weightLoss: flagsById.get(r.dishId)?.weightLoss ?? false,
+      highProtein: flagsById.get(r.dishId)?.highProtein ?? false,
       score: r.score,
       reason: r.reason,
     })),
@@ -167,6 +175,7 @@ describe("generateToday", () => {
       nameById: new Map(),
       imageById: new Map(),
       nutritionById: new Map(),
+      flagsById: new Map(),
     });
     const result = await generateToday(HH, "2026-05-25", "dinner");
     expect(result.mealPlanItem).toBeNull();
@@ -221,6 +230,7 @@ describe("generateToday", () => {
         ],
       ]),
       nutritionById: new Map(),
+      flagsById: new Map(),
     });
 
     const result = await generateToday(HH, "2026-05-25", "dinner");
@@ -234,6 +244,9 @@ describe("generateToday", () => {
         dishImageUrl: "/images/alt.jpg",
         dishImageAltText: "Alt Dish plated",
         dishImageStatus: "verified",
+        nutrition: null,
+        weightLoss: false,
+        highProtein: false,
         score: 5,
         reason: "ok",
         pairedDishes: [],
@@ -287,6 +300,7 @@ describe("generateToday", () => {
       nameById: new Map([["top", "Top Dish"]]),
       imageById: new Map(),
       nutritionById: new Map(),
+      flagsById: new Map(),
     });
 
     const result = await generateToday(HH, "2026-05-25", "dinner");

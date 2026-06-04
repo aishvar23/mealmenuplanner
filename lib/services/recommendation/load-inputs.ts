@@ -41,7 +41,7 @@ const HOUSEHOLD_PREFERENCES_SELECT =
   "diet_type, diet_types, preferred_cuisines, weekday_cooking_time_minutes, weekend_cooking_time_minutes, variety_gap_days, kids_count";
 
 const DISH_SELECT =
-  "id, name, diet_type, cuisine, meal_slots, meal_role, total_time_minutes, popularity_count, difficulty, kid_friendly, lunchbox_friendly, image_url, image_alt_text, image_status, serving_qty, serving_unit, calories_kcal, protein_g, carbs_g, fat_g, glycemic_index";
+  "id, name, diet_type, cuisine, meal_slots, meal_role, total_time_minutes, popularity_count, difficulty, kid_friendly, lunchbox_friendly, weight_loss, high_protein, image_url, image_alt_text, image_status, serving_qty, serving_unit, calories_kcal, protein_g, carbs_g, fat_g, glycemic_index";
 
 /** Household-level inputs (design/05 § 3.1). `null` when the row doesn't exist. */
 export async function loadHouseholdContext(
@@ -232,6 +232,8 @@ export async function loadCandidateDishes(
     difficulty: dish.difficulty,
     kidFriendly: dish.kid_friendly,
     lunchboxFriendly: dish.lunchbox_friendly,
+    weightLoss: dish.weight_loss,
+    highProtein: dish.high_protein,
     imageUrl: dish.image_url,
     imageAltText: dish.image_alt_text,
     imageStatus: dish.image_status,

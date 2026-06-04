@@ -138,6 +138,12 @@ export interface CandidateDish {
   difficulty: DifficultyLevel;
   kidFriendly: boolean;
   lunchboxFriendly: boolean;
+  /**
+   * Dietician-curated goal flags (P12), display-only — the engine never scores
+   * on them; the suggest/picker DTOs surface them for the top-level meal filter.
+   */
+  weightLoss: boolean;
+  highProtein: boolean;
   imageUrl: string | null;
   imageAltText: string | null;
   imageStatus: ImageStatus;
