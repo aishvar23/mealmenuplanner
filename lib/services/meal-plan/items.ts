@@ -200,7 +200,7 @@ export async function rejectItem(
     },
   });
 
-  const { recommendations, nameById, imageById, nutritionById } =
+  const { recommendations, nameById, imageById, nutritionById, flagsById } =
     await suggestForSlot(item.household_id, item.date, item.meal_slot, {
       excludeDishIds: [item.dish_id],
     });
@@ -212,6 +212,7 @@ export async function rejectItem(
       nameById,
       imageById,
       nutritionById,
+      flagsById,
     ),
   };
   await attachPackages(supabase, [result.mealPlanItem, ...result.alternatives]);

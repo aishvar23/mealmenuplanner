@@ -12,9 +12,10 @@ import { ModeCard } from "@/components/onboarding/mode-card";
 import { Input } from "@/components/ui/input";
 import type { Database } from "@/lib/db/database.types";
 import {
-  comboMatchesFilter,
-  dishMatchesFilter,
   type MealFilter,
+  noMatchLabel,
+  visibleCombos,
+  visibleDishes,
 } from "@/lib/meal-plan/meal-filter";
 import {
   builtDishNames,
@@ -56,6 +57,9 @@ export function PreferredDishesStep({
   diets?: string[];
 }) {
   const mode = value.mode;
+  // The goal chip lives at this level so the chosen goal persists when the user
+  // switches between the additive picker modes (rather than resetting to "all").
+  const [filter, setFilter] = useState<MealFilter>("all");
   const dietQuery =
     diets && diets.length > 0
       ? `?diet=${encodeURIComponent(diets.join(","))}`
@@ -121,6 +125,8 @@ export function PreferredDishesStep({
           value={value}
           onChange={onChange}
           catalog={combinations}
+          filter={filter}
+          onFilterChange={setFilter}
         />
       ) : mode === "build" ? (
         <BuildMode
@@ -128,9 +134,17 @@ export function PreferredDishesStep({
           onChange={onChange}
           mains={mains}
           accompaniments={accompaniments.data ?? []}
+          filter={filter}
+          onFilterChange={setFilter}
         />
       ) : mode === "manual" ? (
-        <ManualMode value={value} onChange={onChange} mains={mains} />
+        <ManualMode
+          value={value}
+          onChange={onChange}
+          mains={mains}
+          filter={filter}
+          onFilterChange={setFilter}
+        />
       ) : mode === "system" ? (
         <p className="rounded-lg border border-border bg-muted/30 px-3 py-3 text-sm text-muted-foreground">
           Great — the planner will choose dishes from your diet, cuisines,
@@ -153,13 +167,16 @@ function CombinationsMode({
   value,
   onChange,
   catalog,
+  filter,
+  onFilterChange,
 }: {
   value: PreferredDishes;
   onChange: (patch: Partial<PreferredDishes>) => void;
   catalog: LazyCatalog<CombinationCatalogItem>;
+  filter: MealFilter;
+  onFilterChange: (filter: MealFilter) => void;
 }) {
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<MealFilter>("all");
 
   // Each selected combination carries plate-level prefs (P10-9). Rehydrate the
   // pre-P10-9 id-only shape into the richer form so resumed drafts don't lose
@@ -220,21 +237,19 @@ function CombinationsMode({
     );
   }
 
-  const filtered = (catalog.data ?? []).filter(
-    (combo) =>
-      combo.name.toLowerCase().includes(search.trim().toLowerCase()) &&
-      comboMatchesFilter(
-        combo.dishes.map((d) => ({
-          weightLoss: d.weightLoss,
-          highProtein: d.highProtein,
-        })),
-        filter,
+  // Already-selected combos stay visible under any goal chip so a pick can
+  // always be seen and de-selected (it never becomes hidden-yet-still-counted).
+  const filtered = useMemo(
+    () =>
+      visibleCombos(catalog.data ?? [], search, filter, (combo) =>
+        selectedById.has(combo.id),
       ),
+    [catalog.data, search, filter, selectedById],
   );
 
   return (
     <div className="flex flex-col gap-3">
-      <MealFilterChips value={filter} onChange={setFilter} />
+      <MealFilterChips value={filter} onChange={onFilterChange} />
       <Input
         type="search"
         placeholder="Search combinations…"
@@ -252,7 +267,7 @@ function CombinationsMode({
       <CatalogState
         catalog={catalog}
         empty={filtered.length === 0}
-        emptyLabel={`No combinations match “${search}”.`}
+        emptyLabel={noMatchLabel("combinations", search, filter)}
         loadingLabel="Loading combinations…"
       >
         <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -293,14 +308,17 @@ function BuildMode({
   onChange,
   mains,
   accompaniments,
+  filter,
+  onFilterChange,
 }: {
   value: PreferredDishes;
   onChange: (patch: Partial<PreferredDishes>) => void;
   mains: LazyCatalog<DishCatalogItem>;
   accompaniments: DishCatalogItem[];
+  filter: MealFilter;
+  onFilterChange: (filter: MealFilter) => void;
 }) {
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<MealFilter>("all");
   const built = useMemo(() => value.builtDishes ?? [], [value.builtDishes]);
   const builtByName = useMemo(
     () => new Map(built.map((b) => [b.dishName, b])),
@@ -357,18 +375,17 @@ function BuildMode({
     );
   }
 
-  const filtered = (mains.data ?? []).filter(
-    (dish) =>
-      dish.name.toLowerCase().includes(search.trim().toLowerCase()) &&
-      dishMatchesFilter(
-        { weightLoss: dish.weightLoss, highProtein: dish.highProtein },
-        filter,
+  const filtered = useMemo(
+    () =>
+      visibleDishes(mains.data ?? [], search, filter, (dish) =>
+        builtByName.has(dish.name),
       ),
+    [mains.data, search, filter, builtByName],
   );
 
   return (
     <div className="flex flex-col gap-3">
-      <MealFilterChips value={filter} onChange={setFilter} />
+      <MealFilterChips value={filter} onChange={onFilterChange} />
       <Input
         type="search"
         placeholder="Search dishes…"
@@ -385,7 +402,7 @@ function BuildMode({
       <CatalogState
         catalog={mains}
         empty={filtered.length === 0}
-        emptyLabel={`No dishes match “${search}”.`}
+        emptyLabel={noMatchLabel("dishes", search, filter)}
         loadingLabel="Loading dishes…"
       >
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -435,14 +452,18 @@ function ManualMode({
   value,
   onChange,
   mains,
+  filter,
+  onFilterChange,
 }: {
   value: PreferredDishes;
   onChange: (patch: Partial<PreferredDishes>) => void;
   mains: LazyCatalog<DishCatalogItem>;
+  filter: MealFilter;
+  onFilterChange: (filter: MealFilter) => void;
 }) {
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<MealFilter>("all");
-  const selected = value.dishNames ?? [];
+  const selected = useMemo(() => value.dishNames ?? [], [value.dishNames]);
+  const selectedSet = useMemo(() => new Set(selected), [selected]);
 
   function toggle(name: string) {
     const next = selected.includes(name)
@@ -451,18 +472,17 @@ function ManualMode({
     onChange({ dishNames: next });
   }
 
-  const filtered = (mains.data ?? []).filter(
-    (dish) =>
-      dish.name.toLowerCase().includes(search.trim().toLowerCase()) &&
-      dishMatchesFilter(
-        { weightLoss: dish.weightLoss, highProtein: dish.highProtein },
-        filter,
+  const filtered = useMemo(
+    () =>
+      visibleDishes(mains.data ?? [], search, filter, (dish) =>
+        selectedSet.has(dish.name),
       ),
+    [mains.data, search, filter, selectedSet],
   );
 
   return (
     <div className="flex flex-col gap-3">
-      <MealFilterChips value={filter} onChange={setFilter} />
+      <MealFilterChips value={filter} onChange={onFilterChange} />
       <Input
         type="search"
         placeholder="Search dishes…"
@@ -478,7 +498,7 @@ function ManualMode({
       <CatalogState
         catalog={mains}
         empty={filtered.length === 0}
-        emptyLabel={`No dishes match “${search}”.`}
+        emptyLabel={noMatchLabel("dishes", search, filter)}
         loadingLabel="Loading dishes…"
       >
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">

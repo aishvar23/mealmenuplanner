@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, Clock, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { MealFilterChips } from "@/components/meal-plan/meal-filter-chips";
 import { Button } from "@/components/ui/button";
@@ -79,7 +79,7 @@ export function SlotReplacementPicker({
   }, [onCancel, submitting]);
 
   async function confirm() {
-    if (!selectedDishId) return;
+    if (!selectedDishId || !selectedVisible) return;
     setSubmitting(true);
     setSubmitError(null);
     try {
@@ -95,12 +95,22 @@ export function SlotReplacementPicker({
     }
   }
 
-  const visible = (candidates ?? []).filter((candidate) =>
-    dishMatchesFilter(
-      { weightLoss: candidate.weightLoss, highProtein: candidate.highProtein },
-      filter,
-    ),
+  const visible = useMemo(
+    () =>
+      (candidates ?? []).filter((candidate) =>
+        dishMatchesFilter(candidate, filter),
+      ),
+    [candidates, filter],
   );
+
+  // Treat the selection as active only while the chosen dish is actually shown.
+  // The goal chip can hide it (its card unmounts), and committing a dish the
+  // user can no longer see would be a surprise — so gate confirm + the button on
+  // visibility rather than on the raw id, which we keep so flipping back to a
+  // chip that re-reveals the dish restores the highlight.
+  const selectedVisible =
+    selectedDishId !== null &&
+    visible.some((candidate) => candidate.dishId === selectedDishId);
 
   return (
     <div
@@ -228,7 +238,7 @@ export function SlotReplacementPicker({
             <Button variant="ghost" disabled={submitting} onClick={onCancel}>
               Cancel
             </Button>
-            <Button disabled={!selectedDishId || submitting} onClick={confirm}>
+            <Button disabled={!selectedVisible || submitting} onClick={confirm}>
               {submitting ? "Replacing…" : "Replace meal"}
             </Button>
           </div>

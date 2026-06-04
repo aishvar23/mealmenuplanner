@@ -35,6 +35,7 @@ export async function suggestForSlot(
   nameById: Map<string, string>;
   imageById: Map<string, DishImageMeta>;
   nutritionById: Map<string, DishNutrition | null>;
+  flagsById: Map<string, DishFilterFlags>;
 }> {
   const inputs = await loadSlotInputs(householdId, date, mealSlot);
   const excluded = new Set(options.excludeDishIds ?? []);
@@ -48,8 +49,9 @@ export async function suggestForSlot(
   const nameById = new Map(inputs.dishes.map((d) => [d.id, d.name]));
   const imageById = new Map(inputs.dishes.map((d) => [d.id, toImageMeta(d)]));
   const nutritionById = new Map(inputs.dishes.map((d) => [d.id, d.nutrition]));
+  const flagsById = new Map(inputs.dishes.map((d) => [d.id, toFilterFlags(d)]));
 
-  return { recommendations, nameById, imageById, nutritionById };
+  return { recommendations, nameById, imageById, nutritionById, flagsById };
 }
 
 /**

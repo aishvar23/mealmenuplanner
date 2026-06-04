@@ -10,6 +10,8 @@
  * server-rendered catalogs and client components can share the predicate.
  */
 
+import type { Option } from "@/lib/onboarding";
+
 /** The active goal filter. `all` is the default (no narrowing). */
 export type MealFilter = "all" | "weight_loss" | "high_protein";
 
@@ -19,11 +21,19 @@ export interface DishFilterFlags {
   highProtein: boolean;
 }
 
+/** A catalog dish the search + goal filter narrows: its name plus the goal flags. */
+export interface FilterableDish extends DishFilterFlags {
+  name: string;
+}
+
+/** A catalog combination: its name plus the component dishes' goal flags. */
+export interface FilterableCombo {
+  name: string;
+  dishes: readonly DishFilterFlags[];
+}
+
 /** Chip options in display order; `all` first as the default. */
-export const MEAL_FILTER_OPTIONS: readonly {
-  value: MealFilter;
-  label: string;
-}[] = [
+export const MEAL_FILTER_OPTIONS: readonly Option<MealFilter>[] = [
   { value: "all", label: "All" },
   { value: "weight_loss", label: "Weight-loss" },
   { value: "high_protein", label: "Protein-rich" },
@@ -34,8 +44,20 @@ export function dishMatchesFilter(
   flags: DishFilterFlags,
   filter: MealFilter,
 ): boolean {
-  if (filter === "all") return true;
-  return filter === "weight_loss" ? flags.weightLoss : flags.highProtein;
+  switch (filter) {
+    case "all":
+      return true;
+    case "weight_loss":
+      return flags.weightLoss;
+    case "high_protein":
+      return flags.highProtein;
+    default: {
+      // Exhaustiveness guard: a new MealFilter member must extend this switch,
+      // not silently fall through to whichever flag the last branch returned.
+      const _exhaustive: never = filter;
+      return _exhaustive;
+    }
+  }
 }
 
 /**
@@ -51,4 +73,54 @@ export function comboMatchesFilter(
 ): boolean {
   if (filter === "all") return true;
   return dishes.some((dish) => dishMatchesFilter(dish, filter));
+}
+
+/**
+ * Narrow a dish catalog by the search box AND the goal chip for a picker grid.
+ * Already-selected dishes always survive the goal filter so a pick made under
+ * one chip never becomes hidden-yet-still-selected when the chip changes — the
+ * search box (transient text) still applies to everything.
+ */
+export function visibleDishes<T extends FilterableDish>(
+  dishes: readonly T[],
+  search: string,
+  filter: MealFilter,
+  isSelected: (dish: T) => boolean,
+): T[] {
+  const query = search.trim().toLowerCase();
+  return dishes.filter(
+    (dish) =>
+      dish.name.toLowerCase().includes(query) &&
+      (isSelected(dish) || dishMatchesFilter(dish, filter)),
+  );
+}
+
+/** Combination counterpart of {@link visibleDishes} (uses the ANY combo rule). */
+export function visibleCombos<T extends FilterableCombo>(
+  combos: readonly T[],
+  search: string,
+  filter: MealFilter,
+  isSelected: (combo: T) => boolean,
+): T[] {
+  const query = search.trim().toLowerCase();
+  return combos.filter(
+    (combo) =>
+      combo.name.toLowerCase().includes(query) &&
+      (isSelected(combo) || comboMatchesFilter(combo.dishes, filter)),
+  );
+}
+
+/**
+ * The "nothing matched" message for a picker grid, attributing the emptiness to
+ * whichever control actually narrowed it: an active search term, otherwise the
+ * goal chip, otherwise a genuinely empty catalog.
+ */
+export function noMatchLabel(
+  noun: string,
+  search: string,
+  filter: MealFilter,
+): string {
+  if (search.trim()) return `No ${noun} match “${search}”.`;
+  if (filter !== "all") return `No ${noun} match this filter.`;
+  return `No ${noun} available right now.`;
 }
