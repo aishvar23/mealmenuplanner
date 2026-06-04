@@ -171,6 +171,9 @@ export interface AlternativeDto {
   dishImageStatus: ImageStatus | null;
   /** Per-serving nutrition (P11); null for a dish with no data. */
   nutrition: DishNutrition | null;
+  /** Dietician-curated goal flags (P12) powering the picker's meal filter. */
+  weightLoss: boolean;
+  highProtein: boolean;
   score: number;
   reason: string;
   /** Package accompaniments for this alternative; filled by `attachPackages`. */

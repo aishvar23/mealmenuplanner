@@ -28,7 +28,7 @@ export async function listAccompanimentCatalog(
   let query = supabase
     .from("dishes")
     .select(
-      "id, name, cuisine, diet_type, image_url, image_alt_text, image_status",
+      "id, name, cuisine, diet_type, image_url, image_alt_text, image_status, weight_loss, high_protein",
     )
     .eq("status", "active")
     .order("popularity_count", { ascending: false })
@@ -61,5 +61,7 @@ export async function listAccompanimentCatalog(
     imageUrl: row.image_url,
     imageAltText: row.image_alt_text,
     imageStatus: row.image_status,
+    weightLoss: row.weight_loss,
+    highProtein: row.high_protein,
   }));
 }

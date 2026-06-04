@@ -20,6 +20,9 @@ export interface CombinationDish {
   imageUrl: string | null;
   imageAltText: string | null;
   imageStatus: ImageStatus;
+  /** Dietician-curated goal flags powering the top-level meal filter. */
+  weightLoss: boolean;
+  highProtein: boolean;
 }
 
 /** An admin-curated meal combination as the "Select combinations" mode lists it. */
@@ -51,6 +54,8 @@ interface CombinationRow {
       image_url: string | null;
       image_alt_text: string | null;
       image_status: ImageStatus;
+      weight_loss: boolean;
+      high_protein: boolean;
     } | null;
   }[];
 }
@@ -78,7 +83,7 @@ export async function listCombinationCatalog(
     .select(
       "id, name, description, cuisine, diet_type, popularity_count, " +
         "meal_combination_items(sort_order, role_in_combo, " +
-        "dishes(id, name, cuisine, image_url, image_alt_text, image_status))",
+        "dishes(id, name, cuisine, image_url, image_alt_text, image_status, weight_loss, high_protein))",
     )
     .eq("status", "active")
     .order("popularity_count", { ascending: false })
@@ -117,6 +122,8 @@ export async function listCombinationCatalog(
                 imageUrl: item.dishes.image_url,
                 imageAltText: item.dishes.image_alt_text,
                 imageStatus: item.dishes.image_status,
+                weightLoss: item.dishes.weight_loss,
+                highProtein: item.dishes.high_protein,
               },
             ]
           : [],

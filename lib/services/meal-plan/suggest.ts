@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { DishFilterFlags } from "@/lib/meal-plan/meal-filter";
 import type { DishNutrition } from "@/lib/meal-plan/nutrition";
 import {
   recommendSlot,
@@ -88,7 +89,14 @@ export async function listSlotCandidates(
   const nameById = new Map(inputs.dishes.map((d) => [d.id, d.name]));
   const imageById = new Map(inputs.dishes.map((d) => [d.id, toImageMeta(d)]));
   const nutritionById = new Map(inputs.dishes.map((d) => [d.id, d.nutrition]));
-  return toAlternatives(recommendations, nameById, imageById, nutritionById);
+  const flagsById = new Map(inputs.dishes.map((d) => [d.id, toFilterFlags(d)]));
+  return toAlternatives(
+    recommendations,
+    nameById,
+    imageById,
+    nutritionById,
+    flagsById,
+  );
 }
 
 /**
@@ -101,6 +109,7 @@ export function toAlternatives(
   nameById: Map<string, string>,
   imageById: Map<string, DishImageMeta> = new Map(),
   nutritionById: Map<string, DishNutrition | null> = new Map(),
+  flagsById: Map<string, DishFilterFlags> = new Map(),
 ): AlternativeDto[] {
   return recommendations.map((rec) => ({
     dishId: rec.dishId,
@@ -109,6 +118,8 @@ export function toAlternatives(
     dishImageAltText: imageById.get(rec.dishId)?.imageAltText ?? null,
     dishImageStatus: imageById.get(rec.dishId)?.imageStatus ?? null,
     nutrition: nutritionById.get(rec.dishId) ?? null,
+    weightLoss: flagsById.get(rec.dishId)?.weightLoss ?? false,
+    highProtein: flagsById.get(rec.dishId)?.highProtein ?? false,
     score: rec.score,
     reason: rec.reason,
     pairedDishes: [],
@@ -133,4 +144,8 @@ function toImageMeta(dish: CandidateDish): DishImageMeta {
     imageAltText: dish.imageAltText,
     imageStatus: dish.imageStatus,
   };
+}
+
+function toFilterFlags(dish: CandidateDish): DishFilterFlags {
+  return { weightLoss: dish.weightLoss, highProtein: dish.highProtein };
 }

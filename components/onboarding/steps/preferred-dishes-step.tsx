@@ -3,6 +3,7 @@
 import { LayoutGrid, Sparkles, UtensilsCrossed } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { MealFilterChips } from "@/components/meal-plan/meal-filter-chips";
 import { BuildDishConfig } from "@/components/onboarding/cards/build-dish-config";
 import { CombinationCard } from "@/components/onboarding/cards/combination-card";
 import { CombinationConfig } from "@/components/onboarding/cards/combination-config";
@@ -10,6 +11,11 @@ import { DishCard } from "@/components/onboarding/cards/dish-card";
 import { ModeCard } from "@/components/onboarding/mode-card";
 import { Input } from "@/components/ui/input";
 import type { Database } from "@/lib/db/database.types";
+import {
+  comboMatchesFilter,
+  dishMatchesFilter,
+  type MealFilter,
+} from "@/lib/meal-plan/meal-filter";
 import {
   builtDishNames,
   combinationDisplayNames,
@@ -153,6 +159,7 @@ function CombinationsMode({
   catalog: LazyCatalog<CombinationCatalogItem>;
 }) {
   const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<MealFilter>("all");
 
   // Each selected combination carries plate-level prefs (P10-9). Rehydrate the
   // pre-P10-9 id-only shape into the richer form so resumed drafts don't lose
@@ -213,12 +220,21 @@ function CombinationsMode({
     );
   }
 
-  const filtered = (catalog.data ?? []).filter((combo) =>
-    combo.name.toLowerCase().includes(search.trim().toLowerCase()),
+  const filtered = (catalog.data ?? []).filter(
+    (combo) =>
+      combo.name.toLowerCase().includes(search.trim().toLowerCase()) &&
+      comboMatchesFilter(
+        combo.dishes.map((d) => ({
+          weightLoss: d.weightLoss,
+          highProtein: d.highProtein,
+        })),
+        filter,
+      ),
   );
 
   return (
     <div className="flex flex-col gap-3">
+      <MealFilterChips value={filter} onChange={setFilter} />
       <Input
         type="search"
         placeholder="Search combinations…"
@@ -284,6 +300,7 @@ function BuildMode({
   accompaniments: DishCatalogItem[];
 }) {
   const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<MealFilter>("all");
   const built = useMemo(() => value.builtDishes ?? [], [value.builtDishes]);
   const builtByName = useMemo(
     () => new Map(built.map((b) => [b.dishName, b])),
@@ -340,12 +357,18 @@ function BuildMode({
     );
   }
 
-  const filtered = (mains.data ?? []).filter((dish) =>
-    dish.name.toLowerCase().includes(search.trim().toLowerCase()),
+  const filtered = (mains.data ?? []).filter(
+    (dish) =>
+      dish.name.toLowerCase().includes(search.trim().toLowerCase()) &&
+      dishMatchesFilter(
+        { weightLoss: dish.weightLoss, highProtein: dish.highProtein },
+        filter,
+      ),
   );
 
   return (
     <div className="flex flex-col gap-3">
+      <MealFilterChips value={filter} onChange={setFilter} />
       <Input
         type="search"
         placeholder="Search dishes…"
@@ -418,6 +441,7 @@ function ManualMode({
   mains: LazyCatalog<DishCatalogItem>;
 }) {
   const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<MealFilter>("all");
   const selected = value.dishNames ?? [];
 
   function toggle(name: string) {
@@ -427,12 +451,18 @@ function ManualMode({
     onChange({ dishNames: next });
   }
 
-  const filtered = (mains.data ?? []).filter((dish) =>
-    dish.name.toLowerCase().includes(search.trim().toLowerCase()),
+  const filtered = (mains.data ?? []).filter(
+    (dish) =>
+      dish.name.toLowerCase().includes(search.trim().toLowerCase()) &&
+      dishMatchesFilter(
+        { weightLoss: dish.weightLoss, highProtein: dish.highProtein },
+        filter,
+      ),
   );
 
   return (
     <div className="flex flex-col gap-3">
+      <MealFilterChips value={filter} onChange={setFilter} />
       <Input
         type="search"
         placeholder="Search dishes…"

@@ -19,6 +19,9 @@ export interface DishCatalogItem {
   imageUrl: string | null;
   imageAltText: string | null;
   imageStatus: ImageStatus;
+  /** Dietician-curated goal flags powering the top-level meal filter. */
+  weightLoss: boolean;
+  highProtein: boolean;
 }
 
 /**
@@ -42,7 +45,7 @@ export async function listDishCatalog(
   let query = supabase
     .from("dishes")
     .select(
-      "id, name, cuisine, diet_type, image_url, image_alt_text, image_status",
+      "id, name, cuisine, diet_type, image_url, image_alt_text, image_status, weight_loss, high_protein",
     )
     .eq("status", "active")
     .in("meal_role", ["complete_meal", "main_component"])
@@ -69,5 +72,7 @@ export async function listDishCatalog(
     imageUrl: row.image_url,
     imageAltText: row.image_alt_text,
     imageStatus: row.image_status,
+    weightLoss: row.weight_loss,
+    highProtein: row.high_protein,
   }));
 }

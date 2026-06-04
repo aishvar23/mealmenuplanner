@@ -3,9 +3,14 @@
 import { Check, Clock, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { MealFilterChips } from "@/components/meal-plan/meal-filter-chips";
 import { Button } from "@/components/ui/button";
 import { FoodImage } from "@/components/ui/food-image";
 import { packagePairingSuffix } from "@/lib/meal-plan/labels";
+import {
+  dishMatchesFilter,
+  type MealFilter,
+} from "@/lib/meal-plan/meal-filter";
 import type {
   AlternativeDto,
   ReplaceResult,
@@ -37,6 +42,7 @@ export function SlotReplacementPicker({
   onReplaced: (result: ReplaceResult) => void;
 }) {
   const [candidates, setCandidates] = useState<AlternativeDto[] | null>(null);
+  const [filter, setFilter] = useState<MealFilter>("all");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedDishId, setSelectedDishId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -89,6 +95,13 @@ export function SlotReplacementPicker({
     }
   }
 
+  const visible = (candidates ?? []).filter((candidate) =>
+    dishMatchesFilter(
+      { weightLoss: candidate.weightLoss, highProtein: candidate.highProtein },
+      filter,
+    ),
+  );
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
@@ -125,6 +138,10 @@ export function SlotReplacementPicker({
           </Button>
         </div>
 
+        <div className="border-b px-4 py-3">
+          <MealFilterChips value={filter} onChange={setFilter} />
+        </div>
+
         <div className="min-h-40 flex-1 overflow-y-auto p-4">
           {loadError ? (
             <p role="alert" className="text-sm text-destructive">
@@ -136,9 +153,13 @@ export function SlotReplacementPicker({
             <p className="text-sm text-muted-foreground">
               No other eligible dishes for this slot right now.
             </p>
+          ) : visible.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No dishes match this filter.
+            </p>
           ) : (
             <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {candidates.map((candidate) => {
+              {visible.map((candidate) => {
                 const selected = candidate.dishId === selectedDishId;
                 const suffix = packagePairingSuffix(candidate.pairedDishes);
                 return (
