@@ -99,12 +99,14 @@ work even after a reboot or lost context.
    implement its underlying `MP-*` tasks
    (`design/planning/meal-provider/05_two_developer_implementation_tracker.md`),
    honouring the contracts (`03_contracts.md`) and DB/RLS plan (`04_*`).
-4. **Ship a PR, then pause.** Branch, run the quality gates
-   (`format:check` / `lint` / `typecheck` / `test`), open a PR whose description
-   references the work item, comment "PR #NN opened, in review" on the item, and
-   **stop for human review — do not self-merge.**
+4. **Ship a PR, then pause.** Branch, add the item's functional + E2E tests and
+   pass the full **Definition of Done** gate below (quality gates **and** the
+   constant regression suite, green), open a PR whose description references the
+   work item and names the tests added, comment "PR #NN opened, in review" on the
+   item, and **stop for human review — do not self-merge.**
 5. **After a human merges,** move the item to **Done** with a comment linking the
-   merged PR, then return to step 1.
+   merged PR, then return to step 1. An item is **never** closed until its
+   Definition of Done (below) is met.
 
 **Autonomy boundaries — stop and ask the human for:**
 
@@ -118,6 +120,42 @@ work even after a reboot or lost context.
 **Backlog discipline.** When work is deferred or newly discovered, add it to ADO as
 an Issue under Epic **#15** tagged `backlog` (and `decision` if it needs a human
 call) instead of dropping it — the board stays the single source of truth.
+
+## Testing & Definition of Done
+
+**No work item is `Done` until its change is proven and the regression baseline is
+still green.** This gate is mandatory and verified in the PR before close.
+
+**Definition of Done (every work item):**
+
+1. **Functional tests** — Vitest unit/service tests colocated with the code
+   (`*.test.ts`) for the item's logic _and_ its error/permission paths.
+2. **End-to-end tests** — **Playwright** specs in `e2e/` covering the item's
+   user-facing flow(s). Playwright is the E2E tool of record (deterministic,
+   CI-runnable) — use it, not ad-hoc clicking, for anything that must stay green.
+3. **Run it for real** — launch the app on localhost (`npm run dev`; Playwright's
+   `webServer` does this automatically) and verify the change end-to-end via the new
+   Playwright specs. A quick manual smoke in Chrome / Claude-in-Chrome is fine
+   _during dev_, but the **gate is the automated run**, never a manual click-through.
+4. **No regression** — the **constant regression suite** (below) passes in full,
+   plus `npm run format:check`, `npm run lint`, `npm run typecheck`,
+   `npm run test`, `npm run test:e2e`.
+5. **Grow the suite** — the item's new functional + E2E tests are added to the
+   regression suite. The suite only ever **grows**; a test is never skipped or
+   removed without a `decision`-tagged work item approving it.
+6. The PR states which tests were added and that the regression suite is green —
+   only then move the item to **Done**.
+
+**The constant regression suite (the testing backbone):**
+
+- It is **identified once and kept constant** — a fixed, always-green baseline that
+  every work item must not break and must extend. It lives in `e2e/` (Playwright)
+  and the colocated Vitest tests, run via `npm run test` + `npm run test:e2e`.
+- Establishing and freezing it is **Issue #34 (P0, `seq-00`)** — the autopilot does
+  this **before any feature item**. Until the suite exists and is green, **no
+  feature item (#16+) may close.** It is the backbone of all testing here.
+- The suite must always include the existing **household** flows and the **mobile
+  API** contract (no feature may regress them), and grows one item at a time.
 
 ## Product spec map (`docs/`)
 
