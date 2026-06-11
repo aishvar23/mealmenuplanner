@@ -74,6 +74,51 @@ delete-and-recreate over a REST PATCH) for work-item edits.
   without the plan comment; don't move to **Done** without a comment linking the
   merged PR.
 
+## Autopilot mode (autonomous execution)
+
+For long-running build-out (currently the **Meal Provider Workspace**, Epic **#15**)
+the work runs autonomously from the ADO board, with the human involved **only for
+PR review and design decisions**. The board (see _Work tracking_ above) is both the
+queue and the resume point, so **one prompt per session** continues or resumes the
+work even after a reboot or lost context.
+
+**Kickoff prompt — paste at the start of any session:**
+
+> Run Meal Provider autopilot: pick up the next ADO work item and continue.
+
+**On that prompt, run this loop:**
+
+1. **Resume first.** Look for an `mp-autopilot` Issue already in state **Doing**. If
+   one exists, read its latest comments (the recorded plan) and **continue that
+   item** — never start a new one while one is in flight.
+2. **Else select next.** Among Issues tagged `mp-autopilot` that are **not** `Done`
+   and **not** tagged `decision` / `decision-gated`, pick the lowest **`seq-NN`**
+   whose checkpoint (`cpN`) predecessors are all `Done`
+   (CP1 → CP2 → … → CP5; see `design/planning/meal-provider/06_integration_plan.md`).
+3. **Open the item.** Move **To Do → Doing** with a plan+reason comment, then
+   implement its underlying `MP-*` tasks
+   (`design/planning/meal-provider/05_two_developer_implementation_tracker.md`),
+   honouring the contracts (`03_contracts.md`) and DB/RLS plan (`04_*`).
+4. **Ship a PR, then pause.** Branch, run the quality gates
+   (`format:check` / `lint` / `typecheck` / `test`), open a PR whose description
+   references the work item, comment "PR #NN opened, in review" on the item, and
+   **stop for human review — do not self-merge.**
+5. **After a human merges,** move the item to **Done** with a comment linking the
+   merged PR, then return to step 1.
+
+**Autonomy boundaries — stop and ask the human for:**
+
+- **Design decisions** — anything tagged `decision` / `decision-gated` (e.g. ADR-7,
+  Issue **#30**, the menu-edit policy). Never guess a blocked decision; implement
+  only the unblocked part of an item and leave the rest with a comment.
+- **PR review and merge** — open PRs; humans review and merge.
+- The standing safety rules (no destructive or outward-facing action beyond opening
+  a PR without explicit approval).
+
+**Backlog discipline.** When work is deferred or newly discovered, add it to ADO as
+an Issue under Epic **#15** tagged `backlog` (and `decision` if it needs a human
+call) instead of dropping it — the board stays the single source of truth.
+
 ## Product spec map (`docs/`)
 
 | File                                 | Contents                                            |
