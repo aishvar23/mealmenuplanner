@@ -34,6 +34,46 @@ The **native mobile app** (React Native + Expo, post-MVP) has its own pair:
 `/api/*` backend) and `MOBILE_IMPLEMENTATION_TRACKER.md` (task list, IDs `M0-1`
 … `M3-7`).
 
+## Work tracking (Azure DevOps — source of truth)
+
+**Azure DevOps is the source of truth for every work item and bug going forward.**
+Project **mymealtoday** — <https://dev.azure.com/aishvarsuhane/mymealtoday>. It uses
+the **Basic** process: **Epic ▸ Issue ▸ Task**, where **Issue is the story type**.
+There is no Bug work-item type, so **log bugs as Issues tagged `bug`**. The
+`*_TRACKER.md` files and `design/planning/**` stay as _planning detail_, but **ADO
+holds the live status and the audit trail.** (Meal Provider Workspace lives under
+Epic **#15**, Issues **#16–#28**; the CLAUDE.md policy itself is Issue **#29**.)
+
+Interact via the **Azure CLI** — `az login` already authenticates this
+**MSA-backed** org; install the extension once with
+`az extension add --name azure-devops`, then
+`az devops configure --defaults organization=https://dev.azure.com/aishvarsuhane project=mymealtoday`.
+Caveat: raw ADO REST with an AAD token is rejected (302) on this MSA org and the
+CLI can't remove a `Hyperlink` relation — prefer `az boards` commands (and
+delete-and-recreate over a REST PATCH) for work-item edits.
+
+**Mandatory conventions:**
+
+- **Work item first.** Create the ADO Issue (under the right Epic) before writing
+  code: `az boards work-item create --type Issue --title "…" --description "…"`,
+  then add its parent (`az boards work-item relation add --id <issue> --relation-type Parent --target-id <epic>`).
+- **The PR description must reference its work item(s)** — include the
+  `…/_workitems/edit/<id>` URL and id; if the Azure Boards GitHub app is connected,
+  also use an `AB#<id>` mention to auto-link. Aim for one work item ↔ one focused PR.
+- **Track progress with work-item comments**, not just state — add a comment at
+  each milestone with `az boards work-item update --id <id> --discussion "…"`:
+  e.g. `Branch feature/x started`, `PR #NN opened, in review`, `PR #NN merged`,
+  `blocked on …`.
+- **Audited state changes.** Whenever you change an item's **State** (e.g. To Do →
+  Doing as it enters implementation, or → Done), in the **same command** add a
+  comment giving **(a) the plan** and **(b) why the state is changing**:
+  `az boards work-item update --id <id> --state "Doing" --discussion "Moving To Do -> Doing. Plan: …; Reason: …"`.
+  This exists so that if the machine reboots or context is lost, the work item, on
+  its own, explains what is being done and why.
+- Basic-process states are **To Do → Doing → Done**. Don't move to **Doing**
+  without the plan comment; don't move to **Done** without a comment linking the
+  merged PR.
+
 ## Product spec map (`docs/`)
 
 | File                                 | Contents                                            |
