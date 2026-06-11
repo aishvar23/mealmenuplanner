@@ -23,6 +23,29 @@ export const SPEC_USERS = [
   NO_HOUSEHOLD,
 ] as const;
 
+/**
+ * Meal Provider Workspace spec users (per `07_test_strategy.md` §3). These back
+ * the provider fixtures in `fixtures/provider.ts`. The accounts can be seeded as
+ * plain email-confirmed users today; the provider-membership wiring lands with
+ * the provider schema (MP-A-010, CP2). Named distinctly from the household spec
+ * users so the two domains never collide on shared cloud dev.
+ */
+export const PROVIDER_OWNER = "provider-owner@example.com";
+export const PROVIDER_OWNER_B = "provider-owner-b@example.com";
+export const AWAITING_CUSTOMER = "provider-awaiting@example.com";
+export const APPROVED_CUSTOMER = "provider-approved@example.com";
+export const SUBSCRIPTION_CUSTOMER = "provider-subscription@example.com";
+export const MULTI_PROVIDER_CUSTOMER = "provider-multi@example.com";
+
+export const PROVIDER_SPEC_USERS = [
+  PROVIDER_OWNER,
+  PROVIDER_OWNER_B,
+  AWAITING_CUSTOMER,
+  APPROVED_CUSTOMER,
+  SUBSCRIPTION_CUSTOMER,
+  MULTI_PROVIDER_CUSTOMER,
+] as const;
+
 /** Shared password for all e2e accounts; overridable via `.env.e2e`. */
 export const E2E_PASSWORD =
   process.env.E2E_USER_PASSWORD ?? "e2e-Password-1234";

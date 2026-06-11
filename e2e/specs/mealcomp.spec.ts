@@ -1,5 +1,10 @@
 import { expect, test } from "../fixtures/auth";
-import { featuredTitle, generateFeatured, tryAnother } from "../helpers/today";
+import {
+  featuredTitle,
+  generateFeatured,
+  openReplacePicker,
+  pickerCandidateNames,
+} from "../helpers/today";
 
 /**
  * MEALCOMP — meal completeness (global criteria 12 & 13). The deterministic,
@@ -22,13 +27,24 @@ test("MEALCOMP-001: a side/condiment is never offered as a standalone main", asy
   await page.goto("/today");
   await generateFeatured(page);
 
-  for (let i = 0; i < 6; i++) {
-    const name = await featuredTitle(page);
+  // The featured pick is never a standalone side/condiment.
+  const featured = await featuredTitle(page);
+  expect(
+    featured,
+    `"${featured}" should not be a standalone side/condiment`,
+  ).not.toMatch(SIDE_OR_CONDIMENT);
+
+  // Nor is any dish the slot picker offers (the candidate set comes from the
+  // same engine filters). The candidate label's first line is the dish name.
+  const dialog = await openReplacePicker(page);
+  const names = await pickerCandidateNames(dialog);
+  expect(names.length).toBeGreaterThan(0);
+  for (const raw of names) {
+    const name = raw.split("\n")[0]?.trim() ?? raw;
     expect(
       name,
       `"${name}" should not be a standalone side/condiment`,
     ).not.toMatch(SIDE_OR_CONDIMENT);
-    await tryAnother(page);
   }
 });
 

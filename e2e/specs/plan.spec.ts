@@ -12,7 +12,11 @@ import { expect, test } from "../fixtures/auth";
 async function generateWeek(page: Page) {
   await page.goto("/plan");
   await page.getByRole("button", { name: /generate week/i }).click();
-  await expect(page.getByRole("button", { name: "Swap" }).first()).toBeVisible({
+  // A planned cell exposes a "Change" control (BUG-022/023 renamed the old
+  // auto-cycling "Swap" and routed it through the dish picker).
+  await expect(
+    page.getByRole("button", { name: "Change", exact: true }).first(),
+  ).toBeVisible({
     timeout: 30_000,
   });
 }
@@ -23,9 +27,9 @@ test("PLAN-001: user can generate a weekly meal plan", async ({
 }) => {
   expect(onboardedHousehold.householdId).toBeTruthy();
   await generateWeek(page);
-  // At least one slot is now planned (has a Swap control).
+  // At least one slot is now planned (has a Change control).
   expect(
-    await page.getByRole("button", { name: "Swap" }).count(),
+    await page.getByRole("button", { name: "Change", exact: true }).count(),
   ).toBeGreaterThan(0);
 });
 
@@ -35,12 +39,22 @@ test("PLAN-002: user can replace (swap) a planned meal", async ({
 }) => {
   expect(onboardedHousehold.householdId).toBeTruthy();
   await generateWeek(page);
-  const swap = page.getByRole("button", { name: "Swap" }).first();
-  await swap.click();
-  await expect(swap).toBeEnabled({ timeout: 20_000 });
+  // "Change" opens the slot-replacement picker; pick a candidate and confirm.
+  await page
+    .getByRole("button", { name: "Change", exact: true })
+    .first()
+    .click();
+  const dialog = page.getByRole("dialog", { name: /choose a dish for/i });
+  await expect(dialog).toBeVisible({ timeout: 20_000 });
+  await expect(dialog.getByText("Loading dishes…")).toBeHidden({
+    timeout: 20_000,
+  });
+  await dialog.locator("button[aria-pressed]").first().click();
+  await dialog.getByRole("button", { name: /replace meal/i }).click();
+  await expect(dialog).toBeHidden({ timeout: 20_000 });
   // The slot is still planned after the swap (replacement succeeded).
   await expect(
-    page.getByRole("button", { name: "Swap" }).first(),
+    page.getByRole("button", { name: "Change", exact: true }).first(),
   ).toBeVisible();
 });
 
@@ -52,13 +66,13 @@ test("PLAN-003: a locked meal survives a regenerate", async ({
   await generateWeek(page);
   await page.getByRole("button", { name: "Lock meal" }).first().click();
   await expect(
-    page.getByRole("button", { name: "Unlock meal" }).first(),
+    page.getByRole("button", { name: /unlock to edit/i }).first(),
   ).toBeVisible();
 
   await page.getByRole("button", { name: /generate week/i }).click();
   // A lock remains after regenerating the rest of the week.
   await expect(
-    page.getByRole("button", { name: "Unlock meal" }).first(),
+    page.getByRole("button", { name: /unlock to edit/i }).first(),
   ).toBeVisible({ timeout: 30_000 });
 });
 
@@ -69,7 +83,7 @@ test("PLAN-004: user can unlock a locked meal", async ({
   expect(onboardedHousehold.householdId).toBeTruthy();
   await generateWeek(page);
   await page.getByRole("button", { name: "Lock meal" }).first().click();
-  const unlock = page.getByRole("button", { name: "Unlock meal" }).first();
+  const unlock = page.getByRole("button", { name: /unlock to edit/i }).first();
   await expect(unlock).toBeVisible();
   await unlock.click();
   await expect(

@@ -41,3 +41,50 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  e2e:
+    name: E2E (Playwright, cloud dev — non-blocking)
+    runs-on: ubuntu-latest
+    # Non-blocking: cloud-dev E2E is a shared, occasionally network-flaky
+    # environment, so a red e2e run must not block merges. It must still be green
+    # before a feature work item moves to Done (see the Definition of Done in
+    # CLAUDE.md and design/planning/meal-provider/08_regression_suite.md).
+    continue-on-error: true
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Skip cleanly when the cloud-dev secret is not configured (forks, secret-less
+      # runs) so this job never fails for a missing credential.
+      - name: Check for cloud-dev credentials
+        id: creds
+        run: |
+          if [ -n "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "SUPABASE_SERVICE_ROLE_KEY not set — skipping E2E."
+          fi
+
+      - name: Set up Node
+        if: steps.creds.outputs.present == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.creds.outputs.present == 'true'
+        run: npm ci
+
+      - name: Install Playwright browser
+        if: steps.creds.outputs.present == 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E
+        if: steps.creds.outputs.present == 'true'
+        run: npm run test:e2e

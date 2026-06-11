@@ -19,6 +19,12 @@ const eslintConfig = defineConfig([
     // The mobile (Expo / React Native) workspace has its own toolchain and lints
     // via `expo lint`; the Next.js ruleset here does not apply to it.
     "mobile/**",
+    // Playwright's generated artifacts (HTML report bundle, per-run traces, and
+    // captured auth state). They're git-ignored; ignore them for lint too so the
+    // local gate stays clean after an e2e run.
+    "playwright-report/**",
+    "test-results/**",
+    "e2e/.auth/**",
   ]),
 ]);
 

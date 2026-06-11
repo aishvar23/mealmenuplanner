@@ -16,12 +16,17 @@ test("PROFILE-001: signed-in user sees a clickable profile button", async ({
   await expect(account).toBeVisible();
 
   await account.click();
-  // Menu reveals identity and the sign-out / preferences actions.
-  await expect(page.getByText("owner@example.com").first()).toBeVisible();
+  // Scope identity + action assertions to the open menu popup — the email also
+  // appears in the trigger label and the sidebar, so a page-wide getByText is
+  // ambiguous. The menu was restructured into discrete items (Preferences,
+  // Members, Manage households, Notification settings); assert the stable
+  // Preferences + Sign out entries.
+  const menu = page.getByRole("menu");
+  await expect(menu.getByText("owner@example.com")).toBeVisible();
   await expect(
-    page.getByRole("menuitem", { name: /household.*preferences/i }),
+    menu.getByRole("menuitem", { name: /preferences/i }).first(),
   ).toBeVisible();
-  await expect(page.getByRole("menuitem", { name: /sign out/i })).toBeVisible();
+  await expect(menu.getByRole("menuitem", { name: /sign out/i })).toBeVisible();
 });
 
 test("PROFILE-003: user can reach household & preferences from the profile menu", async ({
@@ -32,7 +37,9 @@ test("PROFILE-003: user can reach household & preferences from the profile menu"
     .getByRole("button", { name: /account menu/i })
     .first()
     .click();
-  await page.getByRole("menuitem", { name: /household.*preferences/i }).click();
+  // The "Members" item navigates to the household page (the menu's household
+  // entry point after the Preferences/Members/Manage-households split).
+  await page.getByRole("menuitem", { name: /^members$/i }).click();
   await expect(page).toHaveURL(/\/household(\?|$|\/)/);
   await expect(
     page.getByRole("heading", { name: /household/i }).first(),

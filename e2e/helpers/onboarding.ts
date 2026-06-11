@@ -54,8 +54,12 @@ export async function completeMinimumOnboarding(
       answers.householdName,
     );
     await fillIfVisible(page.getByLabel("Family size"), String(cfg.familySize));
+    // Diet is a multi-select chip set (food-preferences step's `OptionChips`,
+    // which renders role=button + aria-pressed), NOT a radio group — selecting it
+    // as a `radio` silently no-ops and the required field blocks "Next". Target
+    // the diet pill by its button role, like the cuisine/meal-slot chips below.
     await clickIfVisible(
-      page.getByRole("radio", { name: cfg.diet, exact: true }),
+      page.getByRole("button", { name: cfg.diet, exact: true }),
     );
     await clickIfVisible(
       page.getByRole("button", { name: cfg.cuisine, exact: true }),
@@ -102,7 +106,8 @@ export async function completeMinimumOnboarding(
 
 /**
  * In onboarding EDIT mode (an existing household at /onboarding), advance through
- * the edit steps and click "Save changes", landing back on /household.
+ * the edit steps and click "Save changes", landing on the preferences summary
+ * (/preferences) where the saved values are re-read server-side.
  */
 export async function finishEdit(page: Page): Promise<void> {
   const heading = page.getByRole("heading", { level: 2 });
@@ -110,7 +115,7 @@ export async function finishEdit(page: Page): Promise<void> {
     const save = page.getByRole("button", { name: "Save changes" });
     if (await save.isVisible().catch(() => false)) {
       await save.click();
-      await page.waitForURL("**/household", { timeout: 30_000 });
+      await page.waitForURL("**/preferences", { timeout: 30_000 });
       return;
     }
     const before =
