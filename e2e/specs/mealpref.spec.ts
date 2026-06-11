@@ -21,7 +21,8 @@ test("MEALPREF-001: all three meal-preference modes are offered and selectable",
   await page.getByLabel("Household name").fill("Pref House");
   await page.getByLabel("Family size").fill("3");
   await page.getByRole("button", { name: "Next", exact: true }).click();
-  await page.getByRole("radio", { name: "Vegetarian", exact: true }).click();
+  // Diet is a multi-select chip set (OptionChips → role=button), not a radio.
+  await page.getByRole("button", { name: "Vegetarian", exact: true }).click();
   await page.getByRole("button", { name: "North Indian", exact: true }).click();
   await page.getByRole("button", { name: "Next", exact: true }).click();
 

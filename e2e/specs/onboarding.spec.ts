@@ -125,9 +125,10 @@ test("ONBOARD-005: user can go back and edit earlier answers", async ({
   await expect(page.getByLabel("Family size")).toHaveValue("4");
   await page.getByLabel("Family size").fill("6");
   await clickNext(page);
-  // It advanced again (no duplicate draft / no block).
+  // It advanced again (no duplicate draft / no block). Diet is a multi-select
+  // chip set (OptionChips → role=button), so the Vegetarian option is a button.
   await expect(
-    page.getByRole("radio", { name: "Vegetarian", exact: true }),
+    page.getByRole("button", { name: "Vegetarian", exact: true }),
   ).toBeVisible();
 });
 

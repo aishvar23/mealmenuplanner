@@ -10,7 +10,11 @@ import { expect, test } from "../fixtures/auth";
 async function generateWeekThenGrocery(page: Page): Promise<void> {
   await page.goto("/plan");
   await page.getByRole("button", { name: /generate week/i }).click();
-  await expect(page.getByRole("button", { name: "Swap" }).first()).toBeVisible({
+  // A planned cell exposes a "Change" control (the old "Swap" was renamed and
+  // routed through the dish picker).
+  await expect(
+    page.getByRole("button", { name: "Change", exact: true }).first(),
+  ).toBeVisible({
     timeout: 30_000,
   });
 
@@ -61,6 +65,12 @@ test("GROCERY-003: a checked-off item stays checked after refresh", async ({
   expect(onboardedHousehold.householdId).toBeTruthy();
   await generateWeekThenGrocery(page);
 
+  // Reload so the rendered list is the committed server state (SSR) with stable
+  // item ids. The in-place regenerate response can briefly disagree with the DB
+  // (the household also has the auto-created Today day-plan), and acting on a
+  // stale id makes the check-off PATCH 404.
+  await page.reload();
+
   // Switch to the "All" filter so a checked item stays visible (the default
   // "Remaining" filter hides it once bought, which would shift `.first()`).
   await page.getByRole("button", { name: "All", exact: true }).click();
@@ -72,9 +82,17 @@ test("GROCERY-003: a checked-off item stays checked after refresh", async ({
   const label = (await target.getAttribute("aria-label")) ?? undefined;
   const byLabel = page.getByRole("checkbox", { name: label, exact: true });
 
-  // The checkbox is sr-only and React-controlled (reverts until the PATCH
-  // resolves), so click + poll for the persisted state rather than check().
+  // The checkbox is sr-only and React-controlled: it stays unchecked (reverts the
+  // optimistic toggle) until the check-off PATCH resolves and the list state
+  // updates. Wait for that PATCH so we assert the committed state, not the race.
+  const checkOff = page.waitForResponse(
+    (r) =>
+      r.url().includes("/api/grocery-list-items/") &&
+      r.request().method() === "PATCH",
+    { timeout: 20_000 },
+  );
   await byLabel.click({ force: true });
+  await checkOff;
   await expect(byLabel).toBeChecked({ timeout: 15_000 });
 
   await page.reload();

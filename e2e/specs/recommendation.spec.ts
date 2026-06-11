@@ -4,9 +4,11 @@ import { completeMinimumOnboarding } from "../helpers/onboarding";
 import {
   featuredTitle,
   generateFeatured,
+  heroText,
   LAND_SEA_MEAT,
   MEAT_OR_EGG,
-  tryAnother,
+  openReplacePicker,
+  pickerCandidateNames,
 } from "../helpers/today";
 
 /**
@@ -15,6 +17,11 @@ import {
  * time, variety gap, popularity, frequency) are covered by the engine's unit
  * tests and/or require seed/time control not exposed via the UI — those are
  * represented as fixmes below.
+ *
+ * The diet hard filter is exercised against the whole slot candidate set: the
+ * "Try another" picker (BUG-022/023) lists every slot-eligible dish from the
+ * same recommender filters, so asserting none of them is meat/egg is a stronger
+ * check than re-rolling the single featured pick.
  */
 
 test("RECO-001: vegetarian household never gets a meat or egg dish", async ({
@@ -25,15 +32,20 @@ test("RECO-001: vegetarian household never gets a meat or egg dish", async ({
   await page.goto("/today");
   await generateFeatured(page);
 
-  // Several re-rolls — every suggestion must stay within the diet hard filter.
-  for (let i = 0; i < 4; i++) {
-    const name = await featuredTitle(page);
-    expect(name.length).toBeGreaterThan(0);
-    expect(name).not.toMatch(/^plan /i);
-    expect(name, `vegetarian suggestion was "${name}"`).not.toMatch(
-      MEAT_OR_EGG,
-    );
-    await tryAnother(page);
+  // The featured suggestion respects the diet hard filter.
+  const featured = await featuredTitle(page);
+  expect(featured.length).toBeGreaterThan(0);
+  expect(featured).not.toMatch(/^plan /i);
+  expect(featured, `vegetarian featured was "${featured}"`).not.toMatch(
+    MEAT_OR_EGG,
+  );
+
+  // And so does every candidate the slot picker offers.
+  const dialog = await openReplacePicker(page);
+  const names = await pickerCandidateNames(dialog);
+  expect(names.length).toBeGreaterThan(0);
+  for (const name of names) {
+    expect(name, `vegetarian candidate was "${name}"`).not.toMatch(MEAT_OR_EGG);
   }
 });
 
@@ -50,13 +62,19 @@ test("RECO-002: eggetarian household never gets land/sea meat", async ({
   await page.goto("/today");
   await generateFeatured(page);
 
-  // Egg is allowed; chicken/fish/mutton/etc. are still hard-filtered out.
-  for (let i = 0; i < 4; i++) {
-    const name = await featuredTitle(page);
-    expect(name, `eggetarian suggestion was "${name}"`).not.toMatch(
+  // Egg is allowed; chicken/fish/mutton/etc. are still hard-filtered out — both
+  // for the featured pick and for every candidate in the picker.
+  const featured = await featuredTitle(page);
+  expect(featured, `eggetarian featured was "${featured}"`).not.toMatch(
+    LAND_SEA_MEAT,
+  );
+  const dialog = await openReplacePicker(page);
+  const names = await pickerCandidateNames(dialog);
+  expect(names.length).toBeGreaterThan(0);
+  for (const name of names) {
+    expect(name, `eggetarian candidate was "${name}"`).not.toMatch(
       LAND_SEA_MEAT,
     );
-    await tryAnother(page);
   }
 });
 
@@ -74,22 +92,15 @@ test("RECO-005: rejecting a suggestion re-suggests a different dish", async ({
     .first()
     .click();
   await page.getByRole("button", { name: "Don't suggest again" }).click();
-  // The slot is marked Rejected and offers alternatives.
-  await expect(page.getByText("Rejected").first()).toBeVisible({
-    timeout: 15_000,
-  });
 
-  // Asking for another now excludes the rejected dish — poll the hero title
-  // until it changes away from the rejected one.
-  await page.getByRole("button", { name: "Try another" }).first().click();
+  // Rejecting surfaces "Quick swaps" — alternatives that exclude the rejected
+  // dish. Choosing the first one re-features a different dish.
+  await expect(page.getByText("Quick swaps")).toBeVisible({ timeout: 15_000 });
+  const choose = page.getByRole("button", { name: "Choose" }).first();
+  await expect(choose).toBeVisible();
+  await choose.click();
   await expect
-    .poll(
-      async () =>
-        (
-          await page.getByRole("heading", { level: 2 }).first().textContent()
-        )?.trim() ?? "",
-      { timeout: 20_000 },
-    )
+    .poll(() => heroText(page), { timeout: 20_000 })
     .not.toBe(rejected);
 });
 
