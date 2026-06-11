@@ -39,6 +39,25 @@ export interface ConflictDetails {
   [key: string]: unknown;
 }
 
+/**
+ * Details for FORBIDDEN — an optional `reason` discriminator naming which
+ * permission gate failed (e.g. the provider `provider_membership_required` /
+ * `provider_owner_required` reasons, contract 03 § 3). Client-safe.
+ */
+export interface ForbiddenDetails {
+  reason?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Details for NOT_FOUND — an optional `reason` discriminator (e.g. the provider
+ * `batch_not_available` reason, contract 03 § 3). Client-safe.
+ */
+export interface NotFoundDetails {
+  reason?: string;
+  [key: string]: unknown;
+}
+
 interface ErrorCause {
   /** The originating error, kept server-side for logging (never serialized). */
   cause?: unknown;
@@ -99,12 +118,13 @@ export class UnauthenticatedError extends DomainError {
 export class ForbiddenError extends DomainError {
   readonly code = ERROR_CODES.FORBIDDEN;
   readonly httpStatus = 403;
+  declare readonly details?: ForbiddenDetails;
 
   constructor(
     message = "You don't have permission to perform this action.",
-    options?: ErrorCause,
+    options?: ErrorCause & { details?: ForbiddenDetails },
   ) {
-    super(message, { cause: options?.cause });
+    super(message, { details: options?.details, cause: options?.cause });
   }
 }
 
@@ -115,9 +135,13 @@ export class ForbiddenError extends DomainError {
 export class NotFoundError extends DomainError {
   readonly code = ERROR_CODES.NOT_FOUND;
   readonly httpStatus = 404;
+  declare readonly details?: NotFoundDetails;
 
-  constructor(message = "Resource not found.", options?: ErrorCause) {
-    super(message, { cause: options?.cause });
+  constructor(
+    message = "Resource not found.",
+    options?: ErrorCause & { details?: NotFoundDetails },
+  ) {
+    super(message, { details: options?.details, cause: options?.cause });
   }
 }
 

@@ -8,6 +8,7 @@
   "types": "./index.ts",
   "exports": {
     ".": "./index.ts",
+    "./provider": "./provider/index.ts",
     "./recommendation": "./recommendation/index.ts",
     "./types": "./types/index.ts",
     "./validation": "./validation/index.ts"
