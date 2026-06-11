@@ -36,6 +36,10 @@ Executive review of the planning package. For detail see `00`–`09`.
 - **Workspace-aware routing**: keep `(app)` household-only; add `(provider-owner-app)` +
   `(provider-member-app)` route groups; a workspace resolver returns `WorkspaceRef[]` and
   post-login routes by it (provider-only users no longer hit household onboarding).
+- **Full mobile parity (ADR-17)**: every web provider screen ships its `mobile/` (RN + Expo)
+  twin **in the same PR** (Track C), against the same `/api/*` + `@mmp/shared/provider`. Mobile
+  bar = Jest + RNTL unit/hook (`test:mobile` in `test:all`) + manual Expo smoke; **mobile UI
+  E2E deferred** (Q-8) — no iOS sim / Android emulator on this Windows host yet.
 - **Reuse, don't reinvent**: errors/envelope, invites (hashed token, accept→`awaiting_approval`),
   events (`provider_activity_events` + `emit_provider_event`), email transport, pg_cron,
   idempotency. **Net-new** only where nothing exists: CSV (with injection defense), print,
@@ -55,9 +59,12 @@ Executive review of the planning package. For detail see `00`–`09`.
 
 ## Tasks by developer
 
-- **Developer A (domain/platform):** 21 tasks.
-- **Developer B (product):** 16 tasks.
-- **Total:** 37 tasks across 6 checkpoints.
+- **Developer A (domain/platform):** 22 tasks.
+- **Developer B (web product):** 16 tasks.
+- **Track C (mobile product, ADR-17):** 14 tasks (MP-C-000 + 12 screen-parity twins of
+  MP-B-010..060 + the deferred MP-C-070 mobile E2E). The 12 screen twins ship **in their
+  paired MP-B PRs** — extra work, not extra PRs.
+- **Total:** 52 tasks across 6 checkpoints (+1 deferred), in **38 PRs**.
 
 ## Immediately parallelizable
 
@@ -95,8 +102,13 @@ matrix in `06_integration_plan.md`.
 2. **ADR-1 / Q-2** — workspace-pointer shape (generalized table vs client-only).
 3. **ADR-6 / Q-6** — provider onboarding draft store (server vs client).
 4. **ADR-15 / Q-4** — separate `provider_notifications` vs unified inbox.
-5. Provisional safe defaults are documented for all of the above; only #1 must be resolved
-   before dependent code starts.
+5. **ADR-17 / Q-8** — the **deferred mobile UI E2E runner** (Detox vs Maestro; Android emulator
+   vs EAS/cloud-device). Decided as deferred for now: mobile screens ship at parity under
+   unit/hook + Expo-smoke coverage; the runner choice is a `decision`+`backlog` item that blocks
+   only MP-C-070, nothing else.
+6. Provisional safe defaults are documented for all of the above; only #1 must be resolved
+   before dependent code starts. ADR-17 (mobile parity at full scope, one-PR lockstep) is
+   **finalized** — only its E2E-runner sub-decision (#5) stays open.
 
 ## Recommended first PRs
 

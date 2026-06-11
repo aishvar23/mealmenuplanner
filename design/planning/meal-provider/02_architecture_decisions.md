@@ -388,8 +388,13 @@ E4 — confirm separate table is acceptable vs. a unified inbox.
 
 **Decision.** Provider APIs are the same `/api/*` routes (no second transport);
 provider enums/DTOs/validators that mobile needs are published under a new
-`@mmp/shared/provider` subpath export. Mobile provider screens are **out of MVP
-scope** but the API + shared contracts are mobile-ready.
+`@mmp/shared/provider` subpath export.
+
+**~~Original decision (SUPERSEDED 2026-06-11):~~** _Mobile provider screens out of
+MVP scope; API + shared contracts mobile-ready only._ This is **no longer the
+policy** — see **ADR-17**, which puts mobile provider **screens** in scope at full
+parity. The API/transport/contract part of ADR-16 stands unchanged; only the
+"screens out of scope" carve-out is reversed.
 
 **Reasons.** One auth model (rule: no second auth), contract parity prevents drift
 (spec §1.6, §7). **Rejected.** Provider-only auth/transport. **Consequences.**
@@ -400,10 +405,59 @@ adding the subpath (don't create a second shared package).
 
 ---
 
+## ADR-17 — Mobile provider screens at full parity (supersedes ADR-16's scope carve-out)
+
+**Context.** The mobile app (`mobile/`, React Native + Expo) is feature-complete for
+the household app (MOBILE_IMPLEMENTATION_TRACKER M0–M2 done) and the project rule is
+**web ↔ mobile feature parity, non-negotiable**. ADR-16 had deferred provider
+**screens** off mobile. That carve-out is reversed.
+
+**Decision.**
+
+1. **Mobile provider screens are in scope at full parity** with the web provider
+   workspace (owner + member). They consume the same bearer `/api/*` routes and the
+   same `@mmp/shared/provider` contracts via a new `mobile/src/api/provider.ts`
+   client mirroring `mobile/src/api/*` — **no second auth, no second transport**
+   (ADR-16's API decision is unchanged and is the foundation this builds on).
+2. **One PR, both platforms (lockstep).** Each UI-bearing provider item ships its web
+   (Track B) and mobile (Track C) screens in the **same PR**; the item is not `Done`
+   web-only. Tracked as **Track C** in `05_two_developer_implementation_tracker.md`.
+3. **Mobile test bar.** Jest + React Native Testing Library unit/hook tests are
+   **required** and join the constant regression suite via a new `test:mobile` gate
+   folded into `test:all`. Each item is additionally proven by a **manual Expo
+   smoke**. The harness + API-client scaffold is stood up once in **MP-C-000**
+   (analogous to #34) before any mobile provider feature closes.
+4. **Mobile UI E2E (Detox/Maestro) is deferred** behind a `decision`-tagged backlog
+   item. This machine is **Windows + no Docker**: an iOS simulator is impossible and
+   no Android emulator / cloud-device runner exists, so automated device E2E cannot
+   run here today. Until that runner decision is resolved, mobile UI correctness is
+   carried by unit/hook tests + manual Expo smoke, and the constant suite's mobile
+   coverage stays at unit/hook + the existing mobile **API** contract.
+
+**Reasons.** Parity is a standing project rule; the backend and `@mmp/shared`
+contracts are already shared, so the only net-new work is the RN screens + a mobile
+client + a mobile unit-test harness. Lockstep prevents the web-ahead drift that a
+"fast-follow" model invites. **Rejected.** (a) Web-first, mobile fast-follow — allows
+a real parity-breaking window. (b) Requiring automated mobile E2E now — unrunnable on
+this OS/host without standing up an emulator/cloud-device farm first; would block
+every provider item. **Consequences.** Track C added; `mobile/package.json` gains a
+`test` script and the root gate gains `test:mobile` (MP-C-000); each web UI checkpoint
+grows a paired mobile deliverable. **Migration/rollback.** Additive (new `mobile/app`
+route groups + `mobile/src/provider/*`); revert the PR to roll back a screen.
+**Open questions.** The deferred mobile-E2E runner (Detox vs Maestro; Android emulator
+vs EAS/cloud-device) — `decision`-tagged, see `09_open_questions.md` Q-8.
+
+---
+
 ## Decision status summary
 
-- **Finalized:** ADR-2, 3, 4, 5, 8, 9, 10, 11, 12, 13, 14, 16.
+- **Finalized:** ADR-2, 3, 4, 5, 8, 9, 10, 11, 12, 13, 14, 16 (API/transport part),
+  17 (mobile provider screens at full parity, one-PR lockstep).
+- **Superseded:** ADR-16's "mobile provider screens out of MVP scope" carve-out →
+  reversed by ADR-17 (2026-06-11). ADR-16's API/transport/contract decision stands.
 - **Provisional (safe default, owner sign-off requested):** ADR-1 (pointer shape),
   ADR-6 (draft store necessity), ADR-15 (separate notif table).
 - **Blocked (must resolve before dependent tasks):** ADR-7 (menu-edit-after-response
   policy) — blocks the menu-edit tasks only; everything else can proceed.
+- **Deferred (decision-tagged, non-blocking):** the mobile UI E2E runner (ADR-17 §4 /
+  `09` Q-8) — mobile provider screens ship now under unit/hook + Expo-smoke coverage.

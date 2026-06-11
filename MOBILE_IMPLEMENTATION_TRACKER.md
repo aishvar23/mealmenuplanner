@@ -37,7 +37,16 @@ This tracker is separate from the web build's
 | M1    | Auth + core daily loop     | 7 / 7        | Complete    |
 | M2    | Full parity                | 6 / 6        | Complete    |
 | M3    | Native push + store launch | 3 / 7        | In progress |
-|       | **Total**                  | **24 / 28**  |             |
+| M4    | Meal Provider Workspace    | 0 / 14       | Planned     |
+|       | **Total (M0–M3)**          | **24 / 28**  |             |
+
+> **M4 (Meal Provider Workspace) is tracked as Track C, not M-IDs.** Per **ADR-17**,
+> the mobile provider screens are built **in lockstep with web — same PR** — so they
+> are driven by the same ADO work items (Epic **#15**, Issues #16+) and the **Track C**
+> task list in
+> [`design/planning/meal-provider/05_two_developer_implementation_tracker.md`](design/planning/meal-provider/05_two_developer_implementation_tracker.md)
+> (MP-C-000 … MP-C-070), **not** by new `M4-*` IDs here. This row exists only so the
+> mobile tracker reflects that provider parity is in scope; see the M4 note below.
 
 **Status:** all _codeable_ work is complete — the daily loop + full parity (M0–M2)
 and native-push plumbing (M3-1/2/3) plus the EAS build config (M3-5 scaffolding,
@@ -242,3 +251,24 @@ households` (`useHouseholdSwitcher`: tap to switch active via `PUT
       M3-4 accounts + an `eas build` run (account-bound)._
 - [ ] **M3-7** Store listings, privacy labels / data-safety form; public
       submission. _Blocked: account-bound store-console work._
+
+## M4 — Meal Provider Workspace (mobile parity)
+
+> **Tracked as Track C, in lockstep with web (ADR-17).** These are **not** standalone
+> `M4-*` tasks: each mobile provider screen ships **in the same PR** as its web twin,
+> driven by ADO Epic **#15** and the **Track C** list (`MP-C-000 … MP-C-070`) in
+> [`design/planning/meal-provider/05_two_developer_implementation_tracker.md`](design/planning/meal-provider/05_two_developer_implementation_tracker.md).
+> The mobile engineering design is `design/10_mobile_app_design.md` §10.
+
+- **Foundation:** `MP-C-000` — Jest + RNTL harness, `mobile/src/api/provider.ts`
+  client, fixture wiring, `test:mobile` folded into `test:all` (CP1, the Track-C
+  analogue of the regression-suite freeze #34). **No mobile provider screen closes
+  before it.**
+- **Screens (parity twins, each in its paired `MP-B` PR):** owner shell + nav, member
+  shell + workspace switcher, owner/member onboarding, members invite/approval, menu
+  builder, today's menu, member response (confirm·update·cancel·locked), preparation +
+  native share/export, owner dashboard — `MP-C-010 … MP-C-060`.
+- **Test bar:** Jest + RNTL unit/hook (`test:mobile`) + **manual Expo smoke** per item.
+  **Mobile UI E2E (Detox/Maestro) is deferred** — no iOS sim / Android emulator on this
+  Windows host — tracked as `decision`-gated `MP-C-070` (Q-8). This is the one
+  acknowledged gap below the web E2E bar.

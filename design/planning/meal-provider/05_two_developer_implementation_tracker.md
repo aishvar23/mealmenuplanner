@@ -4,15 +4,30 @@
 > use-case spec → [`design/meal-provider/02_use_case_spec.md`](../../meal-provider/02_use_case_spec.md).
 > Task "Use cases" rows (UC-…) reference the use-case spec.
 
-**Main deliverable.** Two parallel tracks converging through explicit contracts
+**Main deliverable.** Parallel tracks converging through explicit contracts
 (`03_contracts.md`) and checkpoints (`06_integration_plan.md`).
 
 - **Developer A — Domain & platform:** shared contracts (where assigned),
   migrations, RLS, provider services, APIs, cutoff processing, aggregation, CSV +
   email backend, integration/RLS tests.
-- **Developer B — Product experience:** workspace routing, provider shells,
+- **Developer B — Web product experience:** workspace routing, provider shells,
   provider + member onboarding UI, menu builder, member response UI, preparation
   UI, print UI, Playwright E2E. Builds against contract **fixtures** until A's APIs land.
+- **Track C — Mobile experience (ADR-17):** the `mobile/` (React Native + Expo)
+  counterpart of every Track B screen, at **full parity**. Track C consumes the same
+  bearer `/api/*` routes and `@mmp/shared/provider` contracts via a new
+  `mobile/src/api/provider.ts` client (mirroring `mobile/src/api/*`); it shares **no
+  component code** with web. **Each MP-C-xxx ships in the _same PR_ as its paired
+  MP-B-xxx** (one PR, both platforms — ADR-17 §2), so a UI item is never `Done`
+  web-only. Track C builds against the same MP-B-001 fixtures/mocks until A's APIs land.
+
+> **Mobile test bar (ADR-17 §3/§4).** Track C tasks add **Jest + React Native
+> Testing Library** unit/hook tests (joining the constant suite via `npm run
+test:mobile`) and are proven by a **manual Expo smoke** per item. **Mobile UI E2E
+> (Detox/Maestro) is deferred** behind a `decision`-tagged item (Q-8) — no iOS sim on
+> this Windows host, no Android emulator/cloud-device runner yet. The mobile harness +
+> API-client scaffold + `test:mobile` wiring is stood up once in **MP-C-000** before
+> any mobile provider feature item closes.
 
 > **Split rationale vs. the PDF default:** kept as-is. The repo already has a clean
 > service-layer / UI seam (`lib/services/*` vs `app/**` + `components/*`), so the
@@ -34,6 +49,11 @@ B: `feature/provider-workspace-shells` → `feature/provider-owner-onboarding-ui
 `feature/provider-preparation-ui-e2e`.
 Each task = ~one focused PR. Rebase after shared-contract changes. Never co-edit
 generated DB types.
+**Track C rides Track B's branches:** each `MP-C-xxx` commits to the **same branch /
+PR** as its paired `MP-B-xxx` (mobile files live under `mobile/`, disjoint from the
+web app, so there is no web↔mobile file contention). The one exception is `MP-C-000`
+(mobile test harness + API-client scaffold), which lands on its own branch
+`feature/provider-mobile-harness` at CP1 before any paired mobile screen.
 
 **Shared/serialized files (single owner per checkpoint — see `06`):** `proxy.ts`,
 `lib/auth/route-access.ts`, `app/(app)/layout.tsx`, `components/auth/account-menu.tsx`,
@@ -343,12 +363,79 @@ report ambiguity with file/symbol/observed-behavior/why.
 
 ---
 
+## Track C — Mobile experience (ADR-17, full parity)
+
+Track C delivers the `mobile/` counterpart of every Track B screen. **Each MP-C-xxx
+ships in the same PR as its paired MP-B-xxx** (one PR, both platforms). Mobile files
+(`mobile/app/(provider-*)/*`, `mobile/src/provider/*`, `mobile/src/api/provider.ts`)
+are disjoint from the web app, so there is **no web↔mobile contention**. Mobile test
+bar per task: **Jest + RNTL** unit/hook tests (run via `npm run test:mobile`) +
+**manual Expo smoke**. Mobile UI E2E is **deferred** (MP-C-070 / Q-8).
+
+### MP-C-000 — Mobile provider harness + API client + fixtures — `READY`
+
+- **Track:** C · **Checkpoint:** 1 · **Branch:** provider-mobile-harness · **Conflict risk:** Low (own files + `mobile/package.json`, root `package.json` scripts).
+- **Objective:** Stand up the mobile provider foundation so every later MP-C task has a test bar and a typed client — the Track-C analogue of #34. (a) Add **Jest + jest-expo + React Native Testing Library** to `mobile/` with a `test` script; (b) add a root `test:mobile` script (`npm run test --workspace @mmp/mobile`) and fold it into `test:all`; (c) author `mobile/src/api/provider.ts` (typed client over `/api/*`, mirroring `mobile/src/api/*`, consuming `@mmp/shared/provider`); (d) wire the MP-B-001 fixtures/mock so mobile screens render before A's APIs land.
+- **Use cases:** all (mobile foundation); ADR-17. **Consumes:** MP-A-001 contracts, MP-B-001 fixtures.
+- **Files:** `mobile/package.json` (add `test` + devDeps), `mobile/jest.config.js`, `mobile/jest.setup.ts`, `mobile/src/api/provider.ts`, `mobile/src/provider/__fixtures__/*`, root `package.json` (`test:mobile`, `test:all`).
+- **Do not modify:** web `app/**`, `lib/**`; existing `mobile/` household screens.
+- **Tests:** one example RNTL hook/render test green; `npm run test:mobile` runs in CI/Node; provider client type-checks against `@mmp/shared/provider`.
+- **Acceptance:** `test:mobile` is green and part of `test:all`; a sample provider screen renders from fixtures in a Jest test. **DoD:** merged at CP1; `typecheck` (mobile `tsc`) + `test:mobile` green.
+- **Rollback:** revert harness commit (remove `test:mobile` from `test:all` first so the gate stays green).
+- **Verify:** confirm the npm-workspaces invocation for `test:mobile`; do not point `test:all` at a non-existent script (would wedge the gate). Mobile E2E is **not** in scope here — deferred to MP-C-070.
+
+### Screen-parity tasks (each ships in its paired MP-B PR)
+
+Each task below is **the mobile counterpart of its paired web task**: same use cases,
+same acceptance criteria, same checkpoint, same PR — only the surface differs (RN
+screens under `mobile/app` + hooks under `mobile/src/provider`, against
+`mobile/src/api/provider.ts`). Status mirrors the paired B task (same blockers:
+ADR-1/6/7).
+
+| Task         | Pairs with | CP  | Mobile surface (new in `mobile/`)                                                                                                                                               |
+| ------------ | ---------- | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **MP-C-010** | MP-B-010   | 2   | Workspace-aware post-login routing + provider route groups; provider entry from tabs.                                                                                           |
+| **MP-C-011** | MP-B-011   | 2   | `app/(provider-owner)/_layout.tsx` + owner nav (dashboard/responses/menu/members/prep).                                                                                         |
+| **MP-C-012** | MP-B-012   | 2   | `app/(provider-member)/[providerId]/_layout.tsx` + workspace switcher; awaiting state.                                                                                          |
+| **MP-C-020** | MP-B-020   | 3   | Owner onboarding wizard (resumable per ADR-6); reuse mobile `TextField`/`SelectChips`.                                                                                          |
+| **MP-C-021** | MP-B-021   | 3   | Minimal member onboarding (no household fields); consent only when eligible.                                                                                                    |
+| **MP-C-022** | MP-B-022   | 3   | Members screen: invite, pending list, approve/reject/remove, copy/resend on failure.                                                                                            |
+| **MP-C-030** | MP-B-030   | 3   | Menu builder (structured; no free-form JSON); edit-after-response affordance per ADR-7.                                                                                         |
+| **MP-C-040** | MP-B-040   | 2   | Read-only Today's Menu (default package/alternatives/customizations/cutoff countdown).                                                                                          |
+| **MP-C-041** | MP-B-041   | 4   | Member response (alternatives/spice/salt/extras + max); confirm/update/cancel; locked.                                                                                          |
+| **MP-C-050** | MP-B-050   | 5   | Preparation screen (batch meta, aggregate + individual tables, email status + resend).                                                                                          |
+| **MP-C-051** | MP-B-051   | 5   | Mobile export/share of the persisted batch revision (native share sheet → CSV/PDF). The web `@media print` page stays web-only; mobile parity = share/export, not a print page. |
+| **MP-C-060** | MP-B-060   | 4/5 | Owner dashboard cards (menu state, cutoff, counts, batch + email status).                                                                                                       |
+
+**Per-task DoD (all screen-parity tasks):** RN screen matches the web acceptance
+criteria; Jest + RNTL unit/hook tests added; manual Expo smoke recorded in the PR; no
+web file touched; ships in the paired MP-B PR. Multi-provider isolation (Provider A
+data never shown under Provider B) is asserted in MP-C-012's tests, mirroring MP-B-012.
+
+### MP-C-070 — Mobile provider UI E2E suite — `BLOCKED` (decision: Q-8 / ADR-17 §4)
+
+- **Track:** C · **Checkpoint:** post-CP5 (deferred) · **Branch:** n/a until unblocked.
+- **Objective:** the Detox- or Maestro-driven mobile equivalent of the MP-B-070
+  Playwright flows (onboarding → invite/accept/approve → Today → confirm/update/cancel
+  → no-edit-after-cutoff → aggregate → export), added to the constant suite.
+- **BLOCKED on:** the deferred mobile-E2E-runner decision (Detox vs Maestro; Android
+  emulator vs EAS/cloud-device) — this Windows / no-Docker host cannot run it today.
+  Until resolved, mobile UI is covered by MP-C-000+ unit/hook tests + Expo smoke.
+- **Backlog:** logged as a `decision`+`backlog` ADO Issue under Epic #15 (see Q-8).
+- **Verify:** do **not** add a mobile-E2E gate to `test:all` until a runner exists in CI.
+
+---
+
 ## Parallelism map
 
 - **A can start immediately:** MP-A-001 (`READY`). After Checkpoint-0 approval and
   MP-A-010, the whole A schema/service chain unblocks in dependency order.
 - **B can start immediately (on fixtures/mocks):** MP-B-001 (`READY`); then
   MP-B-011/012/040/060 against mocks before any A API exists.
+- **C can start immediately:** MP-C-000 (`READY`) — mobile harness + client + fixtures,
+  independent of A/B beyond the MP-A-001 contracts + MP-B-001 fixtures. After CP1, each
+  MP-C-xxx is built **with** its paired MP-B-xxx (same PR), so Track C's blockers and
+  ordering mirror Track B's exactly.
 - **Fixture-before-API points:** MP-B-011/012/020/022/030/040/041/050/060 all consume
   mock fixtures (MP-B-001) until the matching A API merges.
 - **Integration-test-before-UI points:** MP-A-180 RLS/integration tests run per schema
@@ -357,16 +444,25 @@ report ambiguity with file/symbol/observed-behavior/why.
   `auth/callback` (MP-B-010, single owner); `account-menu.tsx` (MP-B-012);
   `database.types.ts` (A-only, regenerated per schema checkpoint); `lib/errors` codes
   (MP-A-001); `packages/shared` exports (MP-A-001); `package.json` (whoever adds a dep, serialized).
-- **Merge order (high level):** MP-A-001 → MP-B-001 (CP1) → MP-A-010/100 + MP-B-010/011/012/040 (CP2)
-  → MP-A-011/101/102/110/120/121 + MP-B-020/022/030 (CP3) → MP-A-013/130/131/141/170 + MP-B-021/041 (CP4)
-  → MP-A-014/140/150/160/161 + MP-B-050/051/060/070 (CP5).
+- **Merge order (high level):** MP-A-001 → MP-B-001 + MP-C-000 (CP1) → MP-A-010/100 +
+  MP-B-010/011/012/040 (each with its MP-C-010/011/012/040 in the same PR) (CP2)
+  → MP-A-011/101/102/110/120/121 + MP-B-020/022/030 (+MP-C-020/022/030) (CP3)
+  → MP-A-013/130/131/141/170 + MP-B-021/041 (+MP-C-021/041) (CP4)
+  → MP-A-014/140/150/160/161 + MP-B-050/051/060/070 (+MP-C-050/051/060) (CP5).
+  MP-C-070 (mobile E2E) is deferred past CP5 (Q-8).
 - **Avoid co-editing:** no task has both developers editing the same file in the same
   checkpoint; the shared files above are single-owner per checkpoint.
 
 ## Counts
 
 - **Developer A:** 22 tasks (MP-A-001, 010–012, 012E, 013–015, 100–102, 110, 120–121, 130–131, 140–141, 150, 160–161, 170, 180).
-- **Developer B:** 16 tasks (MP-B-001, 010–012, 020–022, 030, 040–041, 050–051, 060, 070).
-- **READY now:** MP-A-001, MP-B-001. **BLOCKED:** MP-A-012E/015/101/121, MP-B-010/020/030
-  (on ADR-1/6/7). MP-A-012 (menu schema) is **no longer blocked on ADR-7** — only its
-  optional unique-week index defers to E3. Remainder `NOT_STARTED` pending in-track prerequisites.
+- **Developer B (web UI):** 16 tasks (MP-B-001, 010–012, 020–022, 030, 040–041, 050–051, 060, 070).
+- **Track C (mobile UI):** 14 tasks (MP-C-000, 010–012, 020–022, 030, 040–041, 050–051,
+  060, 070). The 12 screen-parity tasks (MP-C-010..060) each ship **in the paired MP-B PR**
+  — they add work, not extra PRs. MP-C-000 is its own CP1 PR; MP-C-070 is deferred.
+- **Total:** 52 tasks across 6 checkpoints (+1 deferred), in **38 PRs** (A's + B's, with
+  each mobile screen folded into its B PR; MP-C-000 the only extra PR).
+- **READY now:** MP-A-001, MP-B-001, MP-C-000. **BLOCKED:** MP-A-012E/015/101/121,
+  MP-B-010/020/030 + their mobile twins MP-C-010/020/030 (on ADR-1/6/7); MP-C-070 (Q-8
+  decision). MP-A-012 (menu schema) is **no longer blocked on ADR-7** — only its optional
+  unique-week index defers to E3. Remainder `NOT_STARTED` pending in-track prerequisites.

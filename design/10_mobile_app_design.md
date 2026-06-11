@@ -24,14 +24,21 @@ surface verbatim.
 
 - Native iOS + Android apps with **full feature parity** with the web app: auth,
   onboarding, today, week plan, grocery, household + invites, notifications,
-  settings.
+  settings, **and the Meal Provider Workspace** (owner + member — see the parity
+  section below and `design/planning/meal-provider/`).
 - Native push notifications.
 - App Store + Play Store distribution.
+
+> **Parity is non-negotiable.** Every new web feature ships its mobile counterpart in
+> the **same PR** (ADR-17). The Meal Provider Workspace is the first feature built
+> under this rule from day one — its mobile screens (Track C) are not a fast-follow.
 
 ### Non-goals (v1)
 
 - Admin / operator tooling — stays web-only (see
-  [`../docs/06_admin_operator_spec.md`](../docs/06_admin_operator_spec.md)).
+  [`../docs/06_admin_operator_spec.md`](../docs/06_admin_operator_spec.md)). **Note:**
+  the Meal Provider Workspace is **not** admin tooling — it is an end-user surface and
+  **is** in mobile scope (ADR-17).
 - Offline-first **writes** — v1 caches reads only; mutations require connectivity.
 - Reimplementing any business logic on-device — the engine, permissions, and
   validation remain server-side and RLS-enforced.
@@ -191,17 +198,18 @@ and a read cache for graceful offline viewing.
 The app calls the existing endpoints; no new backend routes are needed beyond the
 auth change and the push-token endpoint (§7).
 
-| Area          | Screens                                                                                  | Endpoints                                                                                                                                                           |
-| ------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Auth          | sign in / sign up / magic-link / Google                                                  | Supabase Auth SDK (direct)                                                                                                                                          |
-| Onboarding    | multi-step, autosave + resume (see [`06_onboarding_design.md`](06_onboarding_design.md)) | `POST` / `GET /api/onboarding/draft`, `POST /api/onboarding/complete`, catalog endpoints (dishes / combinations / accompaniments)                                   |
-| Today         | view; accept / reject; swap; suggest-another; lock / unlock; eating-out; cooked          | `POST .../meal-plans/today/generate`, `GET /api/meal-plan-items/{id}/candidates`, accept / reject / replace / lock / unlock / eating-out / cooked / suggest-another |
-| Week          | weekly plan view                                                                         | `POST .../meal-plans/week/generate`, plan reads                                                                                                                     |
-| Grocery       | list view; check off items; regenerate                                                   | `GET .../grocery-list`, `POST .../grocery-list/regenerate`, `PATCH /api/grocery-list-items/{id}`                                                                    |
-| Household     | members; roles / permissions; create / delete; preferences; food / dish prefs            | households + preferences + members + food-preferences + dish-preferences endpoints                                                                                  |
-| Invites       | create; view; accept; decline                                                            | `POST /api/households/{householdId}/invites` (create), `GET /api/invites/{token}` (view), `.../invites/{token}/accept`, `.../invites/{token}/decline`               |
-| Notifications | list; mark read; read-all; preferences; **push**                                         | notifications endpoints + push registration (§7)                                                                                                                    |
-| Settings      | profile; household switcher; sign out                                                    | mixed                                                                                                                                                               |
+| Area          | Screens                                                                                                                                                                                                           | Endpoints                                                                                                                                                           |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Auth          | sign in / sign up / magic-link / Google                                                                                                                                                                           | Supabase Auth SDK (direct)                                                                                                                                          |
+| Onboarding    | multi-step, autosave + resume (see [`06_onboarding_design.md`](06_onboarding_design.md))                                                                                                                          | `POST` / `GET /api/onboarding/draft`, `POST /api/onboarding/complete`, catalog endpoints (dishes / combinations / accompaniments)                                   |
+| Today         | view; accept / reject; swap; suggest-another; lock / unlock; eating-out; cooked                                                                                                                                   | `POST .../meal-plans/today/generate`, `GET /api/meal-plan-items/{id}/candidates`, accept / reject / replace / lock / unlock / eating-out / cooked / suggest-another |
+| Week          | weekly plan view                                                                                                                                                                                                  | `POST .../meal-plans/week/generate`, plan reads                                                                                                                     |
+| Grocery       | list view; check off items; regenerate                                                                                                                                                                            | `GET .../grocery-list`, `POST .../grocery-list/regenerate`, `PATCH /api/grocery-list-items/{id}`                                                                    |
+| Household     | members; roles / permissions; create / delete; preferences; food / dish prefs                                                                                                                                     | households + preferences + members + food-preferences + dish-preferences endpoints                                                                                  |
+| Invites       | create; view; accept; decline                                                                                                                                                                                     | `POST /api/households/{householdId}/invites` (create), `GET /api/invites/{token}` (view), `.../invites/{token}/accept`, `.../invites/{token}/decline`               |
+| Notifications | list; mark read; read-all; preferences; **push**                                                                                                                                                                  | notifications endpoints + push registration (§7)                                                                                                                    |
+| Settings      | profile; household switcher; sign out                                                                                                                                                                             | mixed                                                                                                                                                               |
+| **Provider**  | owner shell + dashboard / today's responses / weekly menu builder / members / preparation + export; member shell + today's menu / response (confirm·update·cancel·locked) / awaiting-approval; workspace switcher | the provider `/api/*` routes (see `design/planning/meal-provider/03_contracts.md`) via `mobile/src/api/provider.ts`; same bearer auth (ADR-16/17)                   |
 
 Domain rules are enforced server-side and surfaced through the API, so the app
 just renders them:
@@ -274,3 +282,42 @@ push via **Expo Push**, additively:
 > Supabase stack — verify against **cloud dev**. Pushing to `main` does **not**
 > deploy; test the surface that actually runs the latest code (the `:3100` clone
 > for this tree).
+
+## 10. Provider Workspace (mobile parity) — ADR-17
+
+The Meal Provider Workspace is built on mobile at **full parity** with web, **in
+lockstep** (each screen ships in the same PR as its web twin). It reuses everything
+this design already establishes — bearer auth (§3), the typed API-client pattern (§4),
+NativeWind UI (§5) — and adds no new backend surface beyond the provider `/api/*`
+routes the web app already defines. The full plan lives in
+[`planning/meal-provider/`](planning/meal-provider/) (Track C of `05`, ADR-17).
+
+- **Route groups (new):** `mobile/app/(provider-owner)/*` and
+  `mobile/app/(provider-member)/[providerId]/*`, plus a workspace switcher, sitting
+  alongside the existing household `(tabs)` group. Post-login routing becomes
+  workspace-aware (a provider-only user is not sent to household onboarding) —
+  mirroring the web `WorkspaceRef` resolver.
+- **API client (new):** `mobile/src/api/provider.ts` mirrors `mobile/src/api/*`,
+  consuming the `@mmp/shared/provider` DTOs/enums/validators. **No second auth, no
+  second transport** — the same `Authorization: Bearer` path as every other call.
+- **Hooks (new):** `mobile/src/provider/*` React Query hooks, mirroring the web hooks
+  (today's menu, response with optimistic-concurrency reload-on-conflict, members,
+  preparation). Cutoff/lock state is server-driven and just rendered.
+- **Out of scope on mobile (matches web):** the `@media print` page is web-only; the
+  mobile equivalent is **native share/export** of a persisted batch revision
+  (share-sheet → CSV/PDF), per MP-C-051.
+
+### 10.1 Mobile test bar (ADR-17 §3/§4)
+
+- **Required now:** **Jest + jest-expo + React Native Testing Library** unit/hook tests
+  under `mobile/`, run via `npm run test:mobile` and folded into the root `test:all`
+  gate. The harness + provider client + `test:mobile` wiring is **MP-C-000** (the
+  Track-C analogue of the regression-suite freeze, #34) and lands before any mobile
+  provider screen closes. Coverage: provider client request/parse/error mapping; hook
+  states (loading/error/locked/conflict); RNTL screen-state render (awaiting → no menu,
+  locked → read-only, multi-provider isolation).
+- **Deferred:** **mobile UI E2E (Detox/Maestro)** — this Windows / no-Docker host has no
+  iOS simulator and no Android emulator/cloud-device runner, so an automated device run
+  cannot execute here today. Tracked as a `decision`-tagged item (Q-8 / MP-C-070); until
+  it lands, each mobile provider task is proven by `test:mobile` + a **manual Expo
+  smoke** recorded in its PR. This is the one acknowledged gap below the web E2E bar.

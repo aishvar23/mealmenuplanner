@@ -29,10 +29,20 @@ Three sources of truth, all authoritative:
   stable IDs (e.g. `P5-2`); saying "work on P5-2" scopes a unit of work. Tick a
   box and update the progress summary when a task is done and verified.
 
-The **native mobile app** (React Native + Expo, post-MVP) has its own pair:
+The **native mobile app** (React Native + Expo) has its own pair:
 `design/10_mobile_app_design.md` (engineering design — it consumes the existing
 `/api/*` backend) and `MOBILE_IMPLEMENTATION_TRACKER.md` (task list, IDs `M0-1`
-… `M3-7`).
+… `M3-7`). It is **feature-complete for the household app** (phases M0–M2 done;
+only the account-bound store-launch tasks in M3 remain) and lives in `mobile/`.
+
+**Web ↔ mobile parity is a hard, non-negotiable rule.** The mobile app must stay
+at full feature parity with web. Every new feature — including the **Meal Provider
+Workspace** — ships its web and mobile UI **together, in the same PR**, and is not
+`Done` until both exist and are tested. This overrides the earlier "mobile provider
+screens are out of MVP scope" carve-out (ADR-16, since amended): provider screens
+are in scope on mobile too. See the mobile-parity rule in **Testing & Definition of
+Done** and Track C of
+`design/planning/meal-provider/05_two_developer_implementation_tracker.md`.
 
 ## Work tracking (Azure DevOps — source of truth)
 
@@ -99,11 +109,13 @@ work even after a reboot or lost context.
    implement its underlying `MP-*` tasks
    (`design/planning/meal-provider/05_two_developer_implementation_tracker.md`),
    honouring the contracts (`03_contracts.md`) and DB/RLS plan (`04_*`).
-4. **Ship a PR, then pause.** Branch, add the item's functional + E2E tests and
-   pass the full **Definition of Done** gate below (quality gates **and** the
-   constant regression suite, green), open a PR whose description references the
-   work item and names the tests added, comment "PR #NN opened, in review" on the
-   item, and **stop for human review — do not self-merge.**
+4. **Ship a PR, then pause.** Branch, implement the item's **web _and_ mobile** UI
+   together (a UI-bearing item is not done until its `mobile/` screens match — see
+   the mobile-parity rule below), add the item's functional + E2E tests and pass
+   the full **Definition of Done** gate below (quality gates **and** the constant
+   regression suite, green), open **one PR** whose description references the work
+   item and names the web + mobile tests added, comment "PR #NN opened, in review"
+   on the item, and **stop for human review — do not self-merge.**
 5. **After a human merges,** move the item to **Done** with a comment linking the
    merged PR, then return to step 1. An item is **never** closed until its
    Definition of Done (below) is met.
@@ -128,34 +140,65 @@ still green.** This gate is mandatory and verified in the PR before close.
 
 **Definition of Done (every work item):**
 
-1. **Functional tests** — Vitest unit/service tests colocated with the code
-   (`*.test.ts`) for the item's logic _and_ its error/permission paths.
+1. **Functional tests** — Vitest unit/service tests colocated with the **web** code
+   (`*.test.ts`) for the item's logic _and_ its error/permission paths, **plus**
+   Jest + React Native Testing Library unit/hook tests for the item's **mobile**
+   logic where it adds a mobile screen (see the mobile-parity rule below).
 2. **End-to-end tests** — **Playwright** specs in `e2e/` covering the item's
-   user-facing flow(s). Playwright is the E2E tool of record (deterministic,
+   user-facing flow(s) on web. Playwright is the E2E tool of record (deterministic,
    CI-runnable) — use it, not ad-hoc clicking, for anything that must stay green.
-3. **Run it for real** — launch the app on localhost (`npm run dev`; Playwright's
-   `webServer` does this automatically) and verify the change end-to-end via the new
-   Playwright specs. A quick manual smoke in Chrome / Claude-in-Chrome is fine
-   _during dev_, but the **gate is the automated run**, never a manual click-through.
-4. **No regression** — the **constant regression suite** (below) passes in full,
+   (Mobile UI E2E is **deferred** — see the mobile-parity rule.)
+3. **Mobile parity** — if the item adds or changes a user-facing screen, its
+   **`mobile/` (React Native + Expo) counterpart ships in the same PR**, consuming
+   the same `/api/*` routes and `@mmp/shared` contracts. The mobile screen is
+   unit/hook-tested (item 1) and verified by a **manual Expo smoke** during dev.
+   Backend-only or web-admin-only items (the admin/operator console stays web-only)
+   carry no mobile screen but must keep the **mobile API contract** green.
+4. **Run it for real** — launch the app on localhost (`npm run dev`; Playwright's
+   `webServer` does this automatically) and verify the web change end-to-end via the
+   new Playwright specs; smoke the mobile change in Expo. A quick manual smoke in
+   Chrome / Claude-in-Chrome is fine _during dev_, but the web **gate is the
+   automated run**, never a manual click-through.
+5. **No regression** — the **constant regression suite** (below) passes in full,
    plus `npm run format:check`, `npm run lint`, `npm run typecheck`,
-   `npm run test`, `npm run test:e2e`.
-5. **Grow the suite** — the item's new functional + E2E tests are added to the
-   regression suite. The suite only ever **grows**; a test is never skipped or
-   removed without a `decision`-tagged work item approving it.
-6. The PR states which tests were added and that the regression suite is green —
-   only then move the item to **Done**.
+   `npm run test`, `npm run test:mobile`, `npm run test:e2e`.
+6. **Grow the suite** — the item's new functional (web Vitest + mobile Jest) + E2E
+   tests are added to the regression suite. The suite only ever **grows**; a test is
+   never skipped or removed without a `decision`-tagged work item approving it.
+7. The PR states which web + mobile tests were added and that the regression suite is
+   green — only then move the item to **Done**.
+
+**Mobile-parity rule (DoD item 3, expanded).** Web and mobile are kept in lockstep:
+
+- **One PR, both platforms.** Web (Track B) and mobile (Track C) UI for a feature
+  ship together. A UI item is never `Done` web-only.
+- **Shared backend, separate UI code.** The RN UI cannot share component code with
+  the Next.js UI — it is built against the same `/api/*` routes and the same
+  `@mmp/shared/provider` contracts, via a `mobile/src/api/provider.ts` client that
+  mirrors `mobile/src/api/*`. No second auth, no second transport.
+- **Mobile test bar.** Jest + React Native Testing Library unit/hook tests are
+  **required** and join the constant suite via `npm run test:mobile`. **Mobile UI
+  E2E (Detox/Maestro) is deferred** behind a `decision`-tagged ADO item — this
+  Windows / no-Docker machine cannot run an iOS simulator and no Android emulator /
+  cloud-device runner is stood up yet. Until that decision lands, mobile UI is
+  proven by unit/hook tests + a manual Expo smoke, never an automated device E2E.
+- **Prerequisite.** Standing up the mobile provider test harness + API-client
+  scaffold and wiring `test:mobile` into `test:all` is **MP-C-000** (analogous to
+  #34); no mobile provider feature item closes before it.
 
 **The constant regression suite (the testing backbone):**
 
 - It is **identified once and kept constant** — a fixed, always-green baseline that
-  every work item must not break and must extend. It lives in `e2e/` (Playwright)
-  and the colocated Vitest tests, run via `npm run test` + `npm run test:e2e`.
+  every work item must not break and must extend. It lives in `e2e/` (Playwright),
+  the colocated web Vitest tests, and (as it grows) the `mobile/` Jest tests, run
+  via `npm run test` + `npm run test:mobile` + `npm run test:e2e`.
 - Establishing and freezing it is **Issue #34 (P0, `seq-00`)** — the autopilot does
   this **before any feature item**. Until the suite exists and is green, **no
   feature item (#16+) may close.** It is the backbone of all testing here.
 - The suite must always include the existing **household** flows and the **mobile
-  API** contract (no feature may regress them), and grows one item at a time.
+  API** contract (no feature may regress them), and grows one item at a time. As
+  mobile provider screens land, their Jest unit/hook tests join the suite; mobile UI
+  E2E joins only once the deferred runner decision is resolved.
 
 ## Product spec map (`docs/`)
 

@@ -93,6 +93,19 @@ detection · rollback · owner · blocking status**. L/M/H scales.
 - **Mitigation:** additive routes only; same auth path; `@mmp/shared/provider` subpath (don't break existing exports).
 - **Detection:** mobile API regression suite; bearer-auth smoke. **Rollback:** revert package export. **Owner:** A. **Blocking:** No.
 
+### R-17 — Web↔mobile parity drift (ADR-17)
+
+- **Likelihood:** M · **Impact:** M (mobile silently lags web; "full parity" rule breaks).
+- **Evidence:** mobile UI shares no code with web; mobile UI E2E is **deferred** (Q-8), so a
+  regression can't be caught by an automated device run yet.
+- **Mitigation:** **one-PR lockstep** (ADR-17 §2) — each web UI item ships its `mobile/` twin in
+  the same PR, so parity can't silently fall behind; **Jest + RNTL** unit/hook tests required per
+  Track C task (`test:mobile` in `test:all`); **manual Expo smoke** recorded in each PR; the
+  deferred E2E gap is tracked openly as a `decision` item, never a silent skip.
+- **Detection:** `test:mobile` in the gate; PR review checks the paired MP-C deliverable +
+  Expo-smoke note. **Rollback:** revert the PR (web + mobile together). **Owner:** B (web) + C
+  (mobile), same PR. **Blocking:** No (gated by the regression suite + PR review).
+
 ### R-13 — Migration rollback / data loss
 
 - **Likelihood:** L · **Impact:** M.

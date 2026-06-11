@@ -23,13 +23,18 @@ Branch/merge strategy: `05_two_developer_implementation_tracker.md`.
 ## Checkpoint 1 — Shared contracts
 
 - **Merge:** MP-A-001 (enums, DTOs, `WorkspaceRef`, error codes, fixtures, mock-client
-  interface), MP-B-001 (mock client wired to fixtures).
+  interface), MP-B-001 (mock client wired to fixtures), **MP-C-000 (mobile provider harness
+  — Jest + RNTL + `test:mobile` wired into `test:all`, `mobile/src/api/provider.ts` client,
+  fixture wiring)**.
 - **Merge prerequisites:** CP0 approved; `@mmp/shared/provider` export convention confirmed;
-  provider `details.reason` map reviewed against the closed 7-code `ERROR_CODES` (no enum change).
+  provider `details.reason` map reviewed against the closed 7-code `ERROR_CODES` (no enum
+  change); **`test:mobile` runs in CI/Node and is part of `test:all` without wedging the gate**.
 - **Contract tests:** types compile; fixtures conform to DTOs; `details.reason` discriminator
   values are stable; no envelope/auth/`ERROR_CODES` change.
-- **Regression suite:** full `lint`/`typecheck`/`test`; existing household unit + e2e green.
-- **Smoke:** `npm run build`; mobile package still builds (`@mmp/shared` consumers).
+- **Regression suite:** full `lint`/`typecheck`/`test`/**`test:mobile`**; existing household
+  unit + e2e green; mobile household screens still typecheck/test.
+- **Smoke:** `npm run build`; mobile package still builds (`@mmp/shared` consumers); a sample
+  provider screen renders from fixtures in a Jest test.
 - **Owner:** Developer A (package), Developer B (mock). **Conflict-resolution:** A owns
   `lib/errors` + `packages/shared` this checkpoint; B branches after A merges.
 - **Rollback:** revert package export + error-code commit (no DB).
@@ -39,15 +44,19 @@ Branch/merge strategy: `05_two_developer_implementation_tracker.md`.
 - **Merge:** MP-A-010 (org/membership/invite schema+RLS), MP-A-015 (workspace pointer, if
   approved), MP-A-100 (workspace resolver + `GET /api/providers`), MP-A-120 (menu read APIs);
   MP-B-010 (workspace-aware routing), MP-B-011/012 (owner+member shells, switcher),
-  MP-B-040 (read-only Today's Menu).
+  MP-B-040 (read-only Today's Menu); **the paired mobile screens in the same PRs —
+  MP-C-010 (mobile routing/workspace), MP-C-011/012 (mobile shells + switcher),
+  MP-C-040 (mobile Today's Menu)**.
 - **Merge prerequisites:** ADR-1 resolved; migrations applied to cloud dev; types regenerated
-  (A-only); routing change reviewed line-by-line.
+  (A-only); routing change reviewed line-by-line; **mobile provider unit/hook tests green
+  (`test:mobile`)**.
 - **Contract tests:** `GET /api/providers` shape matches `ProviderSummaryDto[]`; today-menu
-  matches `MenuDayDto`.
+  matches `MenuDayDto` (web client and `mobile/src/api/provider.ts` consume the same DTOs).
 - **Regression suite:** household login + `/today` + household e2e (MUST stay green — routing
-  touched); mobile bearer auth smoke.
+  touched); mobile bearer auth smoke; **`test:mobile` green**.
 - **Smoke:** provider-only user logs in → not redirected to household onboarding → reaches
-  provider entry; multi-workspace chooser appears.
+  provider entry; multi-workspace chooser appears; **manual Expo smoke: provider-only user
+  reaches the mobile provider entry and Today's Menu renders**.
 - **Owner:** shared routing files = **MP-B-010 single owner**; `database.types.ts` = A.
 - **Conflict-resolution:** routing edits land in one PR; A's resolver merges first, B rebases.
 - **Rollback:** revert routing PR (code-only); schema rollback only if unreleased.
@@ -57,11 +66,14 @@ Branch/merge strategy: `05_two_developer_implementation_tracker.md`.
 - **Merge:** MP-A-011 (catalog), MP-A-101 (onboarding), MP-A-102 (invite/approval),
   MP-A-110 (catalog APIs), MP-A-012 (menu schema — ADR-7-independent), MP-A-012E + MP-A-121
   (structural-edit guard + authoring/publish — **after ADR-7**);
-  MP-B-020 (owner onboarding), MP-B-022 (invite/approval UI), MP-B-030 (menu builder — after ADR-7).
-- **Merge prerequisites:** ADR-6 + ADR-7 + E3 resolved; RLS integration tests green.
+  MP-B-020 (owner onboarding), MP-B-022 (invite/approval UI), MP-B-030 (menu builder — after ADR-7);
+  **paired mobile screens in the same PRs — MP-C-020/022/030**.
+- **Merge prerequisites:** ADR-6 + ADR-7 + E3 resolved; RLS integration tests green;
+  **mobile provider unit/hook tests green (`test:mobile`)**.
 - **Contract tests:** catalog/menu/member DTOs; completeness validator matches contract.
-- **Regression suite:** household flows; provider CP2 smoke still green.
-- **Smoke:** onboarding→dashboard; invite→accept→awaiting→approve→active; build complete menu→publish.
+- **Regression suite:** household flows; provider CP2 smoke still green; **`test:mobile` green**.
+- **Smoke:** onboarding→dashboard; invite→accept→awaiting→approve→active; build complete
+  menu→publish; **manual Expo smoke of the same three mobile flows**.
 - **Owner:** A owns schema/types; B owns UI. **Conflict-resolution:** menu-edit affordance gated
   on ADR-7 decision recorded in `09`.
 - **Rollback:** revert authoring PRs; schema forward-fix preferred once rows exist.
@@ -70,13 +82,16 @@ Branch/merge strategy: `05_two_developer_implementation_tracker.md`.
 
 - **Merge:** MP-A-013 (response schema), MP-A-130 (response service+APIs), MP-A-131 (suggestions),
   MP-A-141 (cutoff job+RPC), MP-A-170 (events/notifications); MP-B-021 (member onboarding),
-  MP-B-041 (response UI + lock state).
+  MP-B-041 (response UI + lock state); **paired mobile screens — MP-C-021/041 (+MP-C-060
+  dashboard if it lands here)**.
 - **Merge prerequisites:** optimistic-concurrency + cutoff contracts frozen; cutoff job
-  idempotency test green; deterministic-clock harness in place.
+  idempotency test green; deterministic-clock harness in place; **mobile response unit/hook
+  tests green (`test:mobile`)**.
 - **Contract tests:** `SaveProviderResponseRequest`/`MemberResponseDto`; conflict envelope.
-- **Regression suite:** household + provider CP2/CP3 smoke.
+- **Regression suite:** household + provider CP2/CP3 smoke; **`test:mobile` green**.
 - **Smoke:** confirm/update/cancel before cutoff; post-cutoff mutation rejected (backend);
-  cutoff job locks + counts + creates batch rev1 idempotently; auto-accept requires consent.
+  cutoff job locks + counts + creates batch rev1 idempotently; auto-accept requires consent;
+  **manual Expo smoke: mobile confirm/update/cancel + locked state after cutoff**.
 - **Owner:** A (domain), B (UI). **Conflict-resolution:** none expected (disjoint files).
 - **Rollback:** `cron.unschedule` + revert; locked data preserved.
 
@@ -84,14 +99,19 @@ Branch/merge strategy: `05_two_developer_implementation_tracker.md`.
 
 - **Merge:** MP-A-014 (batch/events/notif schema), MP-A-140 (aggregation), MP-A-150 (override+
   regenerate), MP-A-160 (CSV), MP-A-161 (email); MP-B-050 (preparation UI), MP-B-051 (print),
-  MP-B-060 (dashboard), MP-B-070 (E2E suite).
+  MP-B-060 (dashboard), MP-B-070 (web E2E suite); **paired mobile screens — MP-C-050
+  (preparation), MP-C-051 (mobile share/export), MP-C-060 (dashboard)**. **MP-C-070 (mobile
+  E2E) is deferred past CP5 (Q-8 decision) — not a CP5 merge item.**
 - **Merge prerequisites:** batch/CSV/print/email DTOs frozen; aggregation reconciliation test
-  green; CSV-injection tests green.
+  green; CSV-injection tests green; **mobile preparation/dashboard unit/hook tests green
+  (`test:mobile`)**.
 - **Contract tests:** `BatchDto`/`PrintViewDto`/`ProviderSummaryEmailParams`; CSV column order.
-- **Regression suite:** full household + provider E2E; mobile API regression.
+- **Regression suite:** full household + provider web E2E; mobile API regression; **`test:mobile`
+  green**. (Mobile UI E2E remains deferred — see Q-8.)
 - **Smoke:** aggregate reconciles with individual; CSV downloads + injection-safe; print opens
   (A4/letter); override→stale→regenerate→resend; email from persisted revision; email failure
-  doesn't lose batch.
+  doesn't lose batch; **manual Expo smoke: mobile preparation + dashboard + native share/export
+  of a persisted batch revision**.
 - **Owner:** A (backend), B (UI/E2E). **Conflict-resolution:** none expected.
 - **Rollback:** revert export/email/UI PRs; immutable batches retained.
 
@@ -117,6 +137,14 @@ Branch/merge strategy: `05_two_developer_implementation_tracker.md`.
 checkpoint; Developer B never edits them. Any need to change a shared file outside
 its assigned owner/checkpoint goes through a small dedicated integration PR with
 both developers' review.
+
+**Track C (mobile) shared files.** Mobile screens live under `mobile/`, disjoint from
+the web app, so the matrix above is unaffected. The only mobile-side serialized files
+are `mobile/src/api/provider.ts` and `mobile/src/api/index.ts` (the provider client —
+**MP-C-000 owner**, additive thereafter), `mobile/package.json` (whoever adds a mobile
+dep, serialized), and the root `package.json` `test:mobile`/`test:all` scripts
+(**MP-C-000 owner**, frozen after CP1). Because each MP-C-xxx rides its paired MP-B PR,
+no extra cross-developer coordination is introduced beyond MP-C-000's one-time setup.
 
 ## Conflict-resolution procedure (all checkpoints)
 
