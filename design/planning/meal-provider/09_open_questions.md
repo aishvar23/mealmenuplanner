@@ -83,6 +83,22 @@ workspace_id)` with a membership-verifying RPC; fallback = client-only (no migra
   export entries exactly for `/provider`.
 - **Stay blocked?** **No** — mechanical; confirm the map during MP-A-001.
 
+### Q-8 — Mobile provider UI E2E runner (deferred decision) — `decision`-tagged
+
+- **Why it matters:** ADR-17 puts mobile provider **screens** in scope at full parity and
+  requires Jest + RNTL unit/hook tests + manual Expo smoke now, but **defers automated mobile
+  UI E2E**. This host is **Windows + no Docker**: an iOS simulator is impossible and no Android
+  emulator/cloud-device runner is stood up, so a Detox/Maestro suite cannot run here today.
+  The open question is **which runner + environment** to adopt (Detox vs Maestro; local Android
+  emulator vs an EAS / cloud-device farm) and **when**.
+- **Affected tasks:** MP-C-070 (mobile E2E suite, `BLOCKED`). Does **not** block any MP-C
+  screen task — those ship under unit/hook + Expo-smoke coverage. Risk R-12/R-17.
+- **Safe default:** ship mobile provider screens now with Jest + RNTL unit/hook + manual Expo
+  smoke; keep mobile UI E2E **out** of `test:all`; revisit once a runner/host exists. Decision
+  owner: human (logged as a `decision`+`backlog` ADO Issue under Epic #15).
+- **Stay blocked?** **Yes for MP-C-070 only.** It is the single acknowledged gap below the web
+  E2E bar, tracked openly (never a silent skip) per the grow-only suite rule.
+
 ---
 
 ## Disposition
@@ -90,3 +106,5 @@ workspace_id)` with a membership-verifying RPC; fallback = client-only (no migra
 - **Hard blocker (must decide before dependent code):** **Q-1** (menu edit policy).
 - **Pick-before-ship, not blocking the program:** Q-2, Q-3, Q-4, Q-5, Q-6, Q-7 — all have
   safe defaults that let work proceed and are resolved within their owning task.
+- **Deferred decision (blocks only its own item):** **Q-8** (mobile UI E2E runner) — blocks
+  MP-C-070 alone; all mobile provider **screens** proceed under the safe default.

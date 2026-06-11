@@ -6,10 +6,14 @@
 
 Mirrors the repo's existing split: **Vitest** colocated `*.test.ts` (pure +
 service, Supabase mocked) and **Playwright** e2e (`e2e/specs/*`, fixtures in
-`e2e/fixtures/auth.ts`). **No Docker on this machine** → there is no local-Supabase
-integration harness; RLS/integration coverage runs against **cloud dev** (Supabase
-MCP) and through Playwright e2e. No real Google interaction in CI (use seeded
-email/password spec users, as the existing harness does).
+`e2e/fixtures/auth.ts`), **plus** — for the mobile provider screens (ADR-17, Track C)
+— **Jest + React Native Testing Library** unit/hook tests under `mobile/`, run via
+`npm run test:mobile` (§1.13). **No Docker on this machine** → there is no
+local-Supabase integration harness; RLS/integration coverage runs against **cloud
+dev** (Supabase MCP) and through Playwright e2e. No real Google interaction in CI (use
+seeded email/password spec users, as the existing harness does). **Mobile UI E2E
+(Detox/Maestro) is deferred** (§1.13 / Q-8): no iOS simulator on this Windows host and
+no Android emulator/cloud-device runner yet.
 
 ---
 
@@ -96,6 +100,29 @@ multi-provider isolation (E2E-001..006). Plus: provider-only user not sent to ho
 
 - **Existing household** unit + Playwright (login, today, plan, grocery, members, notifications).
 - **Mobile API** contract: bearer auth + existing `/api/*` shapes unaffected (`mobile/src/api/*`).
+- **Mobile provider unit/hook** (`test:mobile`): grows as Track C screens land (see §1.13).
+
+### 1.13 Mobile provider unit/hook (Jest + React Native Testing Library) — ADR-17
+
+Track C mobile screens are tested with **Jest + jest-expo + React Native Testing
+Library**, run via `npm run test:mobile` (wired into `test:all` by **MP-C-000**). This
+is the required mobile test bar; **mobile UI E2E (Detox/Maestro) is deferred** (ADR-17
+§4 / Q-8) because this Windows / no-Docker host has no iOS simulator and no Android
+emulator/cloud-device runner. Coverage per Track C task:
+
+- **Provider API client** (`mobile/src/api/provider.ts`): each method maps request →
+  `/api/*` and parses the envelope into the `@mmp/shared/provider` DTO; typed-error
+  paths surface the right `ErrorCode`.
+- **Hooks** (`mobile/src/provider/*`): React Query hooks resolve fixtures, expose
+  loading/error/locked states, and (for responses) optimistic-concurrency reload-on-
+  conflict — mirroring the web hook tests.
+- **Screen render** (RNTL): each screen renders its key states from fixtures —
+  e.g. awaiting-approval shows no menu; locked response is read-only; multi-provider
+  isolation (Provider A data never under Provider B, MP-C-012).
+- **Pure logic reused from `@mmp/shared`** is already covered by §1.1 and not retested.
+
+Until the deferred E2E runner lands, each Track C task is additionally proven by a
+**manual Expo smoke** recorded in its PR (the paired MP-B PR).
 
 ---
 
@@ -147,6 +174,10 @@ multi-provider isolation (E2E-001..006). Plus: provider-only user not sent to ho
 
 ## 6. Coverage gates per checkpoint
 
-- CP1: contract/type tests. CP2: resolver + read RLS + household regression. CP3: catalog/menu/
-  member service + RLS + onboarding E2E. CP4: response + cutoff + concurrency + idempotency.
-  CP5: aggregation + CSV + print + email + full E2E + mobile regression.
+- CP1: contract/type tests + **mobile harness green (`test:mobile`, MP-C-000)**. CP2: resolver
+  - read RLS + household regression + **mobile routing/shell/Today unit+hook**. CP3: catalog/
+    menu/member service + RLS + onboarding E2E + **mobile onboarding/members/builder unit+hook**.
+    CP4: response + cutoff + concurrency + idempotency + **mobile response unit+hook**. CP5:
+    aggregation + CSV + print + email + full web E2E + mobile regression + **mobile preparation/
+    dashboard unit+hook**. `test:mobile` is green at every checkpoint from CP1; mobile UI E2E
+    (MP-C-070) is deferred past CP5 (Q-8).

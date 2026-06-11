@@ -17,6 +17,10 @@ two layers, both already present and green in the repo at the time of freezing:
 - **Vitest** — the colocated `*.test.ts` unit/service/route tests next to the code in
   `lib/`, `app/api/`, and `app/`. Run with `npm run test`.
 - **Playwright** — the end-to-end UI specs in `e2e/specs/`. Run with `npm run test:e2e`.
+- **Mobile Jest** (added by **MP-C-000**, ADR-17) — the `mobile/` Jest + React Native
+  Testing Library unit/hook tests for mobile provider screens. Run with
+  `npm run test:mobile`. This layer **grows** as Track C screens land; mobile UI E2E
+  (Detox/Maestro) is **deferred** (Q-8), so it is **not** part of the suite yet.
 
 **Baseline at freeze (run on `feature/regression-suite-backbone`):**
 
@@ -74,17 +78,25 @@ may regress:
   `app/api/**/route.test.ts` route tests (envelope + auth/permission paths) and the
   `e2e/specs/mobile.spec.ts` responsive flows. Any change to an `/api/*` route must
   keep those route tests green so the mobile client contract cannot drift.
+- **Mobile provider UI (Jest + RNTL)** — as Track C screens land (ADR-17), their
+  `mobile/` unit/hook tests join the suite via `npm run test:mobile` and must stay
+  green. Web ↔ mobile parity is enforced here: a UI item is not `Done` until both its
+  web Vitest/Playwright and its mobile Jest tests are green. **Mobile UI E2E is deferred**
+  (Q-8) and is the one acknowledged gap below the web E2E bar until a runner is decided.
 
 ## 2. The single gate command
 
 ```bash
-npm run test:all        # == npm run test && npm run test:e2e
+npm run test:all        # == npm run test && npm run test:mobile && npm run test:e2e
 ```
 
 `test:all` is the **pre-close gate**: a feature work item is not `Done` until
 `test:all` is green (alongside `npm run format:check`, `npm run lint`,
 `npm run typecheck`, and `npm run build`). See the Definition of Done in
-[`CLAUDE.md`](../../../CLAUDE.md).
+[`CLAUDE.md`](../../../CLAUDE.md). **MP-C-000 (ADR-17) adds the `test:mobile` step** to
+`test:all`; until MP-C-000 merges, `test:all` is `test && test:e2e` as before — and
+MP-C-000 must wire `test:mobile` in **green** (never point the gate at a missing
+script).
 
 ### 2.1 CI wiring
 
@@ -102,10 +114,13 @@ verified locally or from the job, per the DoD.
 
 ## 3. How the suite grows (grow-only rule)
 
-- Every feature item **adds** its functional (Vitest) + E2E (Playwright) tests to this
-  suite as part of its Definition of Done, and the PR names what it added.
+- Every feature item **adds** its functional (web Vitest) + E2E (Playwright) tests to
+  this suite as part of its Definition of Done, and — for UI-bearing items — its
+  **mobile Jest + RNTL** unit/hook tests (ADR-17), and the PR names what it added on
+  both platforms.
 - The suite **only ever grows**. A test is never skipped or removed without a
-  `decision`-tagged ADO work item approving it.
+  `decision`-tagged ADO work item approving it. (The deferral of mobile UI E2E is
+  itself tracked as that `decision`-tagged item — Q-8 — not a silent gap.)
 - New provider E2E flows use the **provider fixtures scaffold** and the
   **deterministic clock** below, so they stay isolated and time-deterministic.
 
@@ -138,8 +153,11 @@ specs will consume:
 
 ## 5. Checkpoint coverage gates (from `07_test_strategy.md` §6)
 
-CP1: contract/type tests. CP2: resolver + read RLS + **household regression green**.
-CP3: catalog/menu/member service + RLS + onboarding E2E. CP4: response + cutoff +
-concurrency + idempotency. CP5: aggregation + CSV + print + email + **full E2E +
-mobile regression green**. The constant regression suite is the floor under every one
-of these.
+CP1: contract/type tests + **mobile harness green (`test:mobile`, MP-C-000)**. CP2:
+resolver + read RLS + **household regression green** + mobile routing/shell/Today
+unit+hook. CP3: catalog/menu/member service + RLS + onboarding E2E + mobile onboarding/
+members/builder unit+hook. CP4: response + cutoff + concurrency + idempotency + mobile
+response unit+hook. CP5: aggregation + CSV + print + email + **full web E2E + mobile
+regression green** + mobile preparation/dashboard unit+hook. `test:mobile` is green at
+every checkpoint from CP1; mobile UI E2E (MP-C-070) is deferred (Q-8). The constant
+regression suite is the floor under every one of these.

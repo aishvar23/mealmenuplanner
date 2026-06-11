@@ -232,6 +232,21 @@ contract-mediated).
 - **Resolution:** feature flag; additive migrations; household & mobile regression suites green at every checkpoint.
 - **Track:** A+B.
 
+### G-29 · Mobile provider screens (parity) — 🔴 (ADR-17)
+
+- **Current:** the `mobile/` Expo app has full household parity (M0–M2) but **no provider
+  screens**; ADR-16 had deferred them. There is also **no mobile test runner** at all
+  (`mobile/package.json` has no `test` script; zero `*.test.*` under `mobile/`).
+- **Required (ADR-17):** the `mobile/` counterpart of every web provider screen, at full
+  parity, shipped **in the same PR** as its web twin; consuming the same `/api/*` routes +
+  `@mmp/shared/provider` via `mobile/src/api/provider.ts`; **Jest + RNTL** unit/hook tests in
+  `test:mobile` (folded into `test:all`) + manual Expo smoke. Mobile UI E2E is **deferred** (Q-8).
+- **Resolution:** **Track C** in `05` — MP-C-000 stands up the harness + client + `test:mobile`
+  (CP1); MP-C-010..060 deliver the screens paired to MP-B-010..060; MP-C-070 (mobile E2E) is
+  decision-gated. **Track:** C (rides Track B's PRs). **Regression risk:** Low (new `mobile/`
+  files, disjoint from web); **High severity if parity silently drifts** → mitigated by one-PR
+  lockstep (R-17).
+
 ---
 
 ## Out-of-scope confirmation (must appear nowhere as work)
