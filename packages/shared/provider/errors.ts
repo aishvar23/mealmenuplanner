@@ -11,7 +11,10 @@
 // code + HTTP status). Services build the right `DomainError` with these reasons;
 // web + mobile clients branch on `error.details.reason`. Pure — safe on-device.
 
-import { ERROR_CODES, type ErrorCode } from "../../../lib/errors/domain-errors";
+// Import through the package's own public seam (`@mmp/shared/types` re-exports
+// `ERROR_CODES`/`ErrorCode` from the repo's `lib/errors`) rather than re-reaching
+// into `lib/` directly — one re-export path, the same symbols mobile consumes.
+import { ERROR_CODES, type ErrorCode } from "../types";
 
 /**
  * The closed set of provider `details.reason` discriminators (contract 03 § 3).

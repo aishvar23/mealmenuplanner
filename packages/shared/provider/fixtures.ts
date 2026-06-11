@@ -380,6 +380,104 @@ export const autoAcceptedResponse: MemberResponseDto = {
 };
 
 // ───────────────────────────── Batches ─────────────────────────────
+//
+// The batch reconciles exactly: the three contributing members below (2
+// confirmed + 1 auto-accepted = the `totals` that produce food; cancelled /
+// no-response contribute nothing) are the sole source of the per-member lines,
+// and `aggregateLines` is their grouped sum (by item + spice + salt). So a
+// batch-detail screen rendered from this fixture shows an aggregate that adds
+// up to the per-member breakdown:
+//   Rajma  (regular/regular_salt): Farah 16 + Esha 16            = 32 oz
+//   Chana  (spicy/low_salt):       Chitra 16 incl + 8 extra      = 24 oz
+//   Roti   (—):                    Chitra 2 + Farah 2 + Esha 2   = 6 pieces
+
+const individualBatchLines: BatchDto["individualLines"] = [
+  {
+    memberUserId: "user-chitra",
+    displayName: "Chitra",
+    lines: [
+      {
+        catalogItemId: CAT_CHANA_ID,
+        itemName: "Chana Masala",
+        componentGroup: "dal_or_legume",
+        spiceLevel: "spicy",
+        saltLevel: "low_salt",
+        includedQuantity: 16,
+        extraQuantity: 8,
+        totalQuantity: 24,
+        canonicalUnit: "oz",
+      },
+      {
+        catalogItemId: CAT_ROTI_ID,
+        itemName: "Roti",
+        componentGroup: "bread",
+        spiceLevel: null,
+        saltLevel: null,
+        includedQuantity: 2,
+        extraQuantity: 0,
+        totalQuantity: 2,
+        canonicalUnit: "piece",
+      },
+    ],
+  },
+  {
+    memberUserId: "user-farah",
+    displayName: "Farah",
+    lines: [
+      {
+        catalogItemId: CAT_RAJMA_ID,
+        itemName: "Rajma",
+        componentGroup: "dal_or_legume",
+        spiceLevel: "regular",
+        saltLevel: "regular_salt",
+        includedQuantity: 16,
+        extraQuantity: 0,
+        totalQuantity: 16,
+        canonicalUnit: "oz",
+      },
+      {
+        catalogItemId: CAT_ROTI_ID,
+        itemName: "Roti",
+        componentGroup: "bread",
+        spiceLevel: null,
+        saltLevel: null,
+        includedQuantity: 2,
+        extraQuantity: 0,
+        totalQuantity: 2,
+        canonicalUnit: "piece",
+      },
+    ],
+  },
+  {
+    // Auto-accepted: took the default package (Rajma + Roti) unchanged.
+    memberUserId: "user-esha",
+    displayName: "Esha",
+    lines: [
+      {
+        catalogItemId: CAT_RAJMA_ID,
+        itemName: "Rajma",
+        componentGroup: "dal_or_legume",
+        spiceLevel: "regular",
+        saltLevel: "regular_salt",
+        includedQuantity: 16,
+        extraQuantity: 0,
+        totalQuantity: 16,
+        canonicalUnit: "oz",
+      },
+      {
+        catalogItemId: CAT_ROTI_ID,
+        itemName: "Roti",
+        componentGroup: "bread",
+        spiceLevel: null,
+        saltLevel: null,
+        includedQuantity: 2,
+        extraQuantity: 0,
+        totalQuantity: 2,
+        canonicalUnit: "piece",
+      },
+    ],
+  },
+];
 
 const aggregateLines: PreparationLine[] = [
   {
@@ -388,9 +486,9 @@ const aggregateLines: PreparationLine[] = [
     componentGroup: "dal_or_legume",
     spiceLevel: "regular",
     saltLevel: "regular_salt",
-    includedQuantity: 16,
+    includedQuantity: 32,
     extraQuantity: 0,
-    totalQuantity: 16,
+    totalQuantity: 32,
     canonicalUnit: "oz",
   },
   {
@@ -410,9 +508,9 @@ const aggregateLines: PreparationLine[] = [
     componentGroup: "bread",
     spiceLevel: null,
     saltLevel: null,
-    includedQuantity: 4,
+    includedQuantity: 6,
     extraQuantity: 0,
-    totalQuantity: 4,
+    totalQuantity: 6,
     canonicalUnit: "piece",
   },
 ];
@@ -425,36 +523,7 @@ export const currentBatch: BatchDto = {
   generatedAt: "2026-06-11T14:35:00Z",
   totals: { confirmed: 2, autoAccepted: 1, cancelled: 1, noResponse: 1 },
   aggregateLines,
-  individualLines: [
-    {
-      memberUserId: "user-chitra",
-      displayName: "Chitra",
-      lines: [
-        {
-          catalogItemId: CAT_CHANA_ID,
-          itemName: "Chana Masala",
-          componentGroup: "dal_or_legume",
-          spiceLevel: "spicy",
-          saltLevel: "low_salt",
-          includedQuantity: 16,
-          extraQuantity: 8,
-          totalQuantity: 24,
-          canonicalUnit: "oz",
-        },
-        {
-          catalogItemId: CAT_ROTI_ID,
-          itemName: "Roti",
-          componentGroup: "bread",
-          spiceLevel: null,
-          saltLevel: null,
-          includedQuantity: 2,
-          extraQuantity: 0,
-          totalQuantity: 2,
-          canonicalUnit: "piece",
-        },
-      ],
-    },
-  ],
+  individualLines: individualBatchLines,
   emailStatus: "sent",
 };
 
@@ -463,7 +532,6 @@ export const staleBatch: BatchDto = {
   ...currentBatch,
   batchId: "batch-rev1-stale",
   status: "stale",
-  emailStatus: "sent",
 };
 
 // ──────────────────────── Workspace discovery ────────────────────────

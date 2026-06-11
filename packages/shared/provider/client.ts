@@ -15,7 +15,9 @@
 // suggestions, override/regenerate/resend, CSV) are added alongside their
 // MP-A service task, which freezes those shapes.
 
-import type { Collection } from "../../../lib/http/collection";
+// Through the package's own seam (`@mmp/shared/types` re-exports `Collection`),
+// not a direct reach into `lib/http` — same shape mobile already consumes.
+import type { Collection } from "../types";
 
 import type {
   BatchDto,

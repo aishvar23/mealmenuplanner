@@ -100,6 +100,51 @@ describe("provider fixtures (contract 03 § 14)", () => {
     }
   });
 
+  it("aggregate lines are exactly the grouped sum of the per-member lines", () => {
+    // Group key = item + spice + salt (how the batch aggregates an order line).
+    const key = (l: {
+      catalogItemId: string;
+      spiceLevel: unknown;
+      saltLevel: unknown;
+    }) => `${l.catalogItemId}|${l.spiceLevel}|${l.saltLevel}`;
+
+    const summed = new Map<
+      string,
+      { included: number; extra: number; total: number }
+    >();
+    for (const member of f.currentBatch.individualLines) {
+      for (const line of member.lines) {
+        const acc = summed.get(key(line)) ?? {
+          included: 0,
+          extra: 0,
+          total: 0,
+        };
+        acc.included += line.includedQuantity;
+        acc.extra += line.extraQuantity;
+        acc.total += line.totalQuantity;
+        summed.set(key(line), acc);
+      }
+    }
+
+    // Every aggregate line equals the sum of the member lines in its group, and
+    // there are no aggregate groups without contributing members (or vice-versa).
+    expect(f.currentBatch.aggregateLines.length).toBe(summed.size);
+    for (const agg of f.currentBatch.aggregateLines) {
+      const expected = summed.get(key(agg));
+      expect(expected).toBeDefined();
+      expect(agg.includedQuantity).toBe(expected!.included);
+      expect(agg.extraQuantity).toBe(expected!.extra);
+      expect(agg.totalQuantity).toBe(expected!.total);
+    }
+  });
+
+  it("batch member count matches the food-producing totals (confirmed + auto-accepted)", () => {
+    const { confirmed, autoAccepted } = f.currentBatch.totals;
+    expect(f.currentBatch.individualLines.length).toBe(
+      confirmed + autoAccepted,
+    );
+  });
+
   it("workspace discovery default paths match the contract § 2 destinations", () => {
     const byType = new Map(
       f.multiWorkspaceDiscovery.workspaces.map((w) => [`${w.type}:${w.id}`, w]),

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ERROR_CODES } from "../../../lib/errors/domain-errors";
+import { ERROR_CODES } from "../types";
 
 import {
   PROVIDER_ERROR_REASONS,

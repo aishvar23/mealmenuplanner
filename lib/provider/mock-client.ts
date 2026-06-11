@@ -113,6 +113,11 @@ export const mockProviderClient: ProviderApiClient = {
       ...f.confirmedResponse,
       status: "draft",
       version: (body.expectedVersion ?? 0) + 1,
+      // Echo the caller's submitted selections (the request and response item
+      // shapes match) so optimistic-update UI exercised against the mock sees
+      // its own edits, not a stale fixture. The real server derives authoritative
+      // quantity/unit/limits from menu config (§ 11.6); the mock trusts the body.
+      items: body.items,
       memberNote: body.memberNote,
     });
   },
