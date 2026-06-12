@@ -206,3 +206,33 @@ export const resolveWorkspaceDiscovery = cache(
     return { workspaces, activeWorkspace };
   },
 );
+
+/**
+ * Where to send a user who has no active household (MP-B-012, spec §12.3). The
+ * entry-routing rule, minus the explicit-return-URL step the auth callback owns:
+ *   - belongs to nothing → `/onboarding` (brand-new household signup);
+ *   - exactly one workspace → straight into it (no chooser for a single place);
+ *   - several, with a valid stored active pointer → that workspace;
+ *   - several, no valid pointer → the `/workspace` chooser.
+ * The `(app)` onboarding gate calls this once it finds no household, so a
+ * provider-only user is auto-entered (the auto-redirect MP-B-010 deferred to the
+ * provider shells) instead of always landing on the chooser.
+ */
+export const resolveWorkspaceEntryPath = cache(
+  async function resolveWorkspaceEntryPath(): Promise<string> {
+    const { workspaces, activeWorkspace } = await resolveWorkspaceDiscovery();
+
+    if (workspaces.length === 0) return "/onboarding";
+    if (workspaces.length === 1) return workspaces[0]!.defaultPath;
+
+    // `activeWorkspace` is already validated against `workspaces` in discovery, so
+    // when present it always resolves to a ref; absent (no pointer, or a stale one
+    // for a workspace the user left) → the chooser.
+    const active = activeWorkspace
+      ? workspaces.find(
+          (w) => w.type === activeWorkspace.type && w.id === activeWorkspace.id,
+        )
+      : undefined;
+    return active?.defaultPath ?? "/workspace";
+  },
+);

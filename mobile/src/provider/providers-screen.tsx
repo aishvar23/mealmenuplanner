@@ -1,24 +1,27 @@
-import { Store } from "lucide-react-native";
-import { ScrollView, Text, View } from "react-native";
-
-import type {
-  ProviderMembershipStatus,
-  ProviderSummaryDto,
+import {
+  providerMembershipLabel,
+  type ProviderSummaryDto,
 } from "@mmp/shared/provider";
+import { ChevronRight, Store } from "lucide-react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { EmptyState, ErrorState, LoadingState } from "@/components/Feedback";
 import { useProviders } from "@/provider/use-providers";
+import { useWorkspaceSwitch } from "@/provider/use-workspace-switch";
+import { providerWorkspaceTarget } from "@/provider/workspace-routes";
 
 /**
- * Meal-provider workspace entry (MP-C-010, the mobile twin of the web `/workspace`
- * chooser in MP-B-010). Lists the providers the caller belongs to, discovered
+ * Meal-provider workspace entry (MP-C-010 + MP-C-011/012, the mobile twin of the
+ * web `/workspace` chooser). Lists the providers the caller belongs to, discovered
  * through the shared `useProviders` hook against the live `GET /api/providers`.
  * Reached from the More tab — a member-of-no-provider household user sees the
- * empty state. The per-provider workspace screens (today's menu, etc.) land with
- * the provider shells (#18); this screen is the discovery entry point until then.
+ * empty state. With the provider shells landed (#18), each row now enters the
+ * right shell (owner / member / awaiting-approval), recording the active-workspace
+ * pointer first via `useWorkspaceSwitch`.
  */
 export default function ProvidersScreen() {
   const { data, isLoading, isError, refetch } = useProviders();
+  const { switchTo, pending } = useWorkspaceSwitch();
 
   if (isLoading) return <LoadingState />;
   if (isError) {
@@ -52,6 +55,8 @@ export default function ProvidersScreen() {
               key={p.providerId}
               provider={p}
               isLast={i === providers.length - 1}
+              disabled={pending}
+              onPress={() => void switchTo(providerWorkspaceTarget(p))}
             />
           ))}
         </View>
@@ -63,13 +68,20 @@ export default function ProvidersScreen() {
 function ProviderRow({
   provider,
   isLast,
+  disabled,
+  onPress,
 }: {
   provider: ProviderSummaryDto;
   isLast: boolean;
+  disabled: boolean;
+  onPress: () => void;
 }) {
   return (
-    <View
-      className={`flex-row items-center gap-3 px-4 py-3.5 ${isLast ? "" : "border-b border-gray-100"}`}
+    <Pressable
+      accessibilityRole="button"
+      disabled={disabled}
+      onPress={onPress}
+      className={`flex-row items-center gap-3 px-4 py-3.5 ${isLast ? "" : "border-b border-gray-100"} ${disabled ? "opacity-60" : ""}`}
     >
       <View className="size-10 items-center justify-center rounded-lg bg-green-50">
         <Store color="#16a34a" size={20} />
@@ -77,18 +89,10 @@ function ProviderRow({
       <View className="flex-1">
         <Text className="text-base text-gray-900">{provider.name}</Text>
         <Text className="text-sm text-gray-500">
-          {membershipLabel(provider.role, provider.membershipStatus)}
+          {providerMembershipLabel(provider.role, provider.membershipStatus)}
         </Text>
       </View>
-    </View>
+      <ChevronRight color="#9ca3af" size={20} />
+    </Pressable>
   );
-}
-
-/** The caller's standing with a provider, for the row subtitle. */
-function membershipLabel(
-  role: ProviderSummaryDto["role"],
-  status: ProviderMembershipStatus,
-): string {
-  if (role === "owner") return "Owner";
-  return status === "active" ? "Subscriber" : "Awaiting approval";
 }

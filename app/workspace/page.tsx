@@ -1,40 +1,28 @@
-import { ChefHat, ChevronRight, Store } from "lucide-react";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { WorkspaceChooserList } from "@/components/workspace/workspace-chooser-list";
 import { getAuthUser } from "@/lib/auth";
-import { listUserHouseholds } from "@/lib/services/household";
-import {
-  listProviderSummaries,
-  resolveWorkspaceDiscovery,
-} from "@/lib/services/workspace";
-import type { WorkspaceRef } from "@/packages/shared/provider";
+import { resolveWorkspaceOptions } from "@/lib/services/workspace";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = { title: "Choose a workspace" };
 
 /**
- * Workspace chooser (MP-B-010, ADR-1). A user can belong to a household, own a
- * provider, and be a customer of others at once; this is where they pick which
- * one to enter. Rendered outside the `(app)` nav shell — a provider-only user has
- * no household, so the Today/Plan/etc. nav would go nowhere — and reached when the
- * `(app)` onboarding gate finds no household but live provider workspaces.
+ * Workspace chooser (MP-B-010 / MP-B-012, ADR-1). A user can belong to a
+ * household, own a provider, and be a customer of others at once; this is where
+ * they pick which one to enter. Rendered outside the `(app)` nav shell — a
+ * provider-only user has no household, so the Today/Plan/etc. nav would go nowhere
+ * — and reached when the `(app)` onboarding gate finds no household but live
+ * provider workspaces.
  *
  * Auth is gated by the edge proxy (`/workspace` is a protected prefix); this
- * server component re-resolves the verified user as a defense-in-depth backstop,
- * matching the `(app)` layout and the onboarding route.
+ * server component re-resolves the verified user as a defense-in-depth backstop.
  *
- * It lists every workspace. Household rows link to their `defaultPath` (`/today`,
- * which exists). Provider rows are shown but NOT yet navigable: their destinations
- * (`/provider/dashboard`, `/providers/{id}/*`) land with the provider shells (#18),
- * so linking now would 404 — and a multi-provider owner's rows would all point at
- * the same `/provider/dashboard` with no way to disambiguate. Until #18 wires
- * pointer-aware navigation (via `set_active_workspace`), provider rows render with
- * an "available soon" affordance, matching the mobile providers screen (which
- * likewise lists without navigating). Auto-redirecting a sole/active workspace is
- * deferred for the same reason. `WorkspaceRef` carries no display name, so names
- * are joined in from the household + provider summaries.
+ * Every row is now navigable: with the provider shells landed (#18), selecting a
+ * workspace records the active-workspace pointer and routes to that workspace's
+ * home (`WorkspaceChooserList` → `POST /api/workspace/active`). `WorkspaceRef`
+ * carries no display name, so `resolveWorkspaceOptions` joins names in.
  */
 export default async function WorkspacePage() {
   const user = await getAuthUser();
@@ -42,20 +30,12 @@ export default async function WorkspacePage() {
     redirect("/sign-in");
   }
 
-  const [discovery, households, providers] = await Promise.all([
-    resolveWorkspaceDiscovery(),
-    listUserHouseholds(),
-    listProviderSummaries(),
-  ]);
+  const options = await resolveWorkspaceOptions();
 
   // A user who belongs to nothing yet is a brand-new household signup.
-  if (discovery.workspaces.length === 0) {
+  if (options.length === 0) {
     redirect("/onboarding");
   }
-
-  const nameById = new Map<string, string>();
-  for (const h of households) nameById.set(h.householdId, h.name);
-  for (const p of providers) nameById.set(p.providerId, p.name);
 
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center bg-canvas px-4 py-12 text-foreground">
@@ -69,85 +49,8 @@ export default async function WorkspacePage() {
           </p>
         </div>
 
-        <ul className="overflow-hidden rounded-xl border bg-background shadow-sm">
-          {discovery.workspaces.map((ws) => {
-            const name = nameById.get(ws.id) ?? workspaceTypeLabel(ws.type);
-            const navigable = ws.type === "household";
-            const body = (
-              <>
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  {ws.type === "household" ? (
-                    <ChefHat className="size-5" />
-                  ) : (
-                    <Store className="size-5" />
-                  )}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-semibold">{name}</span>
-                  <span className="block truncate text-xs text-muted-foreground">
-                    {workspaceSubtitle(ws)}
-                  </span>
-                </span>
-                {navigable ? (
-                  <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
-                ) : (
-                  <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                    Available soon
-                  </span>
-                )}
-              </>
-            );
-
-            return (
-              <li key={`${ws.type}:${ws.id}`}>
-                {navigable ? (
-                  <Link
-                    href={ws.defaultPath}
-                    className="flex items-center gap-3 border-b px-4 py-4 last:border-b-0 hover:bg-muted/50"
-                  >
-                    {body}
-                  </Link>
-                ) : (
-                  // Provider destinations (#18) don't exist yet — show the row but
-                  // don't link it, so we never navigate to a 404. See file header.
-                  <div
-                    aria-disabled="true"
-                    className="flex items-center gap-3 border-b px-4 py-4 last:border-b-0"
-                  >
-                    {body}
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+        <WorkspaceChooserList options={options} />
       </div>
     </main>
   );
-}
-
-/** Human label for a workspace type, used when a name is unavailable. */
-function workspaceTypeLabel(type: WorkspaceRef["type"]): string {
-  switch (type) {
-    case "household":
-      return "Household";
-    case "provider_owner":
-      return "Your provider";
-    case "provider_customer":
-      return "Provider";
-  }
-}
-
-/** The secondary line under a workspace: its role, plus a pending hint. */
-function workspaceSubtitle(ws: WorkspaceRef): string {
-  switch (ws.type) {
-    case "household":
-      return `Household · ${ws.role}`;
-    case "provider_owner":
-      return "Meal provider · owner";
-    case "provider_customer":
-      return ws.status === "active"
-        ? "Meal provider · subscriber"
-        : "Meal provider · awaiting approval";
-  }
 }

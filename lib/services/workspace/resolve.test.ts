@@ -17,6 +17,7 @@ import {
 import {
   listProviderSummaries,
   resolveWorkspaceDiscovery,
+  resolveWorkspaceEntryPath,
   resolveWorkspaces,
 } from "./resolve";
 
@@ -239,5 +240,41 @@ describe("resolveWorkspaceDiscovery", () => {
     const { activeWorkspace, workspaces } = await resolveWorkspaceDiscovery();
     expect(activeWorkspace).toBeNull();
     expect(workspaces).toHaveLength(1);
+  });
+});
+
+describe("resolveWorkspaceEntryPath", () => {
+  it("sends a user who belongs to nothing to onboarding", async () => {
+    setup({ households: [], providers: [] });
+    expect(await resolveWorkspaceEntryPath()).toBe("/onboarding");
+  });
+
+  it("auto-enters a sole provider workspace (no chooser)", async () => {
+    setup({
+      providers: [
+        providerRow({ provider_id: "prov-a", role: "owner", status: "active" }),
+      ],
+    });
+    expect(await resolveWorkspaceEntryPath()).toBe("/provider/dashboard");
+  });
+
+  it("routes to the stored active workspace when several exist", async () => {
+    setup({
+      providers: [
+        providerRow({ provider_id: "prov-a", role: "owner" }),
+        providerRow({ provider_id: "prov-b", role: "owner" }),
+      ],
+      pointer: { workspace_type: "provider_owner", workspace_id: "prov-b" },
+    });
+    expect(await resolveWorkspaceEntryPath()).toBe("/provider/dashboard");
+  });
+
+  it("falls back to the chooser when several exist with no valid pointer", async () => {
+    setup({
+      households: [householdSummary({ householdId: "hh-1" })],
+      providers: [providerRow({ provider_id: "prov-a", role: "owner" })],
+      pointer: null,
+    });
+    expect(await resolveWorkspaceEntryPath()).toBe("/workspace");
   });
 });

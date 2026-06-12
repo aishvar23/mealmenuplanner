@@ -32,6 +32,8 @@ export default function RootLayout() {
             <Stack.Screen name="onboarding" />
             <Stack.Screen name="(household)" />
             <Stack.Screen name="(settings)" />
+            <Stack.Screen name="(provider-owner)" />
+            <Stack.Screen name="(provider-member)" />
             <Stack.Screen name="invite/[token]" />
           </Stack>
         </SafeAreaProvider>

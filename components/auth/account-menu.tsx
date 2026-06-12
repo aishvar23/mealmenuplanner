@@ -5,6 +5,11 @@ import { Bell, Home, LogOut, SlidersHorizontal, Users } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
+import {
+  WorkspaceSwitcherSection,
+  type WorkspaceOption,
+} from "@/components/workspace/workspace-switcher";
+
 /**
  * Account dropdown anchored to the header avatar. Rendered in both the mobile
  * and desktop headers of the app shell, so it's the one reliably-reachable place
@@ -14,16 +19,24 @@ import { useState } from "react";
  * clears the auth cookies server-side), then does a FULL navigation to
  * `/sign-in` — mirroring the dev/Google sign-in components — so the edge proxy
  * and server layouts re-resolve with no session and there's no stale-auth window.
+ *
+ * When the user belongs to more than one workspace (household + provider, or
+ * several providers), `workspaces` carries the switcher options (MP-B-012) and a
+ * "Switch workspace" section is rendered so they can jump between them from any
+ * shell. A single-workspace user passes no options and sees no switcher.
  */
 export function AccountMenu({
   email,
   initial,
   name,
+  workspaces = [],
 }: {
   email: string | null;
   initial: string;
   /** The member's full name (or email) shown beside the avatar in the header. */
   name: string;
+  /** Switchable workspaces; the switcher renders only when there are 2+. */
+  workspaces?: WorkspaceOption[];
 }) {
   const [pending, setPending] = useState(false);
 
@@ -98,6 +111,9 @@ export function AccountMenu({
               <Bell className="size-4" />
               Notification settings
             </Menu.Item>
+            {workspaces.length > 1 ? (
+              <WorkspaceSwitcherSection options={workspaces} />
+            ) : null}
             <Menu.Separator className="my-1 h-px bg-border" />
             <Menu.Item
               closeOnClick={false}

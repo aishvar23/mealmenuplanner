@@ -1,16 +1,21 @@
-import { render, screen } from "@testing-library/react-native";
+import { fireEvent, render, screen } from "@testing-library/react-native";
 
 import type { ProviderSummaryDto } from "@mmp/shared/provider";
 
 import ProvidersScreen from "./providers-screen";
 import { useProviders } from "./use-providers";
+import { useWorkspaceSwitch } from "./use-workspace-switch";
 
-// The screen renders purely from the `useProviders` hook, so the unit test mocks
-// the hook and asserts each state (loading / error / empty / list) without a real
-// query. Pairs with the web `/workspace` chooser tests for MP-B-010/MP-C-010.
+// The screen renders from the `useProviders` hook and enters a workspace through
+// `useWorkspaceSwitch`, so the unit test mocks both: it asserts each state
+// (loading / error / empty / list) and that a row enters the right shell, without
+// a real query or navigation. Pairs with the web provider-shell tests (#18).
 jest.mock("./use-providers", () => ({ useProviders: jest.fn() }));
+jest.mock("./use-workspace-switch", () => ({ useWorkspaceSwitch: jest.fn() }));
 
 const mockUseProviders = jest.mocked(useProviders);
+const mockUseWorkspaceSwitch = jest.mocked(useWorkspaceSwitch);
+const switchTo = jest.fn();
 
 function result(over: Partial<ReturnType<typeof useProviders>>) {
   return {
@@ -35,6 +40,8 @@ const summary = (
 
 beforeEach(() => {
   mockUseProviders.mockReset();
+  switchTo.mockReset();
+  mockUseWorkspaceSwitch.mockReturnValue({ switchTo, pending: false });
 });
 
 describe("ProvidersScreen", () => {
@@ -85,5 +92,48 @@ describe("ProvidersScreen", () => {
     expect(
       screen.getByText("We couldn't load your providers. Please try again."),
     ).toBeOnTheScreen();
+  });
+
+  it("enters the owner shell when an owned-provider row is pressed", () => {
+    mockUseProviders.mockReturnValue(
+      result({
+        data: [
+          summary({ providerId: "p-own", name: "My Kitchen", role: "owner" }),
+        ],
+      }),
+    );
+
+    render(<ProvidersScreen />);
+    fireEvent.press(screen.getByText("My Kitchen"));
+
+    expect(switchTo).toHaveBeenCalledWith({
+      type: "provider_owner",
+      id: "p-own",
+      route: "/(provider-owner)/p-own/dashboard",
+    });
+  });
+
+  it("enters the awaiting-approval shell when an awaiting row is pressed", () => {
+    mockUseProviders.mockReturnValue(
+      result({
+        data: [
+          summary({
+            providerId: "p-wait",
+            name: "Curry Co",
+            role: "customer",
+            membershipStatus: "awaiting_approval",
+          }),
+        ],
+      }),
+    );
+
+    render(<ProvidersScreen />);
+    fireEvent.press(screen.getByText("Curry Co"));
+
+    expect(switchTo).toHaveBeenCalledWith({
+      type: "provider_customer",
+      id: "p-wait",
+      route: "/(provider-member)/p-wait/awaiting-approval",
+    });
   });
 });
