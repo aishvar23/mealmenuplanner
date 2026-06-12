@@ -19,7 +19,8 @@
 // Workspace tenancy (provider_organizations, provider_memberships,
 // provider_invites, provider_subscriptions tables; provider_membership_role/status
 // + the other provider_* enums; is_active_provider_member / is_provider_owner /
-// can_view_provider_identity RLS helpers).
+// can_view_provider_identity RLS helpers) + PMP-0 (MP-A-015) workspace pointer
+// (user_active_workspace table + set_active_workspace RPC).
 // After regenerating, run `npm run format` so the output matches Prettier.
 
 export type Json =
@@ -1630,6 +1631,35 @@ export type Database = {
           },
         ];
       };
+      user_active_workspace: {
+        Row: {
+          updated_at: string;
+          user_id: string;
+          workspace_id: string;
+          workspace_type: string;
+        };
+        Insert: {
+          updated_at?: string;
+          user_id: string;
+          workspace_id: string;
+          workspace_type: string;
+        };
+        Update: {
+          updated_at?: string;
+          user_id?: string;
+          workspace_id?: string;
+          workspace_type?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "user_active_workspace_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: true;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       user_food_preferences: {
         Row: {
           allergies: string[];
@@ -1888,6 +1918,10 @@ export type Database = {
         Returns: string;
       };
       set_active_household: { Args: { h: string }; Returns: undefined };
+      set_active_workspace: {
+        Args: { p_workspace_id: string; p_workspace_type: string };
+        Returns: undefined;
+      };
       set_preferred_household: { Args: { h: string }; Returns: undefined };
       transfer_ownership: {
         Args: { p_household_id: string; p_target_member_id: string };

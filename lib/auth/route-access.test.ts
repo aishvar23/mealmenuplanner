@@ -36,6 +36,19 @@ describe("isProtectedPath", () => {
     expect(isProtectedPath("/plans")).toBe(false);
     expect(isProtectedPath("/householders")).toBe(false);
   });
+
+  it("gates the provider workspace routes (MP-B-010)", () => {
+    // The chooser, the owner route group, and the customer route group.
+    expect(isProtectedPath("/workspace")).toBe(true);
+    expect(isProtectedPath("/provider/dashboard")).toBe(true);
+    expect(isProtectedPath("/providers/abc/today")).toBe(true);
+    // `/providers` (customer) and `/provider` (owner) are gated independently —
+    // one is not merely a `/` boundary of the other.
+    expect(isProtectedPath("/provider")).toBe(true);
+    expect(isProtectedPath("/providers")).toBe(true);
+    // But an unrelated path that only shares the substring is not gated.
+    expect(isProtectedPath("/providential")).toBe(false);
+  });
 });
 
 describe("isAuthPath", () => {

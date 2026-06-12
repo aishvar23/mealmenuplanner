@@ -26,6 +26,11 @@ export const PROTECTED_PREFIXES = [
   "/notifications",
   "/onboarding",
   "/admin",
+  // Meal Provider Workspace (ADR-1 / MP-B-010): the workspace chooser plus the
+  // provider owner (`/provider/*`) and customer (`/providers/*`) route groups.
+  "/workspace",
+  "/provider",
+  "/providers",
 ] as const;
 
 /**
