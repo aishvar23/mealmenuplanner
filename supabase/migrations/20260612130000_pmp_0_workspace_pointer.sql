@@ -65,10 +65,13 @@ begin
   elsif p_workspace_type = 'provider_owner' then
     v_ok := public.is_provider_owner(p_workspace_id);
   elsif p_workspace_type = 'provider_customer' then
-    -- A customer may select a workspace while still invited/awaiting approval
-    -- (the awaiting-approval screen is a valid destination), so any live
-    -- membership qualifies — not just active.
-    v_ok := public.has_live_provider_membership(p_workspace_id);
+    -- A customer may select a workspace while still awaiting approval (the
+    -- awaiting-approval screen is a valid destination), so awaiting_approval +
+    -- active both qualify — exactly the set can_view_provider_identity grants.
+    -- (has_live_provider_membership was dropped in pmp_7b §5, which also stripped
+    -- `invited` from identity reads; an invited-only user has no enterable
+    -- workspace, matching lib/services/workspace LIVE_PROVIDER_STATUSES.)
+    v_ok := public.can_view_provider_identity(p_workspace_id);
   else
     raise exception 'unknown workspace type: %', p_workspace_type
       using errcode = '22023'; -- invalid_parameter_value

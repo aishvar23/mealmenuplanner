@@ -25,11 +25,16 @@ export const metadata = { title: "Choose a workspace" };
  * server component re-resolves the verified user as a defense-in-depth backstop,
  * matching the `(app)` layout and the onboarding route.
  *
- * It lists every workspace with a link to its `defaultPath`. Auto-redirecting a
- * sole/active workspace is intentionally deferred until the provider shells
- * (#18) exist, so we never bounce a single-provider user to a not-yet-built page.
- * `WorkspaceRef` carries no display name, so names are joined in from the
- * household + provider summaries.
+ * It lists every workspace. Household rows link to their `defaultPath` (`/today`,
+ * which exists). Provider rows are shown but NOT yet navigable: their destinations
+ * (`/provider/dashboard`, `/providers/{id}/*`) land with the provider shells (#18),
+ * so linking now would 404 — and a multi-provider owner's rows would all point at
+ * the same `/provider/dashboard` with no way to disambiguate. Until #18 wires
+ * pointer-aware navigation (via `set_active_workspace`), provider rows render with
+ * an "available soon" affordance, matching the mobile providers screen (which
+ * likewise lists without navigating). Auto-redirecting a sole/active workspace is
+ * deferred for the same reason. `WorkspaceRef` carries no display name, so names
+ * are joined in from the household + provider summaries.
  */
 export default async function WorkspacePage() {
   const user = await getAuthUser();
@@ -65,12 +70,11 @@ export default async function WorkspacePage() {
         </div>
 
         <ul className="overflow-hidden rounded-xl border bg-background shadow-sm">
-          {discovery.workspaces.map((ws) => (
-            <li key={`${ws.type}:${ws.id}`}>
-              <Link
-                href={ws.defaultPath}
-                className="flex items-center gap-3 border-b px-4 py-4 last:border-b-0 hover:bg-muted/50"
-              >
+          {discovery.workspaces.map((ws) => {
+            const name = nameById.get(ws.id) ?? workspaceTypeLabel(ws.type);
+            const navigable = ws.type === "household";
+            const body = (
+              <>
                 <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   {ws.type === "household" ? (
                     <ChefHat className="size-5" />
@@ -79,17 +83,43 @@ export default async function WorkspacePage() {
                   )}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate font-semibold">
-                    {nameById.get(ws.id) ?? workspaceTypeLabel(ws.type)}
-                  </span>
+                  <span className="block truncate font-semibold">{name}</span>
                   <span className="block truncate text-xs text-muted-foreground">
                     {workspaceSubtitle(ws)}
                   </span>
                 </span>
-                <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
-              </Link>
-            </li>
-          ))}
+                {navigable ? (
+                  <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
+                ) : (
+                  <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                    Available soon
+                  </span>
+                )}
+              </>
+            );
+
+            return (
+              <li key={`${ws.type}:${ws.id}`}>
+                {navigable ? (
+                  <Link
+                    href={ws.defaultPath}
+                    className="flex items-center gap-3 border-b px-4 py-4 last:border-b-0 hover:bg-muted/50"
+                  >
+                    {body}
+                  </Link>
+                ) : (
+                  // Provider destinations (#18) don't exist yet — show the row but
+                  // don't link it, so we never navigate to a 404. See file header.
+                  <div
+                    aria-disabled="true"
+                    className="flex items-center gap-3 border-b px-4 py-4 last:border-b-0"
+                  >
+                    {body}
+                  </div>
+                )}
+              </li>
+            );
+          })}
         </ul>
       </div>
     </main>

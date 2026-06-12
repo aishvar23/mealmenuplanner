@@ -23,11 +23,15 @@ import type {
  *
  * It is the provider-aware extension of `resolveCurrentHousehold`: household
  * workspaces come from the existing `listUserHouseholds()` (same RLS, same
- * active/preferred selection), provider workspaces from the caller's live
- * `provider_memberships` (invited / awaiting_approval / active) joined to the org
- * for its name + timezone. Removed/rejected memberships are not live and never
- * surface. Everything reads under the per-request RLS client — `pmem_select` lets
- * a member read their own rows, `porg_select` exposes the org to any live member.
+ * active/preferred selection), provider workspaces from the caller's enterable
+ * `provider_memberships` (awaiting_approval / active) joined to the org for its
+ * name + timezone. `invited` is deliberately NOT enterable: the pmp_7b hardening
+ * (porg_select → `can_view_provider_identity`) grants provider-identity reads only
+ * to awaiting_approval + active members, so a merely-invited user can neither read
+ * their org nor should be routed into a provider workspace before accepting.
+ * Removed/rejected memberships are not live and never surface. Everything reads
+ * under the per-request RLS client — `pmem_select` lets a member read their own
+ * rows, `porg_select` exposes the org to awaiting_approval/active members.
  */
 
 /** Default destination per workspace (contract 03 §2; spec §12.4). */
@@ -41,16 +45,21 @@ function providerCustomerPath(
   providerId: string,
   status: ProviderMembershipStatus,
 ): string {
-  // An approved customer lands on today's menu; anyone still invited or awaiting
-  // approval lands on the holding screen until the owner approves them.
+  // An approved customer lands on today's menu; an awaiting-approval customer
+  // lands on the holding screen until the owner approves them.
   return status === "active"
     ? `/providers/${providerId}/today`
     : `/providers/${providerId}/awaiting-approval`;
 }
 
-/** The live provider statuses that grant any workspace at all. */
+/**
+ * The provider statuses that grant an enterable workspace. `invited` is excluded:
+ * a not-yet-accepted invite confers no provider access (pmp_7b §5 revoked org
+ * reads for invited members), so it must not surface as a workspace — it would
+ * only render with placeholder identity and route the user in prematurely. This
+ * set matches `can_view_provider_identity` (the porg_select gate).
+ */
 const LIVE_PROVIDER_STATUSES: ProviderMembershipStatus[] = [
-  "invited",
   "awaiting_approval",
   "active",
 ];
@@ -62,11 +71,18 @@ type ProviderMembershipJoin = {
   provider_organizations: { name: string; timezone: string } | null;
 };
 
-/** The caller's live provider memberships, joined to org identity, oldest first. */
-async function loadProviderMemberships(
-  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+/**
+ * The caller's enterable provider memberships, joined to org identity, oldest
+ * first. Wrapped in React `cache()` keyed on `userId` so a single request that
+ * resolves both summaries and workspaces (e.g. the `/workspace` chooser, which
+ * calls `listProviderSummaries` and `resolveWorkspaceDiscovery`) issues exactly
+ * one `provider_memberships` query instead of one per caller. Creates its own
+ * per-request RLS client so the cache key is just the user, not a client handle.
+ */
+const loadProviderMemberships = cache(async function loadProviderMemberships(
   userId: string,
 ): Promise<ProviderMembershipJoin[]> {
+  const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase
     .from("provider_memberships")
     .select("provider_id, role, status, provider_organizations(name, timezone)")
@@ -79,7 +95,7 @@ async function loadProviderMemberships(
     });
   }
   return (data ?? []) as unknown as ProviderMembershipJoin[];
-}
+});
 
 /**
  * Provider summaries for the caller — the `GET /api/providers` payload. One entry
@@ -88,8 +104,7 @@ async function loadProviderMemberships(
 export const listProviderSummaries = cache(
   async function listProviderSummaries(): Promise<ProviderSummaryDto[]> {
     const user = await requireAuthUser();
-    const supabase = await createServerSupabaseClient();
-    const memberships = await loadProviderMemberships(supabase, user.id);
+    const memberships = await loadProviderMemberships(user.id);
 
     return memberships.map((m) => ({
       providerId: m.provider_id,
@@ -110,11 +125,10 @@ export const listProviderSummaries = cache(
 export const resolveWorkspaces = cache(
   async function resolveWorkspaces(): Promise<WorkspaceRef[]> {
     const user = await requireAuthUser();
-    const supabase = await createServerSupabaseClient();
 
     const [households, providers] = await Promise.all([
       listUserHouseholds(),
-      loadProviderMemberships(supabase, user.id),
+      loadProviderMemberships(user.id),
     ]);
 
     const householdRefs: WorkspaceRef[] = households.map((h) => ({

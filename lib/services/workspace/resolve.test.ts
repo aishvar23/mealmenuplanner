@@ -125,17 +125,16 @@ describe("listProviderSummaries", () => {
     ]);
   });
 
-  it("queries only live statuses (invited / awaiting_approval / active)", async () => {
+  it("queries only enterable statuses (awaiting_approval / active), excluding invited", async () => {
     const stub = setup({ providers: [] });
     await listProviderSummaries();
 
     const inCall = stub.calls.find(
       (c) => c.target === "provider_memberships" && c.method === "in",
     );
-    expect(inCall?.args).toEqual([
-      "status",
-      ["invited", "awaiting_approval", "active"],
-    ]);
+    // `invited` is deliberately omitted: a not-yet-accepted invite confers no
+    // provider access (pmp_7b §5), so it must not surface as a workspace.
+    expect(inCall?.args).toEqual(["status", ["awaiting_approval", "active"]]);
   });
 
   it("falls back to safe defaults when the org join is missing", async () => {
@@ -184,19 +183,17 @@ describe("resolveWorkspaces", () => {
     ]);
   });
 
-  it("routes an active customer to today and a pending one to awaiting-approval", async () => {
+  it("routes an active customer to today and an awaiting one to awaiting-approval", async () => {
     setup({
       providers: [
         providerRow({ provider_id: "p-active", status: "active" }),
         providerRow({ provider_id: "p-await", status: "awaiting_approval" }),
-        providerRow({ provider_id: "p-invited", status: "invited" }),
       ],
     });
     const refs = await resolveWorkspaces();
     expect(refs.map((r) => r.defaultPath)).toEqual([
       "/providers/p-active/today",
       "/providers/p-await/awaiting-approval",
-      "/providers/p-invited/awaiting-approval",
     ]);
   });
 

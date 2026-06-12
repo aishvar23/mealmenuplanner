@@ -162,9 +162,15 @@ export const test = base.extend<{ providerTeam: ProviderTeam }>({
 
     await provide(api);
 
-    // Delete any provider org a created user owns first (owner_user_id has no
-    // cascade); membership/subscription rows cascade on org delete, and the
-    // customer rows of non-owners cascade when their user is deleted below.
+    // Delete the provider-owned rows that DON'T cascade on user delete before we
+    // delete the users themselves:
+    //   • provider_organizations.owner_user_id has no cascade — delete owned orgs
+    //     (this cascades their memberships, subscriptions, AND invites via
+    //     provider_id), so a non-owner's customer rows cascade on user delete.
+    //   • provider_invites.invited_by_user_id ALSO has no cascade. Invites for a
+    //     deleted org are already gone, but an invite a created user sent for an
+    //     org NOT deleted here would otherwise block their user delete with an FK
+    //     violation — so delete any invite they sent explicitly.
     for (const id of created) {
       const orgs = await admin
         .from("provider_organizations")
@@ -173,6 +179,15 @@ export const test = base.extend<{ providerTeam: ProviderTeam }>({
       if (orgs.error) {
         console.warn(
           `E2E cleanup: failed to delete provider orgs for ${id}: ${orgs.error.message}`,
+        );
+      }
+      const invites = await admin
+        .from("provider_invites")
+        .delete()
+        .eq("invited_by_user_id", id);
+      if (invites.error) {
+        console.warn(
+          `E2E cleanup: failed to delete provider invites for ${id}: ${invites.error.message}`,
         );
       }
     }
