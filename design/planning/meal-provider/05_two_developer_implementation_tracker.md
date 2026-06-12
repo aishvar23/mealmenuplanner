@@ -151,14 +151,14 @@ report ambiguity with file/symbol/observed-behavior/why.
 - **Use cases:** UC-BATCH-_, UC-OVERRIDE-_, UC-NOTIFY-\*; `04`§2.16–2.19. **Tests:** customer cannot read batch/lines; revision uniqueness; append-only.
 - **Rollback:** drop tables.
 
-### MP-A-015 — Workspace pointer + onboarding-draft schema — `BLOCKED` (ADR-1/ADR-6 provisional)
+### MP-A-015 — Workspace pointer + onboarding-draft schema — `PARTIAL` (#17: pointer done; ADR-6 draft deferred to CP3)
 
 - **Track:** A · **Checkpoint:** 2 · **Branch:** provider-schema-rls · **Conflict risk:** Low.
 - **Objective:** `user_active_workspace` + `set_active_workspace` RPC (ADR-1); `provider_onboarding_drafts` + abandon job (ADR-6) — **only if** approved; else mark fallback (client-side / no draft).
 - **Use cases:** UC-WORKSPACE-001/002, UC-PROVIDER-002. **Tests:** pointer RPC rejects non-member.
 - **Rollback:** drop table; routing falls back to client-side.
 
-### MP-A-100 — Workspace resolver service + `GET /api/providers` — `NOT_STARTED` (after MP-A-010)
+### MP-A-100 — Workspace resolver service + `GET /api/providers` — `DONE` (#17)
 
 - **Track:** A · **Checkpoint:** 2 · **Branch:** provider-services-api · **Conflict risk:** Low.
 - **Objective:** `lib/services/workspace/resolve.ts` returning `WorkspaceRef[]`; `GET /api/providers` → `ProviderSummaryDto[]`.
@@ -278,7 +278,7 @@ report ambiguity with file/symbol/observed-behavior/why.
 - **Files:** `components/provider/__fixtures__/*` or `lib/provider-client/mock.ts` (B-owned).
 - **Tests:** mock returns fixtures matching DTOs. **Acceptance:** B screens render from mocks. **Rollback:** remove mock.
 
-### MP-B-010 — Workspace resolver consumption + post-login routing — `BLOCKED` (ADR-1)
+### MP-B-010 — Workspace resolver consumption + post-login routing — `DONE` (#17; auto-redirect-on-single-workspace deferred to the provider shells #18)
 
 - **Track:** B · **Checkpoint:** 2 · **Branch:** provider-workspace-shells · **Conflict risk:** **High** (`proxy.ts`, `route-access.ts`, `(app)/layout.tsx`, `auth/callback`).
 - **Objective:** Make post-login workspace-aware: stop forcing provider-only users to household onboarding; route per `WorkspaceRef`; add provider prefixes to `PROTECTED_PREFIXES`.
@@ -394,7 +394,7 @@ ADR-1/6/7).
 
 | Task         | Pairs with | CP  | Mobile surface (new in `mobile/`)                                                                                                                                               |
 | ------------ | ---------- | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **MP-C-010** | MP-B-010   | 2   | Workspace-aware post-login routing + provider route groups; provider entry from tabs.                                                                                           |
+| **MP-C-010** | MP-B-010   | 2   | **DONE (#17)** — live provider-client seam + provider entry from the More tab (`app/(settings)/providers`); route groups land with the shells (MP-C-011/012).                   |
 | **MP-C-011** | MP-B-011   | 2   | `app/(provider-owner)/_layout.tsx` + owner nav (dashboard/responses/menu/members/prep).                                                                                         |
 | **MP-C-012** | MP-B-012   | 2   | `app/(provider-member)/[providerId]/_layout.tsx` + workspace switcher; awaiting state.                                                                                          |
 | **MP-C-020** | MP-B-020   | 3   | Owner onboarding wizard (resumable per ADR-6); reuse mobile `TextField`/`SelectChips`.                                                                                          |

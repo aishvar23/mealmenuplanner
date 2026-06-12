@@ -5,13 +5,24 @@ import { Text, View } from "react-native";
 
 import { providerFixtures } from "@mmp/shared/provider";
 
+import { providerClient } from "./client";
 import { useProviders } from "./use-providers";
 
-// The MP-C-000 harness smoke test: a sample provider screen, fed only by the
-// fixture-backed mock client through `useProviders`, renders the provider list
-// before any `/api/*` route exists. Green proves the whole Track-C foundation
-// works end-to-end — jest-expo transform, RNTL render, react-query, the shared
-// `ProviderApiClient` seam, and the `@mmp/shared/provider` fixtures.
+// `useProviders` discovers providers through the `providerClient` seam. The seam
+// now resolves to the live HTTP client (MP-C-010), so the hook test mocks the seam
+// directly — it proves the hook wires query-key, fetch, and render regardless of
+// which concrete client is plugged in, without a real network call. (The factory
+// stays variable-free; the fixture return is set in beforeEach since jest hoists
+// `jest.mock` above the imports.)
+jest.mock("./client", () => ({
+  providerClient: { listProviders: jest.fn() },
+}));
+
+const mockListProviders = providerClient.listProviders as jest.Mock;
+
+beforeEach(() => {
+  mockListProviders.mockResolvedValue(providerFixtures.multiProviderSummaries);
+});
 
 function wrapper({ children }: { children: ReactNode }) {
   // A no-retry client so the test fails fast rather than retrying on error;
@@ -39,10 +50,10 @@ function SampleProviderList() {
 }
 
 describe("useProviders (sample provider screen)", () => {
-  it("renders the fixture providers from the mock client", async () => {
+  it("renders the providers returned by the client seam", async () => {
     render(<SampleProviderList />, { wrapper });
 
-    // Every fixture provider name appears once the query resolves.
+    // Every provider name appears once the query resolves.
     for (const provider of providerFixtures.multiProviderSummaries) {
       await waitFor(() =>
         expect(screen.getByText(provider.name)).toBeOnTheScreen(),

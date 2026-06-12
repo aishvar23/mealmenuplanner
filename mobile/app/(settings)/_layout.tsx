@@ -19,6 +19,7 @@ export default function SettingsLayout() {
         options={{ title: "Email notifications" }}
       />
       <Stack.Screen name="households" options={{ title: "Switch household" }} />
+      <Stack.Screen name="providers" options={{ title: "Your providers" }} />
     </Stack>
   );
 }

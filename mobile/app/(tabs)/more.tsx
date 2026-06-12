@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { Bell, ChevronRight, Mail, Users } from "lucide-react-native";
+import { Bell, ChevronRight, Mail, Store, Users } from "lucide-react-native";
 import type { ReactNode } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
@@ -47,6 +47,11 @@ export default function MoreScreen() {
           label="Switch household"
           value={household?.name}
           onPress={() => router.push("/(settings)/households")}
+        />
+        <Row
+          icon={<Store color="#16a34a" size={20} />}
+          label="Meal providers"
+          onPress={() => router.push("/(settings)/providers")}
         />
         <Row
           icon={<Bell color="#16a34a" size={20} />}

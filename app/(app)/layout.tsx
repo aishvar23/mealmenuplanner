@@ -10,6 +10,7 @@ import { NotificationBell } from "@/components/notifications/notification-bell";
 import { getAuthUser } from "@/lib/auth";
 import { resolveCurrentHousehold } from "@/lib/services/household";
 import { getUnreadNotificationCount } from "@/lib/services/notification";
+import { listProviderSummaries } from "@/lib/services/workspace";
 
 /**
  * Authenticated app shell (Today / Plan / Grocery / Household / Notifications).
@@ -26,14 +27,17 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     redirect("/sign-in");
   }
 
-  // Onboarding gate: no active household means setup was never finished. Force
-  // the user through onboarding before any app screen renders — this covers a
-  // returning, reloaded, or cross-device visit, and any deep-linked app route
-  // (the individual pages re-resolve this for their data and redirect too, as a
-  // backstop). `/onboarding` lives outside this `(app)` group, so this can't loop.
+  // Onboarding gate (workspace-aware, ADR-1 / MP-B-010): no active household means
+  // this user has no household workspace. A provider-only user (provider owner or
+  // customer, no household) must NOT be force-fed household onboarding — route them
+  // to the workspace chooser instead; only a user who belongs to nothing at all is
+  // a brand-new household signup and goes to onboarding. Household users resolve a
+  // household here and skip this branch entirely, so their flow is unchanged. Both
+  // `/workspace` and `/onboarding` live outside this `(app)` group, so no loop.
   const current = await resolveCurrentHousehold();
   if (!current) {
-    redirect("/onboarding");
+    const providers = await listProviderSummaries();
+    redirect(providers.length > 0 ? "/workspace" : "/onboarding");
   }
 
   // Best-effort badge count — a notifications glitch must not break the shell.

@@ -59,7 +59,9 @@ The exact pass counts grow as items are added; the rule is that the number of
 ### 1.1 Frozen Playwright specs (`e2e/specs/`)
 
 `a11y`, `admin`, `auth`, `collab`, `grocery`, `image`, `mealcomp`, `mealpref`,
-`mobile`, `notif`, `onboarding`, `plan`, `profile`, `recommendation`, `security`.
+`mobile`, `notif`, `onboarding`, `plan`, `profile`, `recommendation`, `security`,
+`workspace` (MP-B-010: workspace-aware post-login routing — provider-only →
+`/workspace` chooser, household member unchanged → `/today`).
 
 Implemented, deterministically-verifiable behavior runs as real assertions;
 not-yet-built features are `test.fixme` with a one-line reason (see
