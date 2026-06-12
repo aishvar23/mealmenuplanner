@@ -29,6 +29,10 @@ export * as groceryApi from "./grocery";
 export * as onboardingApi from "./onboarding";
 export * as invitesApi from "./invites";
 export * as notificationsApi from "./notifications";
+// Meal Provider Workspace HTTP client (MP-C-000) — implements the shared
+// `ProviderApiClient` over `/api/*`. Wired in behind the `src/provider/client`
+// seam once Developer A's routes land; mobile screens render off fixtures until.
+export { providerApiClient } from "./provider";
 export type { OnboardingDraft, SaveDraftInput } from "./onboarding";
 
 // Wire-format types (mirror the backend DTOs — see ./types).

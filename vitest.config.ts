@@ -18,7 +18,9 @@ export default defineConfig({
     environment: "node",
     include: ["**/*.{test,spec}.{ts,tsx}"],
     // `e2e/` holds Playwright specs (also `*.spec.ts`); they import from
-    // `@playwright/test` and must NOT be collected by Vitest.
-    exclude: ["**/node_modules/**", "**/.next/**", "e2e/**"],
+    // `@playwright/test` and must NOT be collected by Vitest. `mobile/` holds the
+    // Expo app's Jest + RNTL tests (run via `npm run test:mobile`); they use the
+    // `jest` global and the jest-expo preset and must NOT be collected here.
+    exclude: ["**/node_modules/**", "**/.next/**", "e2e/**", "mobile/**"],
   },
 });
