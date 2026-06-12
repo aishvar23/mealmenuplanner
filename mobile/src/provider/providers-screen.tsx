@@ -2,9 +2,11 @@ import {
   providerMembershipLabel,
   type ProviderSummaryDto,
 } from "@mmp/shared/provider";
-import { ChevronRight, Store } from "lucide-react-native";
+import { useRouter } from "expo-router";
+import { ChevronRight, Plus, Store } from "lucide-react-native";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
+import { Button } from "@/components/Button";
 import { EmptyState, ErrorState, LoadingState } from "@/components/Feedback";
 import { useProviders } from "@/provider/use-providers";
 import { useWorkspaceSwitch } from "@/provider/use-workspace-switch";
@@ -22,6 +24,7 @@ import { providerWorkspaceTarget } from "@/provider/workspace-routes";
 export default function ProvidersScreen() {
   const { data, isLoading, isError, refetch } = useProviders();
   const { switchTo, pending } = useWorkspaceSwitch();
+  const router = useRouter();
 
   if (isLoading) return <LoadingState />;
   if (isError) {
@@ -36,10 +39,19 @@ export default function ProvidersScreen() {
   const providers = data ?? [];
   if (providers.length === 0) {
     return (
-      <EmptyState
-        title="No meal providers yet"
-        hint="When you join a meal provider, it shows up here."
-      />
+      <View className="flex-1 bg-gray-50">
+        <EmptyState
+          title="No meal providers yet"
+          hint="When you join a meal provider, it shows up here. Run your own kitchen? Set one up."
+        />
+        <View className="px-5 pb-8">
+          <Button
+            label="Set up a meal provider"
+            icon={<Plus color="#ffffff" size={18} />}
+            onPress={() => router.push("/provider-onboarding")}
+          />
+        </View>
+      </View>
     );
   }
 
@@ -60,6 +72,12 @@ export default function ProvidersScreen() {
             />
           ))}
         </View>
+        <Button
+          label="Set up a meal provider"
+          variant="secondary"
+          icon={<Plus color="#16a34a" size={18} />}
+          onPress={() => router.push("/provider-onboarding")}
+        />
       </ScrollView>
     </View>
   );

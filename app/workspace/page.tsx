@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { WorkspaceChooserList } from "@/components/workspace/workspace-chooser-list";
@@ -50,6 +51,15 @@ export default async function WorkspacePage() {
         </div>
 
         <WorkspaceChooserList options={options} />
+
+        <div className="mt-6 text-center">
+          <Link
+            href="/provider-onboarding"
+            className="text-sm font-medium text-primary hover:underline"
+          >
+            Set up a meal provider workspace →
+          </Link>
+        </div>
       </div>
     </main>
   );

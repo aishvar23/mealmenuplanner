@@ -27,10 +27,14 @@ export const PROTECTED_PREFIXES = [
   "/onboarding",
   "/admin",
   // Meal Provider Workspace (ADR-1 / MP-B-010): the workspace chooser plus the
-  // provider owner (`/provider/*`) and customer (`/providers/*`) route groups.
+  // provider owner (`/provider/*`) and customer (`/providers/*`) route groups,
+  // and the standalone owner onboarding wizard (MP-B-020). `/provider-onboarding`
+  // is its own prefix — the `/` boundary match means `/provider` does not cover
+  // it (`/provider-onboarding` is not under `/provider/`).
   "/workspace",
   "/provider",
   "/providers",
+  "/provider-onboarding",
 ] as const;
 
 /**

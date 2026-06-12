@@ -37,6 +37,8 @@ export interface SupabaseStub {
 
 const CHAIN_METHODS = [
   "select",
+  "insert",
+  "update",
   "eq",
   "neq",
   "not",
