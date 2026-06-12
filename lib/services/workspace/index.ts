@@ -2,3 +2,6 @@
 // every workspace the caller can enter — household + provider — for post-login
 // routing (MP-B-010) and the switcher, plus the `GET /api/providers` summaries.
 export * from "./resolve";
+export * from "./set-active";
+export * from "./options";
+export * from "./provider-access";

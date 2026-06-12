@@ -10,7 +10,10 @@ import { NotificationBell } from "@/components/notifications/notification-bell";
 import { getAuthUser } from "@/lib/auth";
 import { resolveCurrentHousehold } from "@/lib/services/household";
 import { getUnreadNotificationCount } from "@/lib/services/notification";
-import { listProviderSummaries } from "@/lib/services/workspace";
+import {
+  resolveWorkspaceEntryPath,
+  resolveWorkspaceOptions,
+} from "@/lib/services/workspace";
 
 /**
  * Authenticated app shell (Today / Plan / Grocery / Household / Notifications).
@@ -27,17 +30,18 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     redirect("/sign-in");
   }
 
-  // Onboarding gate (workspace-aware, ADR-1 / MP-B-010): no active household means
-  // this user has no household workspace. A provider-only user (provider owner or
-  // customer, no household) must NOT be force-fed household onboarding — route them
-  // to the workspace chooser instead; only a user who belongs to nothing at all is
-  // a brand-new household signup and goes to onboarding. Household users resolve a
-  // household here and skip this branch entirely, so their flow is unchanged. Both
-  // `/workspace` and `/onboarding` live outside this `(app)` group, so no loop.
+  // Onboarding gate (workspace-aware, ADR-1 / MP-B-010 + MP-B-012): no active
+  // household means this user has no household workspace. A provider-only user
+  // (provider owner or customer, no household) must NOT be force-fed household
+  // onboarding — route them by the entry rule (spec §12.3): a sole provider
+  // workspace auto-enters, several with a valid active pointer go to it, otherwise
+  // the chooser; only a user who belongs to nothing is a brand-new household
+  // signup and goes to onboarding. Household users resolve a household here and
+  // skip this branch entirely, so their flow is unchanged. The provider shells,
+  // `/workspace`, and `/onboarding` all live outside this `(app)` group, so no loop.
   const current = await resolveCurrentHousehold();
   if (!current) {
-    const providers = await listProviderSummaries();
-    redirect(providers.length > 0 ? "/workspace" : "/onboarding");
+    redirect(await resolveWorkspaceEntryPath());
   }
 
   // Best-effort badge count — a notifications glitch must not break the shell.
@@ -47,6 +51,11 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   } catch {
     unreadCount = 0;
   }
+
+  // Switcher options for the account menu (MP-B-012). A household user who also
+  // owns/subscribes to a provider can jump there from here; a household-only user
+  // gets a single-item list and no switcher.
+  const workspaces = await resolveWorkspaceOptions();
 
   return (
     <div className="min-h-full flex-1 bg-canvas text-foreground">
@@ -67,6 +76,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
               email={user.email ?? null}
               initial={accountInitial(user)}
               name={accountName(user)}
+              workspaces={workspaces}
             />
           </div>
         </div>
@@ -107,6 +117,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
               email={user.email ?? null}
               initial={accountInitial(user)}
               name={accountName(user)}
+              workspaces={workspaces}
             />
           </header>
           <main className="flex-1 pb-24 lg:pb-0">{children}</main>

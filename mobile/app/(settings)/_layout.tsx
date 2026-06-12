@@ -20,6 +20,7 @@ export default function SettingsLayout() {
       />
       <Stack.Screen name="households" options={{ title: "Switch household" }} />
       <Stack.Screen name="providers" options={{ title: "Your providers" }} />
+      <Stack.Screen name="workspaces" options={{ title: "Switch workspace" }} />
     </Stack>
   );
 }

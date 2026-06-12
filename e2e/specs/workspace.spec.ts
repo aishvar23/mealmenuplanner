@@ -3,16 +3,20 @@ import { signInWithPassword } from "../helpers/auth";
 import { completeMinimumOnboarding } from "../helpers/onboarding";
 
 /**
- * Workspace-aware post-login routing (MP-B-010, ADR-1). The three branches the
- * `(app)` onboarding gate now distinguishes:
- *   1. provider-only user (no household) → the `/workspace` chooser, NOT onboarding;
- *   2. a user with a household → straight to `/today`, even when they also belong
+ * Workspace-aware post-login routing (MP-B-010 + MP-B-012, ADR-1). The branches
+ * the `(app)` onboarding gate distinguishes, now that the provider shells exist
+ * and the entry rule (spec §12.3) auto-enters a sole workspace:
+ *   1. provider-only user with exactly one provider → straight into that provider
+ *      shell (NOT onboarding, and no chooser for a single place);
+ *   2. provider-only user with several providers and no stored pointer → the
+ *      `/workspace` chooser;
+ *   3. a user with a household → straight to `/today`, even when they also belong
  *      to a provider (household resolves first — the regression guard);
- *   3. (a user who belongs to nothing still goes to `/onboarding` — covered by the
+ *   4. (a user who belongs to nothing still goes to `/onboarding` — covered by the
  *      existing onboarding specs).
  */
-test.describe("Workspace routing (MP-B-010)", () => {
-  test("a provider-only owner lands on the workspace chooser, not onboarding", async ({
+test.describe("Workspace routing (MP-B-010 / MP-B-012)", () => {
+  test("a provider-only owner with one provider auto-enters the owner shell", async ({
     page,
     providerTeam,
   }) => {
@@ -20,16 +24,12 @@ test.describe("Workspace routing (MP-B-010)", () => {
     await providerTeam.createProvider(owner, { name: "Anna's Tiffins" });
 
     await signInWithPassword(page, owner.email, owner.password);
-    await page.waitForURL("**/workspace", { timeout: 30_000 });
-
-    expect(new URL(page.url()).pathname).toBe("/workspace");
-    await expect(
-      page.getByRole("heading", { name: "Choose a workspace" }),
-    ).toBeVisible();
-    await expect(page.getByText("Anna's Tiffins")).toBeVisible();
+    // Exactly one workspace → directly into it, no chooser (spec §12.3.3).
+    await page.waitForURL("**/provider/dashboard", { timeout: 30_000 });
+    expect(new URL(page.url()).pathname).toBe("/provider/dashboard");
   });
 
-  test("a provider-only awaiting customer reaches the chooser with an awaiting label", async ({
+  test("a provider-only awaiting customer auto-enters their holding screen", async ({
     page,
     providerTeam,
   }) => {
@@ -41,11 +41,32 @@ test.describe("Workspace routing (MP-B-010)", () => {
     await providerTeam.addCustomer(providerId, customer, "awaiting_approval");
 
     await signInWithPassword(page, customer.email, customer.password);
+    await page.waitForURL(`**/providers/${providerId}/awaiting-approval`, {
+      timeout: 30_000,
+    });
+    // EmptyState renders its title as a paragraph; the provider name shows in the
+    // holding-screen body (scope to main — the brand also shows it, in the header).
+    await expect(page.getByText("Awaiting approval")).toBeVisible();
+    await expect(page.getByRole("main").getByText("Bay Kitchen")).toBeVisible();
+  });
+
+  test("a provider-only owner of several providers lands on the chooser", async ({
+    page,
+    providerTeam,
+  }) => {
+    const owner = await providerTeam.createUser("prov-owner");
+    await providerTeam.createProvider(owner, { name: "Kitchen One" });
+    await providerTeam.createProvider(owner, { name: "Kitchen Two" });
+
+    await signInWithPassword(page, owner.email, owner.password);
     await page.waitForURL("**/workspace", { timeout: 30_000 });
 
     expect(new URL(page.url()).pathname).toBe("/workspace");
-    await expect(page.getByText("Bay Kitchen")).toBeVisible();
-    await expect(page.getByText(/awaiting approval/i)).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Choose a workspace" }),
+    ).toBeVisible();
+    await expect(page.getByText("Kitchen One")).toBeVisible();
+    await expect(page.getByText("Kitchen Two")).toBeVisible();
   });
 
   test("a household member who is also a provider customer still lands on /today", async ({
