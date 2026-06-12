@@ -30,21 +30,27 @@ export interface WorkspaceOption {
  * window. Returns `pending` so the trigger can disable while the switch is in
  * flight. A failed POST still navigates: the destination's own server guard is
  * the real gate, and the pointer is a convenience, not an authorization.
+ *
+ * Selecting the already-active workspace always navigates (the `/workspace`
+ * chooser reuses this hook, where re-entering the current workspace is valid) and
+ * only skips the redundant pointer write — the in-menu switcher additionally
+ * disables the active item, so it never re-POSTs from there either.
  */
 export function useWorkspaceSwitch() {
   const [pending, setPending] = useState(false);
 
   async function switchTo(option: WorkspaceOption) {
-    if (option.isActive) return;
     setPending(true);
-    try {
-      await fetch("/api/workspace/active", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ type: option.type, id: option.id }),
-      });
-    } catch {
-      // The destination re-verifies access server-side; navigate regardless.
+    if (!option.isActive) {
+      try {
+        await fetch("/api/workspace/active", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ type: option.type, id: option.id }),
+        });
+      } catch {
+        // The destination re-verifies access server-side; navigate regardless.
+      }
     }
     window.location.assign(option.defaultPath);
   }

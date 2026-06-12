@@ -44,18 +44,15 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     redirect(await resolveWorkspaceEntryPath());
   }
 
-  // Best-effort badge count — a notifications glitch must not break the shell.
-  let unreadCount = 0;
-  try {
-    unreadCount = await getUnreadNotificationCount();
-  } catch {
-    unreadCount = 0;
-  }
-
-  // Switcher options for the account menu (MP-B-012). A household user who also
-  // owns/subscribes to a provider can jump there from here; a household-only user
-  // gets a single-item list and no switcher.
-  const workspaces = await resolveWorkspaceOptions();
+  // The badge count and switcher options are independent of each other and of the
+  // redirect above, so fetch them together rather than in series. The badge is
+  // best-effort — a notifications glitch must not break the shell. The switcher
+  // options (MP-B-012) let a household user who also owns/subscribes to a provider
+  // jump there; a household-only user gets a single-item list and no switcher.
+  const [unreadCount, workspaces] = await Promise.all([
+    getUnreadNotificationCount().catch(() => 0),
+    resolveWorkspaceOptions(),
+  ]);
 
   return (
     <div className="min-h-full flex-1 bg-canvas text-foreground">

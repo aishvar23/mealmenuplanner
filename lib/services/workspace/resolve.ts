@@ -225,12 +225,14 @@ export const resolveWorkspaceEntryPath = cache(
     if (workspaces.length === 0) return "/onboarding";
     if (workspaces.length === 1) return workspaces[0]!.defaultPath;
 
-    if (activeWorkspace) {
-      const ref = workspaces.find(
-        (w) => w.type === activeWorkspace.type && w.id === activeWorkspace.id,
-      );
-      if (ref) return ref.defaultPath;
-    }
-    return "/workspace";
+    // `activeWorkspace` is already validated against `workspaces` in discovery, so
+    // when present it always resolves to a ref; absent (no pointer, or a stale one
+    // for a workspace the user left) → the chooser.
+    const active = activeWorkspace
+      ? workspaces.find(
+          (w) => w.type === activeWorkspace.type && w.id === activeWorkspace.id,
+        )
+      : undefined;
+    return active?.defaultPath ?? "/workspace";
   },
 );

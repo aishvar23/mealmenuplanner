@@ -1,4 +1,4 @@
-import { Redirect, Tabs, useLocalSearchParams } from "expo-router";
+import { Tabs, useLocalSearchParams } from "expo-router";
 import {
   CalendarRange,
   ClipboardList,
@@ -6,46 +6,31 @@ import {
   Soup,
   Users,
 } from "lucide-react-native";
-import { ActivityIndicator, View } from "react-native";
 
-import { useAuth } from "@/auth/context";
-import { useProviderMembership } from "@/provider/use-provider-membership";
+import type { ProviderSummaryDto } from "@mmp/shared/provider";
+
+import { ProviderShellGuard } from "@/provider/provider-shell-guard";
 import { WorkspaceSwitchButton } from "@/provider/workspace-switch-button";
-
-function FullScreenSpinner() {
-  return (
-    <View className="flex-1 items-center justify-center bg-white">
-      <ActivityIndicator size="large" color="#16a34a" />
-    </View>
-  );
-}
 
 /**
  * Provider owner shell (MP-C-011, the mobile twin of the web owner shell, spec
  * §13). A bottom-tab navigator — Dashboard, Responses, Menu, Members, Preparation
  * — scoped to one provider by the `[providerId]` segment. No household tabs. Lives
  * in its own route group, so a provider owner is never funneled through household
- * onboarding. Guards access: a signed-out user goes to sign-in, and a caller who
- * is not the owner of this provider is bounced to the providers list.
+ * onboarding. Access (signed-out → sign-in, non-owner → providers list) is the
+ * shared `ProviderShellGuard`, with `requireOwner`.
  */
 export default function ProviderOwnerLayout() {
   const { providerId } = useLocalSearchParams<{ providerId: string }>();
-  const { session, loading } = useAuth();
 
-  if (loading) return <FullScreenSpinner />;
-  if (!session) return <Redirect href="/(auth)/sign-in" />;
-
-  return <GatedOwnerTabs providerId={providerId} />;
+  return (
+    <ProviderShellGuard providerId={providerId} requireOwner>
+      {(membership) => <OwnerTabs membership={membership} />}
+    </ProviderShellGuard>
+  );
 }
 
-function GatedOwnerTabs({ providerId }: { providerId: string }) {
-  const { membership, isLoading } = useProviderMembership(providerId);
-
-  if (isLoading) return <FullScreenSpinner />;
-  if (!membership || membership.role !== "owner") {
-    return <Redirect href="/(settings)/providers" />;
-  }
-
+function OwnerTabs({ membership }: { membership: ProviderSummaryDto }) {
   return (
     <Tabs
       screenOptions={{

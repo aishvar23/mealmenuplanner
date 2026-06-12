@@ -1,7 +1,10 @@
 import "server-only";
 
 import { listUserHouseholds } from "@/lib/services/household";
-import type { WorkspaceRef } from "@/packages/shared/provider";
+import {
+  providerWorkspaceSubtitle,
+  type WorkspaceRef,
+} from "@/packages/shared/provider";
 
 import type { WorkspaceOption } from "@/components/workspace/workspace-switcher";
 
@@ -59,10 +62,8 @@ function workspaceSubtitle(ws: WorkspaceRef): string {
     case "household":
       return `Household · ${ws.role}`;
     case "provider_owner":
-      return "Meal provider · owner";
+      return providerWorkspaceSubtitle("owner", "active");
     case "provider_customer":
-      return ws.status === "active"
-        ? "Meal provider · subscriber"
-        : "Meal provider · awaiting approval";
+      return providerWorkspaceSubtitle("customer", ws.status);
   }
 }

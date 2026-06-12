@@ -9,6 +9,7 @@
 // the `@mmp/shared/provider` subpath. Fixtures live under `./fixtures`.
 
 export * from "./enums";
+export * from "./labels";
 export * from "./workspace";
 export * from "./dtos";
 export * from "./errors";

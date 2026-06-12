@@ -1,8 +1,11 @@
+import { providerWorkspaceSubtitle } from "@mmp/shared/provider";
+import { useMemo } from "react";
+
 import { useHouseholds } from "@/household/use-household";
 
 import { useProviders } from "./use-providers";
 import type { WorkspaceTarget } from "./use-workspace-switch";
-import { providerWorkspaceRoute } from "./workspace-routes";
+import { providerWorkspaceTarget } from "./workspace-routes";
 
 /** A switchable workspace with display fields for the switcher list. */
 export interface WorkspaceOption extends WorkspaceTarget {
@@ -26,34 +29,33 @@ export function useWorkspaceOptions(): {
   const households = useHouseholds();
   const providers = useProviders();
 
-  const options: WorkspaceOption[] = [];
+  // Rebuild only when the underlying query data changes, so the switcher list
+  // keeps a stable identity across unrelated re-renders (header, pending toggle).
+  const options = useMemo<WorkspaceOption[]>(() => {
+    const out: WorkspaceOption[] = [];
 
-  for (const h of households.data ?? []) {
-    options.push({
-      type: "household",
-      id: h.householdId,
-      route: "/(tabs)/today",
-      name: h.name,
-      subtitle: `Household · ${h.role}`,
-      kind: "household",
-    });
-  }
+    for (const h of households.data ?? []) {
+      out.push({
+        type: "household",
+        id: h.householdId,
+        route: "/(tabs)/today",
+        name: h.name,
+        subtitle: `Household · ${h.role}`,
+        kind: "household",
+      });
+    }
 
-  for (const p of providers.data ?? []) {
-    options.push({
-      type: p.role === "owner" ? "provider_owner" : "provider_customer",
-      id: p.providerId,
-      route: providerWorkspaceRoute(p),
-      name: p.name,
-      subtitle:
-        p.role === "owner"
-          ? "Meal provider · owner"
-          : p.membershipStatus === "active"
-            ? "Meal provider · subscriber"
-            : "Meal provider · awaiting approval",
-      kind: "provider",
-    });
-  }
+    for (const p of providers.data ?? []) {
+      out.push({
+        ...providerWorkspaceTarget(p),
+        name: p.name,
+        subtitle: providerWorkspaceSubtitle(p.role, p.membershipStatus),
+        kind: "provider",
+      });
+    }
+
+    return out;
+  }, [households.data, providers.data]);
 
   return {
     options,

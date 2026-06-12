@@ -1,15 +1,14 @@
+import {
+  providerMembershipLabel,
+  type ProviderSummaryDto,
+} from "@mmp/shared/provider";
 import { ChevronRight, Store } from "lucide-react-native";
 import { Pressable, ScrollView, Text, View } from "react-native";
-
-import type {
-  ProviderMembershipStatus,
-  ProviderSummaryDto,
-} from "@mmp/shared/provider";
 
 import { EmptyState, ErrorState, LoadingState } from "@/components/Feedback";
 import { useProviders } from "@/provider/use-providers";
 import { useWorkspaceSwitch } from "@/provider/use-workspace-switch";
-import { providerWorkspaceRoute } from "@/provider/workspace-routes";
+import { providerWorkspaceTarget } from "@/provider/workspace-routes";
 
 /**
  * Meal-provider workspace entry (MP-C-010 + MP-C-011/012, the mobile twin of the
@@ -57,14 +56,7 @@ export default function ProvidersScreen() {
               provider={p}
               isLast={i === providers.length - 1}
               disabled={pending}
-              onPress={() =>
-                void switchTo({
-                  type:
-                    p.role === "owner" ? "provider_owner" : "provider_customer",
-                  id: p.providerId,
-                  route: providerWorkspaceRoute(p),
-                })
-              }
+              onPress={() => void switchTo(providerWorkspaceTarget(p))}
             />
           ))}
         </View>
@@ -97,19 +89,10 @@ function ProviderRow({
       <View className="flex-1">
         <Text className="text-base text-gray-900">{provider.name}</Text>
         <Text className="text-sm text-gray-500">
-          {membershipLabel(provider.role, provider.membershipStatus)}
+          {providerMembershipLabel(provider.role, provider.membershipStatus)}
         </Text>
       </View>
       <ChevronRight color="#9ca3af" size={20} />
     </Pressable>
   );
-}
-
-/** The caller's standing with a provider, for the row subtitle. */
-function membershipLabel(
-  role: ProviderSummaryDto["role"],
-  status: ProviderMembershipStatus,
-): string {
-  if (role === "owner") return "Owner";
-  return status === "active" ? "Subscriber" : "Awaiting approval";
 }

@@ -1,23 +1,15 @@
-import { Redirect, Tabs, useLocalSearchParams } from "expo-router";
+import { Tabs, useLocalSearchParams } from "expo-router";
 import {
   CalendarDays,
   CalendarRange,
   ClipboardList,
   User,
 } from "lucide-react-native";
-import { ActivityIndicator, View } from "react-native";
 
-import { useAuth } from "@/auth/context";
-import { useProviderMembership } from "@/provider/use-provider-membership";
+import type { ProviderSummaryDto } from "@mmp/shared/provider";
+
+import { ProviderShellGuard } from "@/provider/provider-shell-guard";
 import { WorkspaceSwitchButton } from "@/provider/workspace-switch-button";
-
-function FullScreenSpinner() {
-  return (
-    <View className="flex-1 items-center justify-center bg-white">
-      <ActivityIndicator size="large" color="#16a34a" />
-    </View>
-  );
-}
 
 /**
  * Provider member (customer) shell (MP-C-012, the mobile twin of the web member
@@ -25,28 +17,25 @@ function FullScreenSpinner() {
  * scoped to one provider by `[providerId]`, so a customer of several providers
  * never sees one provider's data inside another's workspace (§14.4): the
  * membership is resolved from the RLS-backed providers list, which only returns
- * providers this user belongs to.
+ * providers this user belongs to. Access (signed-out → sign-in, non-member →
+ * providers list) is the shared `ProviderShellGuard`.
  *
  * An awaiting-approval customer has no menu access yet, so the shell hides the tab
  * bar and the menu tabs and shows only the holding screen; the menu screens also
- * redirect awaiting members there (ActiveMemberGuard).
+ * redirect awaiting members there (ActiveMemberGuard) so a direct deep link can't
+ * bypass the hidden tabs.
  */
 export default function ProviderMemberLayout() {
   const { providerId } = useLocalSearchParams<{ providerId: string }>();
-  const { session, loading } = useAuth();
 
-  if (loading) return <FullScreenSpinner />;
-  if (!session) return <Redirect href="/(auth)/sign-in" />;
-
-  return <GatedMemberTabs providerId={providerId} />;
+  return (
+    <ProviderShellGuard providerId={providerId}>
+      {(membership) => <MemberTabs membership={membership} />}
+    </ProviderShellGuard>
+  );
 }
 
-function GatedMemberTabs({ providerId }: { providerId: string }) {
-  const { membership, isLoading } = useProviderMembership(providerId);
-
-  if (isLoading) return <FullScreenSpinner />;
-  if (!membership) return <Redirect href="/(settings)/providers" />;
-
+function MemberTabs({ membership }: { membership: ProviderSummaryDto }) {
   const awaiting = membership.membershipStatus !== "active";
   // An awaiting customer sees no menu nav: hide the tab bar and the menu tabs,
   // leaving only the (href-less) awaiting-approval screen they were routed to.

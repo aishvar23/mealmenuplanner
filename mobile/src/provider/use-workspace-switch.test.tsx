@@ -1,24 +1,39 @@
 import { act, renderHook } from "@testing-library/react-native";
 
+import { setActiveHousehold } from "@/api";
 import { setActiveWorkspace } from "@/api/workspace";
 
 import { useWorkspaceSwitch } from "./use-workspace-switch";
 
-// The switch hook records the pointer then navigates. The test mocks the API call
-// and the router so it can assert both happen, in order, without a real request or
-// navigation.
+// The switch hook records the pointer then navigates. The test mocks the API
+// calls, the router, and the query client so it can assert each happens, in order,
+// without a real request or navigation. Households additionally move the
+// household-level active pointer so the daily-loop tabs follow the choice.
 const mockReplace = jest.fn();
 jest.mock("expo-router", () => ({
   useRouter: () => ({ replace: mockReplace, push: jest.fn() }),
 }));
 jest.mock("@/api/workspace", () => ({ setActiveWorkspace: jest.fn() }));
+jest.mock("@/api", () => ({ setActiveHousehold: jest.fn() }));
+jest.mock("@/household/use-household", () => ({
+  householdsQueryKey: ["households"],
+}));
 
-const mockSet = jest.mocked(setActiveWorkspace);
+const mockSetQueryData = jest.fn();
+jest.mock("@tanstack/react-query", () => ({
+  useQueryClient: () => ({ setQueryData: mockSetQueryData }),
+}));
+
+const mockSetWorkspace = jest.mocked(setActiveWorkspace);
+const mockSetHousehold = jest.mocked(setActiveHousehold);
 
 beforeEach(() => {
   mockReplace.mockReset();
-  mockSet.mockReset();
-  mockSet.mockResolvedValue(undefined);
+  mockSetQueryData.mockReset();
+  mockSetWorkspace.mockReset();
+  mockSetWorkspace.mockResolvedValue(undefined);
+  mockSetHousehold.mockReset();
+  mockSetHousehold.mockResolvedValue({ households: [] });
 });
 
 describe("useWorkspaceSwitch", () => {
@@ -33,14 +48,34 @@ describe("useWorkspaceSwitch", () => {
       });
     });
 
-    expect(mockSet).toHaveBeenCalledWith("provider_owner", "prov-a");
+    expect(mockSetWorkspace).toHaveBeenCalledWith("provider_owner", "prov-a");
+    expect(mockSetHousehold).not.toHaveBeenCalled();
     expect(mockReplace).toHaveBeenCalledWith(
       "/(provider-owner)/prov-a/dashboard",
     );
   });
 
+  it("also moves the household-active pointer when switching to a household", async () => {
+    const households = [{ householdId: "hh-1", isActive: true }];
+    mockSetHousehold.mockResolvedValue({ households } as never);
+    const { result } = renderHook(() => useWorkspaceSwitch());
+
+    await act(async () => {
+      await result.current.switchTo({
+        type: "household",
+        id: "hh-1",
+        route: "/(tabs)/today",
+      });
+    });
+
+    expect(mockSetWorkspace).toHaveBeenCalledWith("household", "hh-1");
+    expect(mockSetHousehold).toHaveBeenCalledWith("hh-1");
+    expect(mockSetQueryData).toHaveBeenCalledWith(["households"], households);
+    expect(mockReplace).toHaveBeenCalledWith("/(tabs)/today");
+  });
+
   it("navigates even when recording the pointer fails (destination re-verifies)", async () => {
-    mockSet.mockRejectedValue(new Error("network"));
+    mockSetWorkspace.mockRejectedValue(new Error("network"));
     const { result } = renderHook(() => useWorkspaceSwitch());
 
     await act(async () => {
