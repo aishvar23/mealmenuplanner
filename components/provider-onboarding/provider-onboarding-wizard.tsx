@@ -5,10 +5,14 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { ProviderDto } from "@/packages/shared/provider";
+import {
+  blankToNull,
+  detectTimezone,
+  type ProviderDto,
+} from "@/packages/shared/provider";
 
 import {
-  completeOnboarding,
+  completeProviderOnboarding,
   createProvider,
   setActiveProviderWorkspace,
   updateProvider,
@@ -53,14 +57,6 @@ function useTimezones(): string[] {
   }, []);
 }
 
-function detectTimezone(): string {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-  } catch {
-    return "UTC";
-  }
-}
-
 interface FormState {
   name: string;
   timezone: string;
@@ -89,12 +85,6 @@ function initialForm(provider: ProviderDto | null): FormState {
   };
 }
 
-/** Map blank → null for an optional text field. */
-function orNull(value: string): string | null {
-  const trimmed = value.trim();
-  return trimmed.length === 0 ? null : trimmed;
-}
-
 export function ProviderOnboardingWizard({
   initialProvider,
 }: {
@@ -113,6 +103,14 @@ export function ProviderOnboardingWizard({
 
   const requiredOk = form.name.trim().length > 0 && form.timezone.length > 0;
 
+  // The detected/resumed zone may not be in the rendered option list (older
+  // browsers without `Intl.supportedValuesOf` fall back to a short static list);
+  // prepend it so the <select> always shows the value it actually holds rather
+  // than silently displaying the first option.
+  const timezoneOptions = timezones.includes(form.timezone)
+    ? timezones
+    : [form.timezone, ...timezones];
+
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
   }
@@ -120,11 +118,11 @@ export function ProviderOnboardingWizard({
   function identityPatch() {
     return {
       timezone: form.timezone,
-      email: orNull(form.email),
-      phone: orNull(form.phone),
-      city: orNull(form.city),
-      state: orNull(form.state),
-      country: orNull(form.country),
+      email: blankToNull(form.email),
+      phone: blankToNull(form.phone),
+      city: blankToNull(form.city),
+      state: blankToNull(form.state),
+      country: blankToNull(form.country),
     };
   }
 
@@ -135,7 +133,7 @@ export function ProviderOnboardingWizard({
     try {
       let id = providerId;
       if (!id) {
-        const created = await createProvider(form.name.trim());
+        const created = await createProvider({ name: form.name.trim() });
         id = created.providerId;
         setProviderId(id);
       }
@@ -158,10 +156,10 @@ export function ProviderOnboardingWizard({
         .map((r) => r.trim())
         .filter((r) => r.length > 0);
       await updateProvider(providerId, {
-        defaultCutoffLocalTime: orNull(form.defaultCutoffLocalTime),
+        defaultCutoffLocalTime: blankToNull(form.defaultCutoffLocalTime),
         summaryEmailRecipients: recipients,
       });
-      await completeOnboarding(providerId);
+      await completeProviderOnboarding(providerId);
       await setActiveProviderWorkspace(providerId);
       window.location.assign("/provider/dashboard");
     } catch (e) {
@@ -215,7 +213,7 @@ export function ProviderOnboardingWizard({
               onChange={(e) => set("timezone", e.target.value)}
               className="flex h-11 w-full rounded-lg border border-input bg-card px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/25"
             >
-              {timezones.map((tz) => (
+              {timezoneOptions.map((tz) => (
                 <option key={tz} value={tz}>
                   {tz}
                 </option>

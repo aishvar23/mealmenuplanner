@@ -5,12 +5,14 @@
  * MP-B-020). Thin wrappers over `fetch` so the wizard shares one place that knows
  * the URLs and the request/response shapes. The session travels in the HTTP-only
  * auth cookies the proxy refreshes — plain same-origin requests, no auth header.
+ *
+ * The three mutation helpers are typed against the shared `ProviderApiClient`
+ * contract (the same interface the mobile client implements), so a contract change
+ * to a request/response shape is a compile error here too — the web onboarding
+ * flow can't silently drift from the frozen `/api/*` contract.
  */
 
-import type {
-  ProviderDto,
-  ProviderUpdateInput,
-} from "@/packages/shared/provider";
+import type { ProviderApiClient } from "@/packages/shared/provider";
 
 /** Pull the human-readable message out of the uniform `{ error }` envelope. */
 async function errorMessage(res: Response, fallback: string): Promise<string> {
@@ -23,23 +25,25 @@ async function errorMessage(res: Response, fallback: string): Promise<string> {
 }
 
 /** `POST /api/providers` — create (or resume) the caller's draft provider org. */
-export async function createProvider(name: string): Promise<ProviderDto> {
+export const createProvider: ProviderApiClient["createProvider"] = async (
+  input,
+) => {
   const res = await fetch("/api/providers", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ name }),
+    body: JSON.stringify(input),
   });
   if (!res.ok) {
     throw new Error(await errorMessage(res, "Couldn't create the provider."));
   }
-  return (await res.json()) as ProviderDto;
-}
+  return res.json();
+};
 
 /** `PATCH /api/providers/{id}` — partial settings update. */
-export async function updateProvider(
-  providerId: string,
-  patch: ProviderUpdateInput,
-): Promise<ProviderDto> {
+export const updateProvider: ProviderApiClient["updateProvider"] = async (
+  providerId,
+  patch,
+) => {
   const res = await fetch(`/api/providers/${providerId}`, {
     method: "PATCH",
     headers: { "content-type": "application/json" },
@@ -48,21 +52,21 @@ export async function updateProvider(
   if (!res.ok) {
     throw new Error(await errorMessage(res, "Couldn't save your changes."));
   }
-  return (await res.json()) as ProviderDto;
-}
+  return res.json();
+};
 
 /** `POST /api/providers/{id}/complete-onboarding` — finish setup (draft → active). */
-export async function completeOnboarding(
-  providerId: string,
-): Promise<ProviderDto> {
-  const res = await fetch(`/api/providers/${providerId}/complete-onboarding`, {
-    method: "POST",
-  });
-  if (!res.ok) {
-    throw new Error(await errorMessage(res, "Couldn't finish setup."));
-  }
-  return (await res.json()) as ProviderDto;
-}
+export const completeProviderOnboarding: ProviderApiClient["completeProviderOnboarding"] =
+  async (providerId) => {
+    const res = await fetch(
+      `/api/providers/${providerId}/complete-onboarding`,
+      { method: "POST" },
+    );
+    if (!res.ok) {
+      throw new Error(await errorMessage(res, "Couldn't finish setup."));
+    }
+    return res.json();
+  };
 
 /** Record the active-workspace pointer so the next resolution lands here. */
 export async function setActiveProviderWorkspace(

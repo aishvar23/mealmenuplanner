@@ -1,4 +1,5 @@
 import { ValidationError, type ValidationIssue } from "@/lib/errors";
+import { EMAIL_RE } from "@/lib/validation/email";
 import type { ProviderUpdateInput } from "@/packages/shared/provider";
 
 /**
@@ -11,14 +12,19 @@ import type { ProviderUpdateInput } from "@/packages/shared/provider";
  * with field-scoped issues instead of a Postgres error mapped to a 500.
  */
 
-/** Org name: trimmed, non-empty, bounded. Matches the `provider_org_name_not_blank` check. */
+/**
+ * Org name: trimmed, non-empty, bounded. The DB's `provider_org_name_not_blank`
+ * CHECK enforces only non-blank; this `NAME_MAX` cap is an additional service-layer
+ * bound (no DB length CHECK backs it), applied on every write path that goes
+ * through {@link validateProviderName} / {@link validateProviderUpdate}.
+ */
 const NAME_MAX = 120;
-
-/** A pragmatic email shape — the same "has an @ with text either side" bar the rest of the app uses. */
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** `HH:MM` or `HH:MM:SS` 24-hour local time, matching the `time` column. */
 const LOCAL_TIME_RE = /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/;
+
+/** Upper bound on summary-email recipients — a sane cap, not a DB constraint. */
+const MAX_RECIPIENTS = 50;
 
 /**
  * True for a valid IANA timezone id (e.g. `Asia/Kolkata`). Uses the runtime's own
@@ -35,21 +41,34 @@ export function isValidTimeZone(tz: string): boolean {
   }
 }
 
-/** Validate + normalize the provider name; throws `ValidationError` when blank/too long. */
-export function validateProviderName(name: unknown): string {
+/**
+ * Core name rule, shared by the create path ({@link validateProviderName}, which
+ * throws) and the partial update ({@link validateProviderUpdate}, which collects
+ * issues) so the two can't diverge. Returns the normalized value or the single
+ * issue describing why it's invalid.
+ */
+function nameIssue(name: unknown): { value?: string; issue?: ValidationIssue } {
   if (typeof name !== "string" || name.trim().length === 0) {
-    throw new ValidationError("Provider name is required.", [
-      { field: "name", rule: "required" },
-    ]);
+    return { issue: { field: "name", rule: "required" } };
   }
   const trimmed = name.trim();
   if (trimmed.length > NAME_MAX) {
-    throw new ValidationError(
-      `Provider name must be at most ${NAME_MAX} characters.`,
-      [{ field: "name", rule: "maxLength", max: NAME_MAX }],
-    );
+    return { issue: { field: "name", rule: "maxLength", max: NAME_MAX } };
   }
-  return trimmed;
+  return { value: trimmed };
+}
+
+/** Validate + normalize the provider name; throws `ValidationError` when blank/too long. */
+export function validateProviderName(name: unknown): string {
+  const { value, issue } = nameIssue(name);
+  if (issue) {
+    const message =
+      issue.rule === "maxLength"
+        ? `Provider name must be at most ${NAME_MAX} characters.`
+        : "Provider name is required.";
+    throw new ValidationError(message, [issue]);
+  }
+  return value!;
 }
 
 /** The org columns a client may PATCH, normalized for the DB write (snake_case). */
@@ -99,13 +118,9 @@ export function validateProviderUpdate(
   const patch: ProviderUpdatePatch = {};
 
   if (input.name !== undefined) {
-    if (typeof input.name !== "string" || input.name.trim().length === 0) {
-      issues.push({ field: "name", rule: "required" });
-    } else if (input.name.trim().length > NAME_MAX) {
-      issues.push({ field: "name", rule: "maxLength", max: NAME_MAX });
-    } else {
-      patch.name = input.name.trim();
-    }
+    const { value, issue } = nameIssue(input.name);
+    if (issue) issues.push(issue);
+    else patch.name = value;
   }
 
   const email = optionalText(input.email, "email", issues);
@@ -152,6 +167,12 @@ export function validateProviderUpdate(
     const recipients = input.summaryEmailRecipients;
     if (!Array.isArray(recipients)) {
       issues.push({ field: "summaryEmailRecipients", rule: "array" });
+    } else if (recipients.length > MAX_RECIPIENTS) {
+      issues.push({
+        field: "summaryEmailRecipients",
+        rule: "maxItems",
+        max: MAX_RECIPIENTS,
+      });
     } else {
       const cleaned: string[] = [];
       let ok = true;

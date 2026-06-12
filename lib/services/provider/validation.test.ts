@@ -65,6 +65,13 @@ describe("validateProviderUpdate", () => {
     expect(patch).toEqual({ default_cutoff_local_time: null });
   });
 
+  it("rejects an over-long summary recipient list", () => {
+    const tooMany = Array.from({ length: 51 }, (_, i) => `u${i}@x.com`);
+    expect(() =>
+      validateProviderUpdate({ summaryEmailRecipients: tooMany }),
+    ).toThrow(ValidationError);
+  });
+
   it("de-dupes summary recipients while preserving order", () => {
     const patch = validateProviderUpdate({
       summaryEmailRecipients: ["a@x.com", "b@x.com", "a@x.com"],

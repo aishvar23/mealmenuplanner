@@ -1,6 +1,9 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
 
+import type { ProviderSummaryDto } from "@mmp/shared/provider";
+
 import ProviderOnboardingScreen from "./provider-onboarding-screen";
+import { useProviders } from "./use-providers";
 import {
   useProviderOnboarding,
   type ProviderOnboardingController,
@@ -17,8 +20,26 @@ jest.mock("./use-provider-onboarding", () => ({
   useProviderOnboarding: jest.fn(),
   timezoneOptions: () => ["UTC", "Asia/Kolkata"],
 }));
+// The screen guards "one active provider per owner" via `useProviders` and
+// redirects an existing owner through the router; mock both so the form renders
+// without a query/navigation and the redirect is observable.
+jest.mock("./use-providers", () => ({ useProviders: jest.fn() }));
+const mockReplace = jest.fn();
+jest.mock("expo-router", () => ({
+  useRouter: () => ({ replace: mockReplace }),
+}));
 
 const mockController = jest.mocked(useProviderOnboarding);
+const mockUseProviders = jest.mocked(useProviders);
+
+function providersResult(data: ProviderSummaryDto[]) {
+  return {
+    data,
+    isLoading: false,
+    isError: false,
+    refetch: jest.fn(),
+  } as unknown as ReturnType<typeof useProviders>;
+}
 
 function controller(
   over: Partial<ProviderOnboardingController> = {},
@@ -49,6 +70,10 @@ function controller(
 
 beforeEach(() => {
   mockController.mockReset();
+  mockUseProviders.mockReset();
+  mockReplace.mockReset();
+  // Default: caller owns no provider, so the create form renders.
+  mockUseProviders.mockReturnValue(providersResult([]));
 });
 
 describe("ProviderOnboardingScreen", () => {
@@ -84,5 +109,26 @@ describe("ProviderOnboardingScreen", () => {
     );
     render(<ProviderOnboardingScreen />);
     expect(screen.getByText("Couldn't create the provider.")).toBeOnTheScreen();
+  });
+
+  it("redirects an existing owner to their dashboard instead of the form (MVP: one provider per owner)", () => {
+    mockController.mockReturnValue(controller());
+    mockUseProviders.mockReturnValue(
+      providersResult([
+        {
+          providerId: "prov-own",
+          name: "Anna's Kitchen",
+          role: "owner",
+          membershipStatus: "active",
+          timezone: "UTC",
+        },
+      ]),
+    );
+    render(<ProviderOnboardingScreen />);
+    expect(mockReplace).toHaveBeenCalledWith(
+      "/(provider-owner)/prov-own/dashboard",
+    );
+    // The create form is not shown while redirecting.
+    expect(screen.queryByText("Continue")).toBeNull();
   });
 });

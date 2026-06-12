@@ -25,7 +25,11 @@ type ProviderRow = {
   provider_id: string;
   role: "owner" | "customer";
   status: string;
-  provider_organizations: { name: string; timezone: string } | null;
+  provider_organizations: {
+    name: string;
+    timezone: string;
+    status?: string;
+  } | null;
 };
 
 function providerRow(overrides: Partial<ProviderRow> = {}): ProviderRow {
@@ -124,6 +128,36 @@ describe("listProviderSummaries", () => {
         timezone: "UTC",
       },
     ]);
+  });
+
+  it("excludes a draft org (the in-progress onboarding store, not an enterable workspace)", async () => {
+    setup({
+      providers: [
+        providerRow({
+          provider_id: "prov-draft",
+          role: "owner",
+          status: "active",
+          provider_organizations: {
+            name: "Half-set Kitchen",
+            timezone: "UTC",
+            status: "draft",
+          },
+        }),
+        providerRow({
+          provider_id: "prov-live",
+          role: "owner",
+          status: "active",
+          provider_organizations: {
+            name: "Anna's Kitchen",
+            timezone: "Asia/Kolkata",
+            status: "active",
+          },
+        }),
+      ],
+    });
+
+    const summaries = await listProviderSummaries();
+    expect(summaries.map((s) => s.providerId)).toEqual(["prov-live"]);
   });
 
   it("queries only enterable statuses (awaiting_approval / active), excluding invited", async () => {

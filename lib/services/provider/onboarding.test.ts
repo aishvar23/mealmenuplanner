@@ -15,6 +15,7 @@ import {
 import {
   completeProviderOnboarding,
   createProviderDraft,
+  getOwnerDraftProvider,
   getProvider,
   updateProvider,
 } from "./onboarding";
@@ -97,6 +98,26 @@ describe("getProvider", () => {
   it("throws NotFound when the org is absent or hidden by RLS", async () => {
     stub({ tables: { provider_organizations: { data: null, error: null } } });
     await expect(getProvider("prov-x")).rejects.toBeInstanceOf(NotFoundError);
+  });
+});
+
+describe("getOwnerDraftProvider", () => {
+  it("returns the caller's open draft scoped to owner_user_id + status=draft", async () => {
+    const s = stub({
+      tables: { provider_organizations: { data: DRAFT_ROW, error: null } },
+    });
+    const dto = await getOwnerDraftProvider();
+    expect(dto?.providerId).toBe("prov-1");
+    expect(dto?.status).toBe("draft");
+    // Scoped to the caller's own in-progress draft.
+    const eqArgs = s.calls.filter((c) => c.method === "eq").map((c) => c.args);
+    expect(eqArgs).toContainEqual(["owner_user_id", "user-1"]);
+    expect(eqArgs).toContainEqual(["status", "draft"]);
+  });
+
+  it("returns null when the caller has no draft", async () => {
+    stub({ tables: { provider_organizations: { data: null, error: null } } });
+    await expect(getOwnerDraftProvider()).resolves.toBeNull();
   });
 });
 

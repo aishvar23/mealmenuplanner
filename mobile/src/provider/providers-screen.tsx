@@ -37,6 +37,12 @@ export default function ProvidersScreen() {
   }
 
   const providers = data ?? [];
+  // MVP: one active provider per owner. Once the caller owns an (active) provider,
+  // hide the "set one up" entry so they can't create a second — mirrors the web
+  // onboarding page's redirect. Drafts are excluded from this list server-side, so
+  // an owner row here is always an active provider. (Revisit for multi-provider.)
+  const ownsProvider = providers.some((p) => p.role === "owner");
+
   if (providers.length === 0) {
     return (
       <View className="flex-1 bg-gray-50">
@@ -72,12 +78,14 @@ export default function ProvidersScreen() {
             />
           ))}
         </View>
-        <Button
-          label="Set up a meal provider"
-          variant="secondary"
-          icon={<Plus color="#16a34a" size={18} />}
-          onPress={() => router.push("/provider-onboarding")}
-        />
+        {ownsProvider ? null : (
+          <Button
+            label="Set up a meal provider"
+            variant="secondary"
+            icon={<Plus color="#16a34a" size={18} />}
+            onPress={() => router.push("/provider-onboarding")}
+          />
+        )}
       </ScrollView>
     </View>
   );

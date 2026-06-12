@@ -4,9 +4,8 @@ import { redirect } from "next/navigation";
 
 import { ProviderOnboardingWizard } from "@/components/provider-onboarding/provider-onboarding-wizard";
 import { getAuthUser } from "@/lib/auth";
-import { getProvider } from "@/lib/services/provider";
+import { getOwnerDraftProvider } from "@/lib/services/provider";
 import { listProviderSummaries } from "@/lib/services/workspace";
-import type { ProviderDto } from "@/packages/shared/provider";
 
 export const dynamic = "force-dynamic";
 
@@ -20,9 +19,14 @@ export const metadata = { title: "Set up your meal provider" };
  *
  * Auth is gated by the edge proxy (`/provider-onboarding` is a protected prefix);
  * this server component re-resolves the verified user as a defense-in-depth
- * backstop. Resume is server-side: if the caller already owns a provider we either
- * send them to their dashboard (already set up) or seed the wizard from their open
- * draft (the draft org is the resumable store, ADR-6).
+ * backstop. Resume is server-side: an owner with an active provider is sent to
+ * their dashboard, otherwise the wizard is seeded from their open draft (the draft
+ * org is the resumable store, ADR-6).
+ *
+ * MVP assumption: one active provider per owner. An owner who already has an active
+ * provider is redirected rather than allowed to create a second; revisit this when
+ * multi-provider owners are supported (mobile mirrors this — see
+ * `ProviderOnboardingScreen`).
  */
 export default async function ProviderOnboardingPage() {
   const user = await getAuthUser();
@@ -30,18 +34,16 @@ export default async function ProviderOnboardingPage() {
     redirect("/sign-in");
   }
 
+  // Draft orgs are excluded from summaries (not enterable workspaces), so an owned
+  // summary here is always an *active* provider → block a second one (MVP).
   const summaries = await listProviderSummaries();
-  const owned = summaries.filter((s) => s.role === "owner");
-
-  let initialProvider: ProviderDto | null = null;
-  if (owned.length > 0) {
-    const existing = await getProvider(owned[0]!.providerId);
-    if (existing.status === "active") {
-      // Already onboarded — nothing to set up here.
-      redirect("/provider/dashboard");
-    }
-    initialProvider = existing;
+  if (summaries.some((s) => s.role === "owner")) {
+    redirect("/provider/dashboard");
   }
+
+  // Resume an in-progress draft if one exists (read directly — drafts don't appear
+  // in the summaries above).
+  const initialProvider = await getOwnerDraftProvider();
 
   return (
     <main className="grid min-h-dvh bg-canvas lg:grid-cols-[minmax(22rem,0.8fr)_minmax(0,1.2fr)]">

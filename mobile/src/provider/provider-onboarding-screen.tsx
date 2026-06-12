@@ -1,3 +1,5 @@
+import { useRouter, type Href } from "expo-router";
+import { useEffect } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -8,9 +10,11 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button } from "@/components/Button";
-import { ErrorBanner } from "@/components/Feedback";
+import { ErrorBanner, LoadingState } from "@/components/Feedback";
 import { SelectChips } from "@/components/SelectChips";
 import { TextField } from "@/components/TextField";
+import { useProviders } from "@/provider/use-providers";
+import { providerWorkspaceRoute } from "@/provider/workspace-routes";
 
 import {
   timezoneOptions,
@@ -25,10 +29,28 @@ import {
  * via `useProviderOnboarding`. On finish it completes the draft and enters the
  * owner shell. Required-field gating mirrors web: Continue/Finish stay disabled
  * until name + timezone are set.
+ *
+ * MVP assumption: one active provider per owner. An owner who already has an active
+ * provider is redirected to its dashboard instead of creating a second — mirroring
+ * the web onboarding page. Draft orgs are excluded from `useProviders`, so an owned
+ * summary here is always an active provider. (Revisit for multi-provider owners.)
  */
 export default function ProviderOnboardingScreen() {
+  const router = useRouter();
+  const { data: providers, isLoading } = useProviders();
+  const ownedActive = (providers ?? []).find((p) => p.role === "owner");
   const c = useProviderOnboarding();
   const tzOptions = timezoneOptions().map((tz) => ({ value: tz, label: tz }));
+
+  useEffect(() => {
+    if (ownedActive) {
+      router.replace(providerWorkspaceRoute(ownedActive) as Href);
+    }
+  }, [ownedActive, router]);
+
+  // While discovery is in flight, or when we're about to redirect an existing
+  // owner, render a spinner rather than the (would-be duplicate) create form.
+  if (isLoading || ownedActive) return <LoadingState />;
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>

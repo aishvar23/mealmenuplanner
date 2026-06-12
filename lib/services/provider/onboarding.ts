@@ -128,6 +128,33 @@ export async function createProviderDraft(name: unknown): Promise<ProviderDto> {
   return toProviderDto(row);
 }
 
+/**
+ * The caller's open draft provider, if any — drives the onboarding page's resume.
+ * A draft org is deliberately excluded from the workspace resolver (it is the
+ * in-progress onboarding store, not an enterable workspace until completed — see
+ * `loadProviderMemberships`), so the page can't discover it via
+ * `listProviderSummaries`; it reads the owner's own draft directly here, RLS-scoped
+ * by `porg_select` plus the `owner_user_id` match.
+ */
+export async function getOwnerDraftProvider(): Promise<ProviderDto | null> {
+  const user = await requireAuthUser();
+  const supabase = await createServerSupabaseClient();
+  const { data, error } = await supabase
+    .from("provider_organizations")
+    .select(ORG_COLUMNS)
+    .eq("owner_user_id", user.id)
+    .eq("status", "draft")
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    throw new InternalError("Failed to load your draft provider.", {
+      cause: error,
+    });
+  }
+  return data ? toProviderDto(data as ProviderOrgRow) : null;
+}
+
 /** `GET /api/providers/{id}` — the full org for the settings form / resume. */
 export async function getProvider(providerId: string): Promise<ProviderDto> {
   await requireAuthUser();
@@ -218,9 +245,8 @@ export async function completeProviderOnboarding(
     });
   }
 
-  const updated = await readOrg(supabase, providerId);
-  if (!updated) {
-    throw new InternalError("Provider completed but could not be read back.");
-  }
-  return toProviderDto(updated);
+  // The RPC flips the org to 'active' (or it already was — idempotent replay).
+  // `status` is the only column it touches, so reuse the row we just read for the
+  // gate instead of a second round-trip to read it back.
+  return toProviderDto({ ...row, status: "active" });
 }

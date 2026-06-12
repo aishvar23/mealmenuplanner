@@ -98,6 +98,34 @@ describe("ProvidersScreen", () => {
     expect(screen.getByText("Awaiting approval")).toBeOnTheScreen();
   });
 
+  it("hides the set-up entry once the caller already owns a provider (MVP: one per owner)", () => {
+    mockUseProviders.mockReturnValue(
+      result({
+        data: [
+          summary({ providerId: "p-own", name: "My Kitchen", role: "owner" }),
+        ],
+      }),
+    );
+    render(<ProvidersScreen />);
+    expect(screen.queryByText("Set up a meal provider")).toBeNull();
+  });
+
+  it("keeps the set-up entry for a customer-only caller", () => {
+    mockUseProviders.mockReturnValue(
+      result({
+        data: [
+          summary({
+            providerId: "p-sub",
+            name: "Bay Tiffins",
+            role: "customer",
+          }),
+        ],
+      }),
+    );
+    render(<ProvidersScreen />);
+    expect(screen.getByText("Set up a meal provider")).toBeOnTheScreen();
+  });
+
   it("surfaces an error state with a retry affordance", () => {
     mockUseProviders.mockReturnValue(result({ isError: true }));
     render(<ProvidersScreen />);

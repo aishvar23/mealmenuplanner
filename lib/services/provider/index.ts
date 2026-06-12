@@ -5,6 +5,7 @@
 export {
   completeProviderOnboarding,
   createProviderDraft,
+  getOwnerDraftProvider,
   getProvider,
   updateProvider,
 } from "./onboarding";

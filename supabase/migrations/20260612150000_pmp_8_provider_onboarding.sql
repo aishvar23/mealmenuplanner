@@ -65,6 +65,16 @@ begin
       using errcode = '23514'; -- check_violation → ValidationError
   end if;
 
+  -- Serialize concurrent creates by the same owner so the resume SELECT + INSERT
+  -- below run atomically: a true double-submit (two devices, a retried request)
+  -- waits here, then finds the just-created draft instead of minting a duplicate.
+  -- The uq_one_draft_provider_per_owner partial unique index (below) is the hard
+  -- DB backstop; this advisory lock makes the common case resume gracefully rather
+  -- than surface a unique-violation. Lock is xact-scoped (released at commit).
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(v_user_id::text, 0)
+  );
+
   -- Resume: a caller who already has an open draft gets it back rather than a
   -- second orphan org (idempotent against a double-submit; the wizard also
   -- resumes server-side before reaching here).
@@ -97,6 +107,16 @@ begin
   return v_provider_id;
 end;
 $$;
+
+-- Hard backstop for the resume-vs-duplicate invariant: at most one in-progress
+-- draft org per owner (the draft is the resumable onboarding store, ADR-6). The
+-- advisory lock above keeps callers from ever tripping this in the normal flow;
+-- the constraint guarantees correctness even if a future write path skips the RPC.
+-- Completing a draft flips status → 'active', which leaves this partial index, so
+-- the owner can later start a fresh draft.
+create unique index if not exists uq_one_draft_provider_per_owner
+  on public.provider_organizations (owner_user_id)
+  where status = 'draft';
 
 revoke execute on function public.create_provider_draft(text) from public, anon;
 grant  execute on function public.create_provider_draft(text) to authenticated;

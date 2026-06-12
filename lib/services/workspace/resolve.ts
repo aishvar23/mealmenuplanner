@@ -68,7 +68,11 @@ type ProviderMembershipJoin = {
   provider_id: string;
   role: ProviderMembershipRole;
   status: ProviderMembershipStatus;
-  provider_organizations: { name: string; timezone: string } | null;
+  provider_organizations: {
+    name: string;
+    timezone: string;
+    status: string;
+  } | null;
 };
 
 /**
@@ -85,7 +89,9 @@ const loadProviderMemberships = cache(async function loadProviderMemberships(
   const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase
     .from("provider_memberships")
-    .select("provider_id, role, status, provider_organizations(name, timezone)")
+    .select(
+      "provider_id, role, status, provider_organizations(name, timezone, status)",
+    )
     .eq("user_id", userId)
     .in("status", LIVE_PROVIDER_STATUSES)
     .order("created_at", { ascending: true });
@@ -94,7 +100,12 @@ const loadProviderMemberships = cache(async function loadProviderMemberships(
       cause: error,
     });
   }
-  return (data ?? []) as unknown as ProviderMembershipJoin[];
+  const rows = (data ?? []) as unknown as ProviderMembershipJoin[];
+  // A `draft` org is the in-progress onboarding store (ADR-6), not an enterable
+  // workspace. Its owner membership is created `active` immediately (so the owner
+  // can PATCH settings + resume across devices), but it must not surface in the
+  // chooser/switcher or auto-routing until onboarding completes (status → active).
+  return rows.filter((m) => m.provider_organizations?.status !== "draft");
 });
 
 /**

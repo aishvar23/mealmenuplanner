@@ -1,6 +1,9 @@
+import {
+  blankToNull,
+  detectTimezone,
+  type ProviderUpdateInput,
+} from "@mmp/shared/provider";
 import { useState } from "react";
-
-import type { ProviderUpdateInput } from "@mmp/shared/provider";
 
 import { providerClient } from "./client";
 import { useWorkspaceSwitch } from "./use-workspace-switch";
@@ -34,14 +37,6 @@ export const COMMON_TIMEZONES = [
   "Australia/Sydney",
 ] as const;
 
-export function detectTimezone(): string {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-  } catch {
-    return "UTC";
-  }
-}
-
 /** The timezone options to offer: the detected zone first, then the shortlist. */
 export function timezoneOptions(): string[] {
   const detected = detectTimezone();
@@ -72,12 +67,6 @@ function blankForm(): OnboardingForm {
     defaultCutoffLocalTime: "",
     summaryEmailRecipients: "",
   };
-}
-
-/** Map blank → null for an optional text field. */
-function orNull(value: string): string | null {
-  const trimmed = value.trim();
-  return trimmed.length === 0 ? null : trimmed;
 }
 
 export interface ProviderOnboardingController {
@@ -111,11 +100,11 @@ export function useProviderOnboarding(): ProviderOnboardingController {
     return {
       name: form.name.trim(),
       timezone: form.timezone,
-      email: orNull(form.email),
-      phone: orNull(form.phone),
-      city: orNull(form.city),
-      state: orNull(form.state),
-      country: orNull(form.country),
+      email: blankToNull(form.email),
+      phone: blankToNull(form.phone),
+      city: blankToNull(form.city),
+      state: blankToNull(form.state),
+      country: blankToNull(form.country),
     };
   }
 
@@ -155,7 +144,7 @@ export function useProviderOnboarding(): ProviderOnboardingController {
         .map((r) => r.trim())
         .filter((r) => r.length > 0);
       await providerClient.updateProvider(providerId, {
-        defaultCutoffLocalTime: orNull(form.defaultCutoffLocalTime),
+        defaultCutoffLocalTime: blankToNull(form.defaultCutoffLocalTime),
         summaryEmailRecipients: recipients,
       });
       await providerClient.completeProviderOnboarding(providerId);
