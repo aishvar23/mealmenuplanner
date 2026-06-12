@@ -1792,7 +1792,12 @@ export type Database = {
         };
         Returns: Json;
       };
+      complete_provider_onboarding: {
+        Args: { p_provider_id: string };
+        Returns: undefined;
+      };
       create_household: { Args: { p_name: string }; Returns: string };
+      create_provider_draft: { Args: { p_name: string }; Returns: string };
       decline_invite: { Args: { p_token_hash: string }; Returns: Json };
       delete_household: { Args: { h: string }; Returns: undefined };
       emit_household_event: {

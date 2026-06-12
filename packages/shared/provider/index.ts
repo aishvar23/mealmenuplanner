@@ -14,4 +14,5 @@ export * from "./workspace";
 export * from "./dtos";
 export * from "./errors";
 export * from "./client";
+export * from "./onboarding-form";
 export * as providerFixtures from "./fixtures";

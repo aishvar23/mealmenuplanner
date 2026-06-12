@@ -23,6 +23,7 @@ import {
 import { Constants } from "@/lib/db/database.types";
 import { ValidationError, type ValidationIssue } from "@/lib/errors";
 import type { JsonObject } from "@/lib/http";
+import { isEmailShape } from "@/lib/validation/email";
 
 const MEMBERSHIP_TYPES = Constants.public.Enums.membership_type;
 
@@ -67,9 +68,9 @@ function optionalString(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-/** Minimal email shape check — a single `@` with non-empty local and domain. */
+/** Minimal email shape check — the app's shared pragmatic bar. */
 function looksLikeEmail(value: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+  return isEmailShape(value);
 }
 
 /**

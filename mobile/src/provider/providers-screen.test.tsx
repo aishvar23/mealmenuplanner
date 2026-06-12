@@ -12,6 +12,10 @@ import { useWorkspaceSwitch } from "./use-workspace-switch";
 // a real query or navigation. Pairs with the web provider-shell tests (#18).
 jest.mock("./use-providers", () => ({ useProviders: jest.fn() }));
 jest.mock("./use-workspace-switch", () => ({ useWorkspaceSwitch: jest.fn() }));
+// The screen now offers a "Set up a meal provider" entry that routes to the
+// onboarding wizard; mock the router so the push is observable without navigation.
+const mockPush = jest.fn();
+jest.mock("expo-router", () => ({ useRouter: () => ({ push: mockPush }) }));
 
 const mockUseProviders = jest.mocked(useProviders);
 const mockUseWorkspaceSwitch = jest.mocked(useWorkspaceSwitch);
@@ -41,6 +45,7 @@ const summary = (
 beforeEach(() => {
   mockUseProviders.mockReset();
   switchTo.mockReset();
+  mockPush.mockReset();
   mockUseWorkspaceSwitch.mockReturnValue({ switchTo, pending: false });
 });
 
@@ -49,6 +54,13 @@ describe("ProvidersScreen", () => {
     mockUseProviders.mockReturnValue(result({ data: [] }));
     render(<ProvidersScreen />);
     expect(screen.getByText("No meal providers yet")).toBeOnTheScreen();
+  });
+
+  it("routes to the onboarding wizard from the set-up entry", () => {
+    mockUseProviders.mockReturnValue(result({ data: [] }));
+    render(<ProvidersScreen />);
+    fireEvent.press(screen.getByText("Set up a meal provider"));
+    expect(mockPush).toHaveBeenCalledWith("/provider-onboarding");
   });
 
   it("lists each provider with its name and membership label", () => {
@@ -84,6 +96,34 @@ describe("ProvidersScreen", () => {
     expect(screen.getByText("Subscriber")).toBeOnTheScreen();
     expect(screen.getByText("Curry Co")).toBeOnTheScreen();
     expect(screen.getByText("Awaiting approval")).toBeOnTheScreen();
+  });
+
+  it("hides the set-up entry once the caller already owns a provider (MVP: one per owner)", () => {
+    mockUseProviders.mockReturnValue(
+      result({
+        data: [
+          summary({ providerId: "p-own", name: "My Kitchen", role: "owner" }),
+        ],
+      }),
+    );
+    render(<ProvidersScreen />);
+    expect(screen.queryByText("Set up a meal provider")).toBeNull();
+  });
+
+  it("keeps the set-up entry for a customer-only caller", () => {
+    mockUseProviders.mockReturnValue(
+      result({
+        data: [
+          summary({
+            providerId: "p-sub",
+            name: "Bay Tiffins",
+            role: "customer",
+          }),
+        ],
+      }),
+    );
+    render(<ProvidersScreen />);
+    expect(screen.getByText("Set up a meal provider")).toBeOnTheScreen();
   });
 
   it("surfaces an error state with a retry affordance", () => {

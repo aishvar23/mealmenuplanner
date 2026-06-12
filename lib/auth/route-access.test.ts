@@ -46,6 +46,9 @@ describe("isProtectedPath", () => {
     // one is not merely a `/` boundary of the other.
     expect(isProtectedPath("/provider")).toBe(true);
     expect(isProtectedPath("/providers")).toBe(true);
+    // The standalone owner onboarding wizard is its own prefix (MP-B-020), not a
+    // child of `/provider`.
+    expect(isProtectedPath("/provider-onboarding")).toBe(true);
     // But an unrelated path that only shares the substring is not gated.
     expect(isProtectedPath("/providential")).toBe(false);
   });

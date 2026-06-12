@@ -1,5 +1,6 @@
 import { withErrorBoundary } from "@/lib/errors";
-import { boundedCollection } from "@/lib/http";
+import { boundedCollection, readJsonObject } from "@/lib/http";
+import { createProviderDraft } from "@/lib/services/provider";
 import { listProviderSummaries } from "@/lib/services/workspace";
 
 // Resolves the session from cookies; never statically cached.
@@ -12,10 +13,20 @@ export const dynamic = "force-dynamic";
  * server-side for routing, but the mobile client and the workspace switcher
  * discover providers through this read. Member-scoped via the per-request RLS
  * client; returns the standard `{ data, page }` collection envelope.
- *
- * Provider create (`POST`) is MP-A-101 (the onboarding RPC), deferred to CP3 with
- * the owner-onboarding wizard — it is intentionally absent here.
  */
 export const GET = withErrorBoundary(async () => {
   return Response.json(boundedCollection(await listProviderSummaries()));
+});
+
+/**
+ * `POST /api/providers` — create the caller's draft provider org + active owner
+ * membership (MP-A-101, contract 03 §8). Body: `{ "name": string }`. The caller
+ * becomes the owner; the org starts in `draft` and the onboarding wizard fills in
+ * settings (`PATCH`) before finishing (`complete-onboarding`). Returns the new
+ * `ProviderDto` (201). Resumable — a caller with an open draft gets it back.
+ */
+export const POST = withErrorBoundary(async (request: Request) => {
+  const body = await readJsonObject(request);
+  const provider = await createProviderDraft(body.name);
+  return Response.json(provider, { status: 201 });
 });
