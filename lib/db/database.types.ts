@@ -15,11 +15,11 @@
 // P10-8 household_dish_preferences.suitable_meal_slots + P9
 // notification_email_preferences (per-user email opt-ins) +
 // get_event_email_recipients RPC + M3 device/event push tokens + P11 dish
-// nutrition + P12 dish weight-loss flag + PMP-1/2/7 Meal Provider Workspace
-// tenancy (provider_organizations, provider_memberships, provider_invites,
-// provider_subscriptions tables; provider_membership_role/status + the other
-// provider_* enums; is_active_provider_member / is_provider_owner /
-// has_live_provider_membership RLS helpers).
+// nutrition + P12 dish weight-loss flag + PMP-1/2/7(+7b) Meal Provider
+// Workspace tenancy (provider_organizations, provider_memberships,
+// provider_invites, provider_subscriptions tables; provider_membership_role/status
+// + the other provider_* enums; is_active_provider_member / is_provider_owner /
+// can_view_provider_identity RLS helpers).
 // After regenerating, run `npm run format` so the output matches Prettier.
 
 export type Json =
@@ -1751,6 +1751,7 @@ export type Database = {
     Functions: {
       abandon_stale_drafts: { Args: never; Returns: number };
       accept_invite: { Args: { p_token_hash: string }; Returns: Json };
+      can_view_provider_identity: { Args: { p: string }; Returns: boolean };
       complete_onboarding: {
         Args: {
           p_combination_prefs?: Json;
@@ -1821,7 +1822,6 @@ export type Database = {
           role: Database["public"]["Enums"]["member_role"];
         }[];
       };
-      has_live_provider_membership: { Args: { p: string }; Returns: boolean };
       has_permission: { Args: { h: string; perm: string }; Returns: boolean };
       increment_combination_popularity: {
         Args: { p_combination_id: string };
