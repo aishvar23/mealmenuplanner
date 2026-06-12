@@ -81,7 +81,9 @@ async function proposeCombinationFromAcceptedMeal(
     .eq("household_id", item.household_id)
     .maybeSingle();
   if (prefsError) throw prefsError;
-  if (!prefs) return;
+  // diet_type is nullable on household_preferences; without it the combination
+  // has no coherent diet to store, so there is nothing to promote.
+  if (!prefs?.diet_type) return;
 
   // Cuisine is informational only on a combination (never a filter); pull it off
   // the main dish so the admin queue shows a useful label.

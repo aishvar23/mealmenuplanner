@@ -14,7 +14,12 @@
 // propose_meal_combination RPCs + complete_onboarding combination-prefs param) +
 // P10-8 household_dish_preferences.suitable_meal_slots + P9
 // notification_email_preferences (per-user email opt-ins) +
-// get_event_email_recipients RPC.
+// get_event_email_recipients RPC + M3 device/event push tokens + P11 dish
+// nutrition + P12 dish weight-loss flag + PMP-1/2/7(+7b) Meal Provider
+// Workspace tenancy (provider_organizations, provider_memberships,
+// provider_invites, provider_subscriptions tables; provider_membership_role/status
+// + the other provider_* enums; is_active_provider_member / is_provider_owner /
+// can_view_provider_identity RLS helpers).
 // After regenerating, run `npm run format` so the output matches Prettier.
 
 export type Json =
@@ -33,6 +38,41 @@ export type Database = {
   };
   public: {
     Tables: {
+      device_tokens: {
+        Row: {
+          created_at: string;
+          id: string;
+          platform: string;
+          token: string;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          platform: string;
+          token: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          platform?: string;
+          token?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "device_tokens_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       dish_ingredients: {
         Row: {
           created_at: string;
@@ -704,7 +744,7 @@ export type Database = {
           allow_leftovers: boolean;
           budget_preference: Database["public"]["Enums"]["budget_preference"];
           created_at: string;
-          diet_type: Database["public"]["Enums"]["diet_type"];
+          diet_type: Database["public"]["Enums"]["diet_type"] | null;
           diet_types: Database["public"]["Enums"]["diet_type"][];
           family_size: number;
           household_id: string;
@@ -723,7 +763,7 @@ export type Database = {
           allow_leftovers?: boolean;
           budget_preference?: Database["public"]["Enums"]["budget_preference"];
           created_at?: string;
-          diet_type: Database["public"]["Enums"]["diet_type"];
+          diet_type?: Database["public"]["Enums"]["diet_type"] | null;
           diet_types?: Database["public"]["Enums"]["diet_type"][];
           family_size: number;
           household_id: string;
@@ -742,7 +782,7 @@ export type Database = {
           allow_leftovers?: boolean;
           budget_preference?: Database["public"]["Enums"]["budget_preference"];
           created_at?: string;
-          diet_type?: Database["public"]["Enums"]["diet_type"];
+          diet_type?: Database["public"]["Enums"]["diet_type"] | null;
           diet_types?: Database["public"]["Enums"]["diet_type"][];
           family_size?: number;
           household_id?: string;
@@ -852,41 +892,6 @@ export type Database = {
           {
             foreignKeyName: "households_created_by_user_id_fkey";
             columns: ["created_by_user_id"];
-            isOneToOne: false;
-            referencedRelation: "users";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      device_tokens: {
-        Row: {
-          created_at: string;
-          id: string;
-          platform: string;
-          token: string;
-          updated_at: string;
-          user_id: string;
-        };
-        Insert: {
-          created_at?: string;
-          id?: string;
-          platform: string;
-          token: string;
-          updated_at?: string;
-          user_id?: string;
-        };
-        Update: {
-          created_at?: string;
-          id?: string;
-          platform?: string;
-          token?: string;
-          updated_at?: string;
-          user_id?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "device_tokens_user_id_fkey";
-            columns: ["user_id"];
             isOneToOne: false;
             referencedRelation: "users";
             referencedColumns: ["id"];
@@ -1377,6 +1382,254 @@ export type Database = {
           },
         ];
       };
+      provider_invites: {
+        Row: {
+          accepted_at: string | null;
+          accepted_by_user_id: string | null;
+          created_at: string;
+          expires_at: string;
+          id: string;
+          invited_by_user_id: string;
+          invited_email: string | null;
+          invited_phone: string | null;
+          provider_id: string;
+          status: string;
+          token_hash: string;
+          updated_at: string;
+        };
+        Insert: {
+          accepted_at?: string | null;
+          accepted_by_user_id?: string | null;
+          created_at?: string;
+          expires_at: string;
+          id?: string;
+          invited_by_user_id: string;
+          invited_email?: string | null;
+          invited_phone?: string | null;
+          provider_id: string;
+          status: string;
+          token_hash: string;
+          updated_at?: string;
+        };
+        Update: {
+          accepted_at?: string | null;
+          accepted_by_user_id?: string | null;
+          created_at?: string;
+          expires_at?: string;
+          id?: string;
+          invited_by_user_id?: string;
+          invited_email?: string | null;
+          invited_phone?: string | null;
+          provider_id?: string;
+          status?: string;
+          token_hash?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "provider_invites_accepted_by_user_id_fkey";
+            columns: ["accepted_by_user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "provider_invites_invited_by_user_id_fkey";
+            columns: ["invited_by_user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "provider_invites_provider_id_fkey";
+            columns: ["provider_id"];
+            isOneToOne: false;
+            referencedRelation: "provider_organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      provider_memberships: {
+        Row: {
+          approved_at: string | null;
+          approved_by_user_id: string | null;
+          created_at: string;
+          id: string;
+          invited_by_user_id: string | null;
+          joined_at: string | null;
+          provider_id: string;
+          removed_at: string | null;
+          role: Database["public"]["Enums"]["provider_membership_role"];
+          status: Database["public"]["Enums"]["provider_membership_status"];
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          approved_at?: string | null;
+          approved_by_user_id?: string | null;
+          created_at?: string;
+          id?: string;
+          invited_by_user_id?: string | null;
+          joined_at?: string | null;
+          provider_id: string;
+          removed_at?: string | null;
+          role: Database["public"]["Enums"]["provider_membership_role"];
+          status: Database["public"]["Enums"]["provider_membership_status"];
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          approved_at?: string | null;
+          approved_by_user_id?: string | null;
+          created_at?: string;
+          id?: string;
+          invited_by_user_id?: string | null;
+          joined_at?: string | null;
+          provider_id?: string;
+          removed_at?: string | null;
+          role?: Database["public"]["Enums"]["provider_membership_role"];
+          status?: Database["public"]["Enums"]["provider_membership_status"];
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "provider_memberships_approved_by_user_id_fkey";
+            columns: ["approved_by_user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "provider_memberships_invited_by_user_id_fkey";
+            columns: ["invited_by_user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "provider_memberships_provider_id_fkey";
+            columns: ["provider_id"];
+            isOneToOne: false;
+            referencedRelation: "provider_organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "provider_memberships_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      provider_organizations: {
+        Row: {
+          city: string | null;
+          country: string | null;
+          created_at: string;
+          default_cutoff_local_time: string | null;
+          email: string | null;
+          id: string;
+          name: string;
+          owner_user_id: string;
+          phone: string | null;
+          state: string | null;
+          status: string;
+          summary_email_recipients: string[];
+          timezone: string;
+          updated_at: string;
+        };
+        Insert: {
+          city?: string | null;
+          country?: string | null;
+          created_at?: string;
+          default_cutoff_local_time?: string | null;
+          email?: string | null;
+          id?: string;
+          name: string;
+          owner_user_id: string;
+          phone?: string | null;
+          state?: string | null;
+          status: string;
+          summary_email_recipients?: string[];
+          timezone: string;
+          updated_at?: string;
+        };
+        Update: {
+          city?: string | null;
+          country?: string | null;
+          created_at?: string;
+          default_cutoff_local_time?: string | null;
+          email?: string | null;
+          id?: string;
+          name?: string;
+          owner_user_id?: string;
+          phone?: string | null;
+          state?: string | null;
+          status?: string;
+          summary_email_recipients?: string[];
+          timezone?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "provider_organizations_owner_user_id_fkey";
+            columns: ["owner_user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      provider_subscriptions: {
+        Row: {
+          auto_accept_consented_at: string | null;
+          auto_accept_enabled: boolean;
+          created_at: string;
+          customer_user_id: string;
+          id: string;
+          provider_id: string;
+          status: string;
+          updated_at: string;
+        };
+        Insert: {
+          auto_accept_consented_at?: string | null;
+          auto_accept_enabled?: boolean;
+          created_at?: string;
+          customer_user_id: string;
+          id?: string;
+          provider_id: string;
+          status: string;
+          updated_at?: string;
+        };
+        Update: {
+          auto_accept_consented_at?: string | null;
+          auto_accept_enabled?: boolean;
+          created_at?: string;
+          customer_user_id?: string;
+          id?: string;
+          provider_id?: string;
+          status?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "provider_subscriptions_customer_user_id_fkey";
+            columns: ["customer_user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "provider_subscriptions_provider_id_fkey";
+            columns: ["provider_id"];
+            isOneToOne: false;
+            referencedRelation: "provider_organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       user_food_preferences: {
         Row: {
           allergies: string[];
@@ -1498,6 +1751,7 @@ export type Database = {
     Functions: {
       abandon_stale_drafts: { Args: never; Returns: number };
       accept_invite: { Args: { p_token_hash: string }; Returns: Json };
+      can_view_provider_identity: { Args: { p: string }; Returns: boolean };
       complete_onboarding: {
         Args: {
           p_combination_prefs?: Json;
@@ -1578,6 +1832,8 @@ export type Database = {
         Returns: undefined;
       };
       is_active_member: { Args: { h: string }; Returns: boolean };
+      is_active_provider_member: { Args: { p: string }; Returns: boolean };
+      is_provider_owner: { Args: { p: string }; Returns: boolean };
       list_household_food_preferences: {
         Args: { p_household_id: string };
         Returns: {
@@ -1702,6 +1958,48 @@ export type Database = {
         | "bread_pairing"
         | "condiment"
         | "beverage";
+      provider_component_group:
+        | "main"
+        | "dal_or_legume"
+        | "sabzi"
+        | "bread"
+        | "rice"
+        | "side"
+        | "add_on";
+      provider_customization_type:
+        | "single_select"
+        | "multi_select"
+        | "quantity_increment"
+        | "boolean"
+        | "text_note";
+      provider_membership_role: "owner" | "customer";
+      provider_membership_status:
+        | "invited"
+        | "awaiting_approval"
+        | "active"
+        | "rejected"
+        | "removed";
+      provider_menu_status:
+        | "draft"
+        | "published"
+        | "locked"
+        | "archived"
+        | "cancelled";
+      provider_response_status:
+        | "no_response"
+        | "draft"
+        | "confirmed"
+        | "cancelled"
+        | "auto_accepted"
+        | "locked"
+        | "provider_overridden";
+      provider_salt_level: "low_salt" | "regular_salt" | "high_salt";
+      provider_spice_level: "non_spicy" | "mild" | "regular" | "spicy";
+      provider_suggestion_status:
+        | "pending"
+        | "accepted_as_option"
+        | "rejected"
+        | "deferred";
       serving_unit: "cup" | "bowl" | "plate" | "glass" | "piece";
       spice_level: "mild" | "medium" | "spicy";
     };
@@ -1903,6 +2201,54 @@ export const Constants = {
         "bread_pairing",
         "condiment",
         "beverage",
+      ],
+      provider_component_group: [
+        "main",
+        "dal_or_legume",
+        "sabzi",
+        "bread",
+        "rice",
+        "side",
+        "add_on",
+      ],
+      provider_customization_type: [
+        "single_select",
+        "multi_select",
+        "quantity_increment",
+        "boolean",
+        "text_note",
+      ],
+      provider_membership_role: ["owner", "customer"],
+      provider_membership_status: [
+        "invited",
+        "awaiting_approval",
+        "active",
+        "rejected",
+        "removed",
+      ],
+      provider_menu_status: [
+        "draft",
+        "published",
+        "locked",
+        "archived",
+        "cancelled",
+      ],
+      provider_response_status: [
+        "no_response",
+        "draft",
+        "confirmed",
+        "cancelled",
+        "auto_accepted",
+        "locked",
+        "provider_overridden",
+      ],
+      provider_salt_level: ["low_salt", "regular_salt", "high_salt"],
+      provider_spice_level: ["non_spicy", "mild", "regular", "spicy"],
+      provider_suggestion_status: [
+        "pending",
+        "accepted_as_option",
+        "rejected",
+        "deferred",
       ],
       serving_unit: ["cup", "bowl", "plate", "glass", "piece"],
       spice_level: ["mild", "medium", "spicy"],
