@@ -280,7 +280,9 @@ export async function getMenuDay(menuDayId: string): Promise<MenuDayDto> {
  * `GET /api/providers/{providerId}/today-menu` — the menu day for today in the
  * provider's timezone, or `null` when none is readable (no published day today,
  * or the caller is not yet an approved customer). If more than one day shares the
- * date, the most recently published wins.
+ * date (the unique (provider_id, menu_date) index is deferred to ADR-7), the most
+ * recently published wins, with a stable created_at-then-id tiebreaker so two
+ * un-published drafts can never resolve nondeterministically across requests.
  */
 export async function getTodayMenu(
   providerId: string,
@@ -295,6 +297,8 @@ export async function getTodayMenu(
     .eq("provider_id", providerId)
     .eq("menu_date", today)
     .order("published_at", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: true })
     .limit(1)
     .maybeSingle();
   if (error) mapReadError(error);

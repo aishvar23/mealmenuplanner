@@ -2,7 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { requireAuthUser } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/db/server";
-import { InternalError, NotFoundError } from "@/lib/errors";
+import {
+  InternalError,
+  NotFoundError,
+  UnauthenticatedError,
+} from "@/lib/errors";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/db/server", () => ({ createServerSupabaseClient: vi.fn() }));
@@ -229,6 +233,15 @@ describe("getMenuDay", () => {
     });
     await expect(getMenuDay(MENU_DAY_ID)).rejects.toBeInstanceOf(InternalError);
   });
+
+  it("maps an auth error (28000) to UnauthenticatedError, not Internal", async () => {
+    stub({
+      provider_menu_days: { data: null, error: { code: "28000" } },
+    });
+    await expect(getMenuDay(MENU_DAY_ID)).rejects.toBeInstanceOf(
+      UnauthenticatedError,
+    );
+  });
 });
 
 describe("getTodayMenu", () => {
@@ -251,8 +264,21 @@ describe("getTodayMenu", () => {
     const dateArg = calls.provider_menu_days?.eq?.[1];
     expect(dateArg?.[0]).toBe("menu_date");
     expect(dateArg?.[1]).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    // Most-recently-published wins, single row.
-    expect(calls.provider_menu_days?.order?.[0]?.[0]).toBe("published_at");
+    // Most-recently-published wins (DESC, nulls last), then a stable
+    // created_at-DESC → id-ASC tiebreaker so duplicate-date drafts resolve
+    // deterministically; single row.
+    expect(calls.provider_menu_days?.order?.[0]).toEqual([
+      "published_at",
+      { ascending: false, nullsFirst: false },
+    ]);
+    expect(calls.provider_menu_days?.order?.[1]).toEqual([
+      "created_at",
+      { ascending: false },
+    ]);
+    expect(calls.provider_menu_days?.order?.[2]).toEqual([
+      "id",
+      { ascending: true },
+    ]);
     expect(calls.provider_menu_days?.limit?.[0]).toEqual([1]);
   });
 
@@ -278,6 +304,24 @@ describe("getTodayMenu", () => {
     const { from } = stub({});
     await expect(getTodayMenu("nope")).rejects.toBeInstanceOf(NotFoundError);
     expect(from).not.toHaveBeenCalled();
+  });
+
+  it("maps an auth error (28000) on the tz lookup to UnauthenticatedError", async () => {
+    stub({
+      provider_organizations: { data: null, error: { code: "28000" } },
+    });
+    await expect(getTodayMenu(PROVIDER_ID)).rejects.toBeInstanceOf(
+      UnauthenticatedError,
+    );
+  });
+
+  it("surfaces a non-auth tz-lookup DB error as InternalError", async () => {
+    stub({
+      provider_organizations: { data: null, error: { code: "XX000" } },
+    });
+    await expect(getTodayMenu(PROVIDER_ID)).rejects.toBeInstanceOf(
+      InternalError,
+    );
   });
 });
 

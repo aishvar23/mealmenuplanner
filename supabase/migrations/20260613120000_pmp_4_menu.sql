@@ -152,7 +152,22 @@ create table provider_customization_groups (
     check (maximum_selections is null or maximum_selections >= minimum_selections),
   -- BR-010: a quantity increment must be bounded (finite max).
   constraint provider_customization_group_increment_bounded
-    check (customization_type <> 'quantity_increment' or maximum_selections is not null)
+    check (customization_type <> 'quantity_increment' or maximum_selections is not null),
+  -- single_select / boolean are inherently single-choice: exactly one selection.
+  -- Without this a single_select could carry maximum_selections NULL (unbounded) or
+  -- >1, letting a response pick multiple mutually-exclusive options.
+  constraint provider_customization_group_single_choice_max
+    check (customization_type not in ('single_select', 'boolean') or maximum_selections = 1),
+  -- A required *choice-count* group must enforce at least one selection, so its UI
+  -- "required" marker and the DB minimum agree. boolean/text_note express
+  -- required-ness outside the selection count (a toggle / free text), so they are
+  -- exempt — a required boolean is "must answer", not "must select >= 1".
+  constraint provider_customization_group_required_has_min
+    check (
+      not is_required
+      or minimum_selections >= 1
+      or customization_type in ('boolean', 'text_note')
+    )
 );
 
 create trigger trg_set_updated_at before update on provider_customization_groups
@@ -249,7 +264,9 @@ as $$
   where mc.id = c;
 $$;
 
--- Read reachability of a component (delegates to its day's read rule).
+-- Read reachability of a component: resolve its day and apply the day read rule
+-- ONCE (no extra EXISTS layer). Returns NULL → not visible when the component is
+-- gone, which a USING clause treats as false just like the old exists()=false.
 create or replace function can_read_provider_menu_component(c uuid)
 returns boolean
 language sql
@@ -257,12 +274,9 @@ stable
 security definer
 set search_path = ''
 as $$
-  select exists (
-    select 1
-    from public.provider_menu_components mc
-    where mc.id = c
-      and public.can_read_provider_menu_day(mc.menu_day_id)
-  );
+  select public.can_read_provider_menu_day(mc.menu_day_id)
+  from public.provider_menu_components mc
+  where mc.id = c;
 $$;
 
 -- provider_id that owns a customization group (via component → day).
@@ -280,7 +294,10 @@ as $$
   where cg.id = g;
 $$;
 
--- Read reachability of a customization group (delegates to its component).
+-- Read reachability of a customization group: resolve the owning day via the FK
+-- chain and apply the day read rule ONCE, instead of nesting through the component
+-- helper. Keeps the publish-state rule single-sourced in can_read_provider_menu_day
+-- while removing a per-row SECURITY DEFINER layer on the hot menu read.
 create or replace function can_read_provider_customization_group(g uuid)
 returns boolean
 language sql
@@ -288,17 +305,29 @@ stable
 security definer
 set search_path = ''
 as $$
-  select exists (
-    select 1
-    from public.provider_customization_groups cg
-    where cg.id = g
-      and public.can_read_provider_menu_component(cg.menu_component_id)
-  );
+  select public.can_read_provider_menu_day(md.id)
+  from public.provider_customization_groups cg
+  join public.provider_menu_components mc on mc.id = cg.menu_component_id
+  join public.provider_menu_days md on md.id = mc.menu_day_id
+  where cg.id = g;
 $$;
 
 -- Lock the SECURITY DEFINER surface (advisor 0028/0029): not callable by anon
 -- (no session → auth.uid() null → owner/member checks false), kept for
 -- authenticated (so policies can invoke them) + service_role.
+--
+-- ACCEPTED TRADE-OFF (review PR #38 / ADO decision note): the provider_of_*
+-- resolvers are NOT caller-scoped — given a menu/component/group id they return
+-- the owning provider_id with no membership check, so any authenticated caller who
+-- already knows a (random gen_random_uuid) id can confirm it exists and learn its
+-- provider. We deliberately do NOT guard them: they are referenced by the owner
+-- WITH CHECK write policies (pmc/pma/pcg/pco _insert/_update), which need the raw
+-- provider_id to feed is_provider_owner(); returning NULL for non-owners would deny
+-- a legitimate owner's write. EXECUTE must stay granted to authenticated because
+-- RLS policy expressions are evaluated as the querying role. Exposure is low (ids
+-- are unguessable and only provider_id leaks); the existence-hiding guarantee is
+-- still enforced at the API layer. The caller-scoped can_read_* helpers add no
+-- exposure beyond RLS. Revisit if these ids ever become guessable/enumerable.
 revoke execute on function public.provider_of_menu_day(uuid) from public, anon;
 grant execute on function public.provider_of_menu_day(uuid) to authenticated, service_role;
 revoke execute on function public.can_read_provider_menu_day(uuid) from public, anon;
@@ -319,12 +348,15 @@ grant execute on function public.can_read_provider_customization_group(uuid) to 
 -- deletable by the owner while drafting (authoring rebuilds them, MP-A-121); past
 -- responses reference items, not menu structure, so history is preserved upstream.
 
--- provider_weekly_menus — owner all; active member reads published weeks.
+-- provider_weekly_menus — owner all; active member reads published/locked weeks.
+-- The week container must stay readable for the SAME states as its days
+-- (provider_menu_days allows published + locked), otherwise once a week locks an
+-- active customer would lose the container while still seeing its locked days.
 alter table provider_weekly_menus enable row level security;
 create policy pwm_select on provider_weekly_menus
   for select using (
     is_provider_owner(provider_id)
-    or (is_active_provider_member(provider_id) and status = 'published')
+    or (is_active_provider_member(provider_id) and status in ('published', 'locked'))
   );
 create policy pwm_insert on provider_weekly_menus
   for insert with check (is_provider_owner(provider_id));
