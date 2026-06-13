@@ -2,13 +2,12 @@ import "server-only";
 
 import { requireAuthUser } from "@/lib/auth";
 import type { Json } from "@/lib/db/database.types";
+import { mapPgError, type RpcError } from "@/lib/db/rpc-error";
 import { createServerSupabaseClient } from "@/lib/db/server";
 import {
   ConflictError,
   ForbiddenError,
-  InternalError,
   NotFoundError,
-  UnauthenticatedError,
   ValidationError,
 } from "@/lib/errors";
 import type { JsonObject } from "@/lib/http";
@@ -42,17 +41,9 @@ import { validateSaveProviderResponse } from "./response-validation";
 
 type SupabaseClient = Awaited<ReturnType<typeof createServerSupabaseClient>>;
 
-interface RpcError {
-  code?: string;
-  message?: string;
-  hint?: string | null;
-}
-
 /** Map a `save_provider_response` RPC error to its domain error (contract 03 § 3). */
 function mapSaveError(error: RpcError): never {
   switch (error.code) {
-    case "28000":
-      throw new UnauthenticatedError();
     case "P0002":
       // Unknown / not-visible menu day — existence-hiding 404.
       throw new NotFoundError("Menu not found.");
@@ -132,9 +123,8 @@ function mapSaveError(error: RpcError): never {
         { cause: error },
       );
     default:
-      throw new InternalError("Failed to save your response.", {
-        cause: error,
-      });
+      // 28000 → 401, anything else → 500 (with the original kept as `cause`).
+      mapPgError(error, "Failed to save your response.");
   }
 }
 

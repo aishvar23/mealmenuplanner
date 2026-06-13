@@ -1776,6 +1776,8 @@ export type Database = {
         Row: {
           created_at: string;
           cutoff_at: string;
+          cutoff_failure_count: number;
+          cutoff_last_error: string | null;
           id: string;
           locked_at: string | null;
           menu_date: string;
@@ -1789,6 +1791,8 @@ export type Database = {
         Insert: {
           created_at?: string;
           cutoff_at: string;
+          cutoff_failure_count?: number;
+          cutoff_last_error?: string | null;
           id?: string;
           locked_at?: string | null;
           menu_date: string;
@@ -1802,6 +1806,8 @@ export type Database = {
         Update: {
           created_at?: string;
           cutoff_at?: string;
+          cutoff_failure_count?: number;
+          cutoff_last_error?: string | null;
           id?: string;
           locked_at?: string | null;
           menu_date?: string;
@@ -2762,6 +2768,13 @@ export type Database = {
         Args: { p_response_id: string };
         Returns: string;
       };
+      process_provider_cutoff: {
+        // Returns the menu day's current batch id, or null when the day is not a
+        // cutoff candidate (not published / cutoff not yet reached) — a safe no-op.
+        Args: { p_menu_day_id: string };
+        Returns: string | null;
+      };
+      run_provider_cutoffs: { Args: never; Returns: number };
       get_provider_invite_preview: {
         Args: { p_token_hash: string };
         Returns: {

@@ -2,13 +2,9 @@ import "server-only";
 
 import { requireAuthUser } from "@/lib/auth";
 import type { Database } from "@/lib/db/database.types";
+import { mapPgError, type RpcError } from "@/lib/db/rpc-error";
 import { createServerSupabaseClient } from "@/lib/db/server";
-import {
-  InternalError,
-  NotFoundError,
-  UnauthenticatedError,
-  ValidationError,
-} from "@/lib/errors";
+import { InternalError, NotFoundError, ValidationError } from "@/lib/errors";
 import type { JsonObject } from "@/lib/http";
 import { isUuid } from "@/lib/validation/uuid";
 import type { CatalogItemDto } from "@/packages/shared/provider";
@@ -63,12 +59,7 @@ async function requireProviderOwner(
   const { data, error } = await supabase.rpc("is_provider_owner", {
     p: providerId,
   });
-  if (error) {
-    if (error.code === "28000") throw new UnauthenticatedError();
-    throw new InternalError("Failed to verify provider ownership.", {
-      cause: error,
-    });
-  }
+  if (error) mapPgError(error, "Failed to verify provider ownership.");
   if (!data) throw new NotFoundError("Provider not found.");
 }
 
@@ -120,12 +111,7 @@ const CHECK_CONSTRAINT_ISSUES: Record<string, { field: string; rule: string }> =
  * CHECK) is attributed to the violated constraint's field; `22003` (numeric
  * overflow) to `defaultQuantity`.
  */
-function mapWriteError(error: {
-  code?: string;
-  message?: string;
-  cause?: unknown;
-}): never {
-  if (error.code === "28000") throw new UnauthenticatedError();
+function mapWriteError(error: RpcError): never {
   if (error.code === "42501") throw new NotFoundError("Provider not found.");
   if (error.code === "23503") {
     throw new ValidationError("That source dish does not exist.", [
@@ -150,7 +136,8 @@ function mapWriteError(error: {
       { field: "defaultQuantity", rule: "max" },
     ]);
   }
-  throw new InternalError("Failed to save the catalog item.", { cause: error });
+  // 28000 → 401, anything else → 500 (with the original kept as `cause`).
+  mapPgError(error, "Failed to save the catalog item.");
 }
 
 /**
