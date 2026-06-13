@@ -1452,44 +1452,68 @@ export type Database = {
       };
       provider_memberships: {
         Row: {
+          allergy_ack_at: string | null;
           approved_at: string | null;
           approved_by_user_id: string | null;
           created_at: string;
+          default_spice_level:
+            | Database["public"]["Enums"]["provider_spice_level"]
+            | null;
           id: string;
           invited_by_user_id: string | null;
           joined_at: string | null;
+          member_display_name: string | null;
+          member_phone: string | null;
+          onboarding_completed_at: string | null;
           provider_id: string;
           removed_at: string | null;
           role: Database["public"]["Enums"]["provider_membership_role"];
           status: Database["public"]["Enums"]["provider_membership_status"];
+          terms_ack_at: string | null;
           updated_at: string;
           user_id: string;
         };
         Insert: {
+          allergy_ack_at?: string | null;
           approved_at?: string | null;
           approved_by_user_id?: string | null;
           created_at?: string;
+          default_spice_level?:
+            | Database["public"]["Enums"]["provider_spice_level"]
+            | null;
           id?: string;
           invited_by_user_id?: string | null;
           joined_at?: string | null;
+          member_display_name?: string | null;
+          member_phone?: string | null;
+          onboarding_completed_at?: string | null;
           provider_id: string;
           removed_at?: string | null;
           role: Database["public"]["Enums"]["provider_membership_role"];
           status: Database["public"]["Enums"]["provider_membership_status"];
+          terms_ack_at?: string | null;
           updated_at?: string;
           user_id: string;
         };
         Update: {
+          allergy_ack_at?: string | null;
           approved_at?: string | null;
           approved_by_user_id?: string | null;
           created_at?: string;
+          default_spice_level?:
+            | Database["public"]["Enums"]["provider_spice_level"]
+            | null;
           id?: string;
           invited_by_user_id?: string | null;
           joined_at?: string | null;
+          member_display_name?: string | null;
+          member_phone?: string | null;
+          onboarding_completed_at?: string | null;
           provider_id?: string;
           removed_at?: string | null;
           role?: Database["public"]["Enums"]["provider_membership_role"];
           status?: Database["public"]["Enums"]["provider_membership_status"];
+          terms_ack_at?: string | null;
           updated_at?: string;
           user_id?: string;
         };
@@ -1798,6 +1822,60 @@ export type Database = {
       };
       create_household: { Args: { p_name: string }; Returns: string };
       create_provider_draft: { Args: { p_name: string }; Returns: string };
+      accept_provider_invite: {
+        Args: { p_token_hash: string };
+        Returns: Json;
+      };
+      approve_provider_member: {
+        Args: { p_member_id: string; p_provider_id: string };
+        Returns: undefined;
+      };
+      reject_provider_member: {
+        Args: { p_member_id: string; p_provider_id: string };
+        Returns: undefined;
+      };
+      remove_provider_member: {
+        Args: { p_member_id: string; p_provider_id: string };
+        Returns: undefined;
+      };
+      complete_member_onboarding: {
+        // p_display_name / p_phone / p_default_spice_level are hand-adjusted to
+        // `| null`: the generator does not emit argument nullability, but the
+        // member-onboarding service passes explicit nulls for the optional fields.
+        Args: {
+          p_allergy_ack: boolean;
+          p_auto_accept_consent: boolean;
+          p_default_spice_level: string | null;
+          p_display_name: string | null;
+          p_phone: string | null;
+          p_provider_id: string;
+          p_terms_ack: boolean;
+        };
+        Returns: undefined;
+      };
+      get_provider_invite_preview: {
+        Args: { p_token_hash: string };
+        Returns: {
+          provider_name: string;
+          invited_by: string | null;
+          role: Database["public"]["Enums"]["provider_membership_role"];
+          expires_at: string;
+        }[];
+      };
+      list_provider_members: {
+        Args: { p_provider_id: string };
+        Returns: {
+          member_id: string;
+          user_id: string;
+          display_name: string | null;
+          email: string | null;
+          phone: string | null;
+          role: Database["public"]["Enums"]["provider_membership_role"];
+          status: Database["public"]["Enums"]["provider_membership_status"];
+          approved_at: string | null;
+          joined_at: string | null;
+        }[];
+      };
       decline_invite: { Args: { p_token_hash: string }; Returns: Json };
       delete_household: { Args: { h: string }; Returns: undefined };
       emit_household_event: {

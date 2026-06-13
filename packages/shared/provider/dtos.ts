@@ -15,6 +15,80 @@ import type {
   ProviderSpiceLevel,
 } from "./enums";
 
+// ─────────────────────────── Invites / membership ───────────────────────────
+
+/** Outcome of the best-effort invite email (mirrors the household invite). */
+export type ProviderInviteEmailStatus = "sent" | "failed" | "no_recipient";
+
+/**
+ * `POST /api/providers/{id}/invites` body — invite a customer by email and/or
+ * phone (§ 8). An email or phone is required (the DB `provider_invite_has_target`
+ * check). Only customers are invitable; the role is fixed server-side.
+ */
+export interface CreateProviderInviteRequest {
+  email?: string | null;
+  phone?: string | null;
+}
+
+/** `POST .../invites` result — the plaintext link is returned exactly once. */
+export interface CreateProviderInviteResult {
+  inviteId: string;
+  /** The acceptance link carrying the one-time plaintext token. */
+  inviteLink: string;
+  emailStatus: ProviderInviteEmailStatus;
+}
+
+/**
+ * `GET /api/provider-invites/{token}` — the safe, limited invite preview shown
+ * before acceptance (no org id, recipients, or token). Anon-readable by design.
+ */
+export interface ProviderInvitePreviewDto {
+  providerName: string;
+  invitedByName: string | null;
+  role: ProviderMembershipRole;
+  expiresAt: string;
+}
+
+/** `POST /api/provider-invites/{token}/accept` result — lands `awaiting_approval`. */
+export interface AcceptProviderInviteResult {
+  providerId: string;
+  membershipStatus: ProviderMembershipStatus;
+}
+
+/**
+ * The caller's own membership of a provider (`GET .../my-membership`). Drives the
+ * member-onboarding gate (`onboardingComplete`) and prefills the onboarding form.
+ * `autoAcceptEligible` is true only when the provider has provisioned a
+ * subscription for this customer (BR-002) — the onboarding consent toggle shows
+ * only then.
+ */
+export interface MyProviderMembershipDto {
+  providerId: string;
+  role: ProviderMembershipRole;
+  status: ProviderMembershipStatus;
+  onboardingComplete: boolean;
+  displayName: string | null;
+  phone: string | null;
+  defaultSpiceLevel: ProviderSpiceLevel | null;
+  autoAcceptEligible: boolean;
+  autoAcceptConsented: boolean;
+}
+
+/**
+ * `POST /api/providers/{id}/complete-member-onboarding` body (UC-MEMBER-ONBOARD-001).
+ * The minimal provider-interaction profile — NO household fields. `allergyAck` and
+ * `termsAck` are required acknowledgments; `autoAcceptConsent` is honored only when
+ * the caller is subscription-eligible.
+ */
+export interface CompleteMemberOnboardingRequest {
+  displayName: string;
+  phone: string | null;
+  defaultSpiceLevel: ProviderSpiceLevel | null;
+  allergyAck: boolean;
+  termsAck: boolean;
+  autoAcceptConsent: boolean;
+}
+
 // ─────────────────────────── Provider / discovery ───────────────────────────
 
 /** `GET /api/providers` item — one provider the caller belongs to (§ 4). */

@@ -39,6 +39,9 @@ const EXPECTED: Record<
   response_already_locked: { code: "CONFLICT", httpStatus: 409 },
   stale_version: { code: "CONFLICT", httpStatus: 409 },
   batch_stale: { code: "CONFLICT", httpStatus: 409 },
+  provider_invite_not_pending: { code: "CONFLICT", httpStatus: 409 },
+  provider_already_member: { code: "CONFLICT", httpStatus: 409 },
+  provider_member_not_pending: { code: "CONFLICT", httpStatus: 409 },
   batch_not_available: { code: "NOT_FOUND", httpStatus: 404 },
 };
 

@@ -1,16 +1,30 @@
-import { Users } from "lucide-react";
+import { redirect } from "next/navigation";
 
-import { ProviderComingSoon } from "@/components/provider/provider-coming-soon";
+import { MembersView } from "@/components/provider-members/members-view";
+import { listProviderMembers } from "@/lib/services/provider";
+import { resolveOwnerProvider } from "@/lib/services/workspace";
 
+export const dynamic = "force-dynamic";
 export const metadata = { title: "Members" };
 
-/** Owner member approval — lands with MP-B-022 at CP3. */
-export default function ProviderMembersPage() {
+/**
+ * Owner Members page (MP-B-022, CP3). Resolves the owner's active provider
+ * (id-less `/provider/*` convention), loads the roster server-side under RLS, and
+ * hands it to the client view that manages invites + approvals. A user who owns no
+ * provider is bounced to the workspace chooser (defense-in-depth on the shell).
+ */
+export default async function ProviderMembersPage() {
+  const provider = await resolveOwnerProvider();
+  if (!provider) {
+    redirect("/workspace");
+  }
+
+  const members = await listProviderMembers(provider.providerId);
+
   return (
-    <ProviderComingSoon
-      icon={Users}
-      title="Members coming soon"
-      description="Invite customers, then approve, reject, or remove them as they join."
+    <MembersView
+      providerId={provider.providerId}
+      initialMembers={members.data}
     />
   );
 }
