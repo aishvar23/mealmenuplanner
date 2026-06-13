@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createServiceRoleClient } from "@/lib/db/service-role";
-import { InternalError, NotFoundError } from "@/lib/errors";
+import {
+  InternalError,
+  NotFoundError,
+  UnauthenticatedError,
+} from "@/lib/errors";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/db/service-role", () => ({
@@ -57,6 +61,14 @@ describe("processProviderCutoff", () => {
 
     await expect(processProviderCutoff(MENU_DAY)).rejects.toBeInstanceOf(
       InternalError,
+    );
+  });
+
+  it("maps a 28000 (no session) error to a 401 UnauthenticatedError", async () => {
+    stubRpc({ data: null, error: { code: "28000" } });
+
+    await expect(processProviderCutoff(MENU_DAY)).rejects.toBeInstanceOf(
+      UnauthenticatedError,
     );
   });
 

@@ -1776,6 +1776,8 @@ export type Database = {
         Row: {
           created_at: string;
           cutoff_at: string;
+          cutoff_failure_count: number;
+          cutoff_last_error: string | null;
           id: string;
           locked_at: string | null;
           menu_date: string;
@@ -1789,6 +1791,8 @@ export type Database = {
         Insert: {
           created_at?: string;
           cutoff_at: string;
+          cutoff_failure_count?: number;
+          cutoff_last_error?: string | null;
           id?: string;
           locked_at?: string | null;
           menu_date: string;
@@ -1802,6 +1806,8 @@ export type Database = {
         Update: {
           created_at?: string;
           cutoff_at?: string;
+          cutoff_failure_count?: number;
+          cutoff_last_error?: string | null;
           id?: string;
           locked_at?: string | null;
           menu_date?: string;

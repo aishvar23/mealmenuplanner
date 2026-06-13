@@ -1,7 +1,8 @@
 import "server-only";
 
+import { mapPgError, type RpcError } from "@/lib/db/rpc-error";
 import { createServiceRoleClient } from "@/lib/db/service-role";
-import { InternalError, NotFoundError } from "@/lib/errors";
+import { NotFoundError } from "@/lib/errors";
 import { isUuid } from "@/lib/validation/uuid";
 
 /**
@@ -20,11 +21,6 @@ import { isUuid } from "@/lib/validation/uuid";
  * Idempotent (ADR-9/10): a re-run on an already-locked day returns the existing
  * current batch without producing a duplicate batch / auto-accept / quantities.
  */
-
-interface RpcError {
-  code?: string;
-  message?: string;
-}
 
 export interface ProviderCutoffResult {
   /**
@@ -50,17 +46,15 @@ export async function processProviderCutoff(
     p_menu_day_id: menuDayId,
   });
   if (error) mapCutoffError(error as RpcError);
-  return { batchId: (data as string | null) ?? null };
+  return { batchId: data as string | null };
 }
 
 /**
  * Map a `process_provider_cutoff` RPC error to its domain error. The RPC raises only
- * `P0002` (unknown menu day) toward the caller — an existence-hiding 404; anything
- * else is an unexpected internal failure.
+ * `P0002` (unknown menu day) toward the caller — an existence-hiding 404; the shared
+ * {@link mapPgError} covers the common tail (`28000` → 401, anything else → 500).
  */
 function mapCutoffError(error: RpcError): never {
   if (error.code === "P0002") throw new NotFoundError("Menu not found.");
-  throw new InternalError("Failed to process the menu cutoff.", {
-    cause: error,
-  });
+  mapPgError(error, "Failed to process the menu cutoff.");
 }
