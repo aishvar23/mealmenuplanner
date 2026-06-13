@@ -145,12 +145,13 @@ report ambiguity with file/symbol/observed-behavior/why.
 - **Rollback:** drop tables.
 - **Shipped (PR AB#23):** the 4 tables + `version` + indexes; RLS **read posture** — responses/items/customizations are SELECT-only (member self via the `can_read_provider_response`/`_item` chain helpers, owner all); every response mutation flows through the server-derived MP-A-130/141/150 RPCs (quantities are client-never-controlled). Suggestions grant member self-INSERT + owner UPDATE. Verified by a rolled-back impersonation probe (self/owner/cross-provider matrix). The read half of MP-A-130 (`getMyResponse` + `GET /api/provider-menu-days/{id}/my-response`) shipped in the same PR; the save/confirm/cancel + cutoff + concurrency path is the MP-A-130 remainder (#23 stays in Doing).
 
-### MP-A-014 — Batch + events + notifications schema — `NOT_STARTED` (after MP-A-013)
+### MP-A-014 — Batch + events + notifications schema — `DONE` (#25, migration `pmp_6_batches_events_notifications`)
 
 - **Track:** A · **Checkpoint:** 5 · **Branch:** provider-schema-rls.
 - **Objective:** `provider_preparation_batches` (unique revision), `_lines`, `provider_activity_events`, `provider_notifications` + RLS (owner-only batch; recipient-scoped notif).
 - **Use cases:** UC-BATCH-_, UC-OVERRIDE-_, UC-NOTIFY-\*; `04`§2.16–2.19. **Tests:** customer cannot read batch/lines; revision uniqueness; append-only.
 - **Rollback:** drop tables.
+- **Shipped (PR AB#25):** the 4 tables + checks (revision≥1, status∈{current,stale}, email_status∈{queued,sent,failed}, non-negative totals/quantities) + unique `(menu_day_id, revision)` + indexes; `can_read_provider_batch` chain helper; RLS — **batches/lines/events are owner-SELECT-only** (no customer access to the aggregate roster or owner audit), **notifications are recipient-scoped** read + mark-read; every row is written by the server-role cutoff/regenerate/emit RPCs (MP-A-141/150/170, not in this PR). Verified by a rolled-back impersonation probe (owner reads batch/line/event; approved customer reads only their own notification; outsider sees nothing). Applied to cloud dev + types regenerated.
 
 ### MP-A-015 — Workspace pointer + onboarding-draft schema — `PARTIAL` (#17: pointer done; ADR-6 draft deferred to CP3)
 
@@ -218,12 +219,13 @@ report ambiguity with file/symbol/observed-behavior/why.
 - **Use cases:** UC-SUGGEST-\*; BR-012. **Tests:** suggestion never alters response/batch; rate-limit; owner-only resolution.
 - **Rollback:** remove routes.
 
-### MP-A-140 — Aggregation domain + persistence — `NOT_STARTED` (after MP-A-014)
+### MP-A-140 — Aggregation domain + persistence — `PARTIAL` (#25: pure fn done; persistence deferred with the cutoff tx)
 
 - **Track:** A · **Checkpoint:** 5 · **Branch:** provider-cutoff-aggregation · **Conflict risk:** Low.
 - **Objective:** pure `aggregatePreparation()` keyed catalogItem+unit+spice+salt; included vs extra separate; persistence to batch lines.
 - **Use cases:** UC-BATCH-002; `04`§6. **Tests:** the spec's worked example (UC-BATCH-002) reconciles exactly; never mixes units; included/extra separate.
 - **Rollback:** remove module.
+- **Shipped (PR AB#25):** the **pure** `aggregatePreparation()` (`lib/services/provider/aggregation.ts`) — folds per-member `PreparationLine[]` into the aggregate roster keyed `catalogItemId+canonicalUnit+spiceLevel+saltLevel`, summing included/extra separately, deterministic order (component group → name → unit → spice → salt). 9 Vitest cases incl. the UC-BATCH-002 worked example, unit-isolation, included/extra separation, no-input-mutation. **Persistence to batch lines is deferred** — it runs inside the cutoff (MP-A-141) / regenerate (MP-A-150) transaction, both of which depend on MP-A-130 (response save RPC, the #23 follow-up); this PR ships only the DB-free half.
 
 ### MP-A-141 — Cutoff processor (job + RPC) — `NOT_STARTED` (after MP-A-130, MP-A-140)
 
