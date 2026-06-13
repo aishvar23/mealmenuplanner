@@ -17,6 +17,18 @@ export {
 } from "./validation";
 export { requireOwnedProvider } from "./access";
 export {
+  createCatalogItem,
+  listProviderCatalog,
+  updateCatalogItem,
+} from "./catalog";
+export {
+  validateCreateCatalogItem,
+  validateUpdateCatalogItem,
+  PROVIDER_COMPONENT_GROUPS,
+  type CatalogInsertValues,
+  type CatalogUpdatePatch,
+} from "./catalog-validation";
+export {
   acceptProviderInvite,
   createProviderInvite,
   previewProviderInvite,

@@ -24,6 +24,7 @@ import type {
   BatchDto,
   CatalogItemDto,
   CompleteMemberOnboardingRequest,
+  CreateCatalogItemRequest,
   CreateProviderInviteRequest,
   CreateProviderInviteResult,
   MemberDto,
@@ -34,6 +35,7 @@ import type {
   ProviderInvitePreviewDto,
   ProviderSummaryDto,
   SaveProviderResponseRequest,
+  UpdateCatalogItemRequest,
 } from "./dtos";
 
 /** `POST /api/providers` body — creates the org as a draft (contract 03 § 8). */
@@ -79,8 +81,19 @@ export interface ProviderApiClient {
   completeProviderOnboarding(providerId: string): Promise<ProviderDto>;
 
   // ── Catalog ──
-  /** `GET /api/providers/{providerId}/catalog`. */
+  /** `GET /api/providers/{providerId}/catalog` — the owner's catalog library. */
   listCatalog(providerId: string): Promise<CatalogItemDto[]>;
+  /** `POST /api/providers/{providerId}/catalog` — add an item (owner). */
+  createCatalogItem(
+    providerId: string,
+    input: CreateCatalogItemRequest,
+  ): Promise<CatalogItemDto>;
+  /** `PATCH /api/providers/{providerId}/catalog/{catalogItemId}` — edit/archive. */
+  updateCatalogItem(
+    providerId: string,
+    catalogItemId: string,
+    patch: UpdateCatalogItemRequest,
+  ): Promise<CatalogItemDto>;
 
   // ── Members ──
   /** `GET /api/providers/{providerId}/members` — cursor-paginated roster. */

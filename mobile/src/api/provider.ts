@@ -3,6 +3,7 @@ import type {
   BatchDto,
   CatalogItemDto,
   CompleteMemberOnboardingRequest,
+  CreateCatalogItemRequest,
   CreateProviderInviteRequest,
   CreateProviderInviteResult,
   MemberDto,
@@ -16,6 +17,7 @@ import type {
   ProviderSummaryDto,
   ProviderUpdateInput,
   SaveProviderResponseRequest,
+  UpdateCatalogItemRequest,
 } from "@mmp/shared/provider";
 import type { Collection } from "@mmp/shared/types";
 
@@ -77,6 +79,25 @@ export const providerApiClient: ProviderApiClient = {
   // ── Catalog ──
   listCatalog(providerId: string): Promise<CatalogItemDto[]> {
     return apiRequest<CatalogItemDto[]>(`${providers}/${providerId}/catalog`);
+  },
+  createCatalogItem(
+    providerId: string,
+    input: CreateCatalogItemRequest,
+  ): Promise<CatalogItemDto> {
+    return apiRequest<CatalogItemDto>(`${providers}/${providerId}/catalog`, {
+      method: "POST",
+      body: input,
+    });
+  },
+  updateCatalogItem(
+    providerId: string,
+    catalogItemId: string,
+    patch: UpdateCatalogItemRequest,
+  ): Promise<CatalogItemDto> {
+    return apiRequest<CatalogItemDto>(
+      `${providers}/${providerId}/catalog/${catalogItemId}`,
+      { method: "PATCH", body: patch },
+    );
   },
 
   // ── Members ──
