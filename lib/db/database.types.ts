@@ -2043,6 +2043,250 @@ export type Database = {
           },
         ];
       };
+      provider_member_responses: {
+        Row: {
+          auto_accepted: boolean;
+          cancelled_at: string | null;
+          confirmed_at: string | null;
+          created_at: string;
+          id: string;
+          locked_at: string | null;
+          member_note: string | null;
+          member_user_id: string;
+          menu_day_id: string;
+          provider_id: string;
+          provider_overridden: boolean;
+          provider_override_reason: string | null;
+          status: Database["public"]["Enums"]["provider_response_status"];
+          updated_at: string;
+          version: number;
+        };
+        Insert: {
+          auto_accepted?: boolean;
+          cancelled_at?: string | null;
+          confirmed_at?: string | null;
+          created_at?: string;
+          id?: string;
+          locked_at?: string | null;
+          member_note?: string | null;
+          member_user_id: string;
+          menu_day_id: string;
+          provider_id: string;
+          provider_overridden?: boolean;
+          provider_override_reason?: string | null;
+          status?: Database["public"]["Enums"]["provider_response_status"];
+          updated_at?: string;
+          version?: number;
+        };
+        Update: {
+          auto_accepted?: boolean;
+          cancelled_at?: string | null;
+          confirmed_at?: string | null;
+          created_at?: string;
+          id?: string;
+          locked_at?: string | null;
+          member_note?: string | null;
+          member_user_id?: string;
+          menu_day_id?: string;
+          provider_id?: string;
+          provider_overridden?: boolean;
+          provider_override_reason?: string | null;
+          status?: Database["public"]["Enums"]["provider_response_status"];
+          updated_at?: string;
+          version?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "provider_member_responses_member_user_id_fkey";
+            columns: ["member_user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "provider_member_responses_menu_day_id_fkey";
+            columns: ["menu_day_id"];
+            isOneToOne: false;
+            referencedRelation: "provider_menu_days";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "provider_member_responses_provider_id_fkey";
+            columns: ["provider_id"];
+            isOneToOne: false;
+            referencedRelation: "provider_organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      provider_member_response_items: {
+        Row: {
+          canonical_unit: string;
+          created_at: string;
+          id: string;
+          menu_component_id: string;
+          quantity: number;
+          response_id: string;
+          salt_level: Database["public"]["Enums"]["provider_salt_level"] | null;
+          selected_catalog_item_id: string;
+          spice_level:
+            | Database["public"]["Enums"]["provider_spice_level"]
+            | null;
+          updated_at: string;
+        };
+        Insert: {
+          canonical_unit: string;
+          created_at?: string;
+          id?: string;
+          menu_component_id: string;
+          quantity: number;
+          response_id: string;
+          salt_level?:
+            | Database["public"]["Enums"]["provider_salt_level"]
+            | null;
+          selected_catalog_item_id: string;
+          spice_level?:
+            | Database["public"]["Enums"]["provider_spice_level"]
+            | null;
+          updated_at?: string;
+        };
+        Update: {
+          canonical_unit?: string;
+          created_at?: string;
+          id?: string;
+          menu_component_id?: string;
+          quantity?: number;
+          response_id?: string;
+          salt_level?:
+            | Database["public"]["Enums"]["provider_salt_level"]
+            | null;
+          selected_catalog_item_id?: string;
+          spice_level?:
+            | Database["public"]["Enums"]["provider_spice_level"]
+            | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "provider_member_response_items_menu_component_id_fkey";
+            columns: ["menu_component_id"];
+            isOneToOne: false;
+            referencedRelation: "provider_menu_components";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "provider_member_response_items_response_id_fkey";
+            columns: ["response_id"];
+            isOneToOne: false;
+            referencedRelation: "provider_member_responses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "provider_member_response_items_selected_catalog_item_id_fkey";
+            columns: ["selected_catalog_item_id"];
+            isOneToOne: false;
+            referencedRelation: "provider_catalog_items";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      provider_member_response_customizations: {
+        Row: {
+          created_at: string;
+          customization_option_id: string;
+          id: string;
+          quantity: number | null;
+          response_item_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          customization_option_id: string;
+          id?: string;
+          quantity?: number | null;
+          response_item_id: string;
+        };
+        Update: {
+          created_at?: string;
+          customization_option_id?: string;
+          id?: string;
+          quantity?: number | null;
+          response_item_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "provider_member_response_customiza_customization_option_id_fkey";
+            columns: ["customization_option_id"];
+            isOneToOne: false;
+            referencedRelation: "provider_customization_options";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "provider_member_response_customizations_response_item_id_fkey";
+            columns: ["response_item_id"];
+            isOneToOne: false;
+            referencedRelation: "provider_member_response_items";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      provider_meal_suggestions: {
+        Row: {
+          created_at: string;
+          id: string;
+          member_user_id: string;
+          menu_day_id: string;
+          provider_id: string;
+          provider_response: string | null;
+          status: Database["public"]["Enums"]["provider_suggestion_status"];
+          suggestion_text: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          member_user_id: string;
+          menu_day_id: string;
+          provider_id: string;
+          provider_response?: string | null;
+          status?: Database["public"]["Enums"]["provider_suggestion_status"];
+          suggestion_text: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          member_user_id?: string;
+          menu_day_id?: string;
+          provider_id?: string;
+          provider_response?: string | null;
+          status?: Database["public"]["Enums"]["provider_suggestion_status"];
+          suggestion_text?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "provider_meal_suggestions_member_user_id_fkey";
+            columns: ["member_user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "provider_meal_suggestions_menu_day_id_fkey";
+            columns: ["menu_day_id"];
+            isOneToOne: false;
+            referencedRelation: "provider_menu_days";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "provider_meal_suggestions_provider_id_fkey";
+            columns: ["provider_id"];
+            isOneToOne: false;
+            referencedRelation: "provider_organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       user_active_workspace: {
         Row: {
           updated_at: string;
@@ -2201,6 +2445,11 @@ export type Database = {
       provider_of_customization_group: { Args: { g: string }; Returns: string };
       can_read_provider_customization_group: {
         Args: { g: string };
+        Returns: boolean;
+      };
+      can_read_provider_response: { Args: { r: string }; Returns: boolean };
+      can_read_provider_response_item: {
+        Args: { i: string };
         Returns: boolean;
       };
       abandon_stale_drafts: { Args: never; Returns: number };
