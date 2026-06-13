@@ -10,6 +10,7 @@ import {
   ValidationError,
 } from "@/lib/errors";
 import type { JsonObject } from "@/lib/http";
+import { isUuid } from "@/lib/validation/uuid";
 import type { CatalogItemDto } from "@/packages/shared/provider";
 
 import {
@@ -23,23 +24,53 @@ import {
  *
  *   • `listProviderCatalog` — `GET /api/providers/{id}/catalog`; the owner's full
  *     library, grouped by component (active items still listed — archived ones too,
- *     so the owner can restore them). RLS `pcat_select` (owner only) scopes it; a
- *     non-owner caller simply sees an empty list (leak-free, design/04 § 4).
+ *     so the owner can restore them).
  *   • `createCatalogItem` — `POST .../catalog`; insert through RLS `pcat_insert`
  *     (owner only). `provider_id` comes from the route, never the client (plan § 9).
  *   • `updateCatalogItem` — `PATCH .../catalog/{itemId}`; partial edit OR archive/
  *     restore (toggle `is_active`) through RLS `pcat_update`. Items are never hard
  *     deleted (ADR-4) — past menus/responses keep their referenced item.
  *
- * The owner membership is `active` even while the org is still a `draft`
- * (`create_provider_draft` mints it atomically), so `is_provider_owner` is true
- * during onboarding — the onboarding wizard's catalog seed (MP-B-020/MP-C-020)
- * writes through these same paths. Route handlers stay thin: parse, call one of
- * these, serialize. camelCase↔snake_case translation lives here at the boundary.
+ * Every path gates ownership up front via {@link requireProviderOwner} so a
+ * non-owner (or an unknown/malformed provider id) gets the same existence-hiding
+ * `NotFoundError` on a read as on a write — uniform with the members read
+ * (design/04 § 2/§ 4), rather than a read leaking an empty 200. RLS remains the
+ * authoritative backstop underneath. The owner membership is `active` even while
+ * the org is still a `draft` (`create_provider_draft` mints it atomically), so
+ * `is_provider_owner` is true during onboarding — the onboarding wizard's catalog
+ * seed (MP-B-020/MP-C-020) writes through these same paths. Route handlers stay
+ * thin: parse, call one of these, serialize. camelCase↔snake_case translation
+ * lives here at the boundary.
  */
 
 type SupabaseClient = Awaited<ReturnType<typeof createServerSupabaseClient>>;
 type CatalogRow = Database["public"]["Tables"]["provider_catalog_items"]["Row"];
+
+/**
+ * Draft-safe owner gate. Unlike `requireOwnedProvider` (which lists workspace
+ * summaries and excludes `draft` orgs), this calls the SECURITY DEFINER
+ * `is_provider_owner(p)` — true for the owner even while the org is a draft
+ * (onboarding) — so a non-owner, or an unknown/malformed provider id, is answered
+ * with an existence-hiding `NotFoundError` (design/04 § 2). A non-UUID id can't
+ * name a real row, so it short-circuits without a round trip (and avoids a `22P02`
+ * cast error surfacing as a 500).
+ */
+async function requireProviderOwner(
+  supabase: SupabaseClient,
+  providerId: string,
+): Promise<void> {
+  if (!isUuid(providerId)) throw new NotFoundError("Provider not found.");
+  const { data, error } = await supabase.rpc("is_provider_owner", {
+    p: providerId,
+  });
+  if (error) {
+    if (error.code === "28000") throw new UnauthenticatedError();
+    throw new InternalError("Failed to verify provider ownership.", {
+      cause: error,
+    });
+  }
+  if (!data) throw new NotFoundError("Provider not found.");
+}
 
 /** The catalog columns the DTO needs — selected explicitly, never `*`. */
 const CATALOG_COLUMNS =
@@ -64,12 +95,36 @@ function toCatalogItemDto(row: CatalogRow): CatalogItemDto {
 }
 
 /**
+ * The table's CHECK constraints (migration `pmp_3_catalog`), mapped to the request
+ * field + rule they back, so a `23514` is attributed to the column that actually
+ * failed instead of always blaming `defaultQuantity`. Ownership is gated before
+ * every write, so these are defense-in-depth behind the validator.
+ */
+const CHECK_CONSTRAINT_ISSUES: Record<string, { field: string; rule: string }> =
+  {
+    provider_catalog_name_not_blank: { field: "name", rule: "required" },
+    provider_catalog_unit_not_blank: {
+      field: "canonicalUnit",
+      rule: "required",
+    },
+    provider_catalog_default_quantity_positive: {
+      field: "defaultQuantity",
+      rule: "positive",
+    },
+  };
+
+/**
  * Map a write error to a domain error. `42501` (RLS rejection → caller is not the
  * provider owner) becomes an existence-hiding `NotFoundError`; a `23503` FK
- * violation on `source_dish_id` becomes a field `ValidationError`; `23514` a DB
- * CHECK (defense-in-depth behind the validator).
+ * violation on `source_dish_id` becomes a field `ValidationError`; `23514` (a DB
+ * CHECK) is attributed to the violated constraint's field; `22003` (numeric
+ * overflow) to `defaultQuantity`.
  */
-function mapWriteError(error: { code?: string; cause?: unknown }): never {
+function mapWriteError(error: {
+  code?: string;
+  message?: string;
+  cause?: unknown;
+}): never {
   if (error.code === "28000") throw new UnauthenticatedError();
   if (error.code === "42501") throw new NotFoundError("Provider not found.");
   if (error.code === "23503") {
@@ -78,8 +133,21 @@ function mapWriteError(error: { code?: string; cause?: unknown }): never {
     ]);
   }
   if (error.code === "23514") {
+    const message = error.message ?? "";
+    const matched = Object.entries(CHECK_CONSTRAINT_ISSUES).find(([name]) =>
+      message.includes(name),
+    );
+    const issue = matched?.[1] ?? {
+      field: "defaultQuantity",
+      rule: "positive",
+    };
     throw new ValidationError("Some catalog item details are invalid.", [
-      { field: "defaultQuantity", rule: "positive" },
+      issue,
+    ]);
+  }
+  if (error.code === "22003") {
+    throw new ValidationError("Some catalog item details are invalid.", [
+      { field: "defaultQuantity", rule: "max" },
     ]);
   }
   throw new InternalError("Failed to save the catalog item.", { cause: error });
@@ -88,13 +156,15 @@ function mapWriteError(error: { code?: string; cause?: unknown }): never {
 /**
  * `GET /api/providers/{id}/catalog` — the owner's catalog, ordered by component
  * group (natural plate order, the enum's definition order) then name, so the read
- * is effectively grouped. Owner-scoped by RLS; a non-owner sees an empty list.
+ * is effectively grouped. Owner-gated up front, then owner-scoped by RLS; a
+ * non-owner gets an existence-hiding `NotFoundError`.
  */
 export async function listProviderCatalog(
   providerId: string,
 ): Promise<CatalogItemDto[]> {
   await requireAuthUser();
   const supabase = await createServerSupabaseClient();
+  await requireProviderOwner(supabase, providerId);
   const { data, error } = await supabase
     .from("provider_catalog_items")
     .select(CATALOG_COLUMNS)
@@ -108,17 +178,18 @@ export async function listProviderCatalog(
 }
 
 /**
- * `POST /api/providers/{id}/catalog` — add one item (owner only via RLS). The
- * body is validated first, then inserted with the route's `provider_id`; a
- * non-owner caller's insert is rejected by RLS and surfaces as `NotFoundError`.
+ * `POST /api/providers/{id}/catalog` — add one item (owner only). Ownership is
+ * gated first (a non-owner gets an existence-hiding `NotFoundError`), then the
+ * body is validated and inserted with the route's `provider_id`; RLS backstops.
  */
 export async function createCatalogItem(
   providerId: string,
   body: JsonObject,
 ): Promise<CatalogItemDto> {
   await requireAuthUser();
-  const values = validateCreateCatalogItem(body);
   const supabase = await createServerSupabaseClient();
+  await requireProviderOwner(supabase, providerId);
+  const values = validateCreateCatalogItem(body);
   const { data, error } = await supabase
     .from("provider_catalog_items")
     .insert({ ...values, provider_id: providerId })
@@ -141,8 +212,9 @@ export async function updateCatalogItem(
   body: JsonObject,
 ): Promise<CatalogItemDto> {
   await requireAuthUser();
-  const patch = validateUpdateCatalogItem(body);
   const supabase = await createServerSupabaseClient();
+  await requireProviderOwner(supabase, providerId);
+  const patch = validateUpdateCatalogItem(body);
 
   if (Object.keys(patch).length === 0) {
     return readCatalogItem(supabase, providerId, catalogItemId);

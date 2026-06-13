@@ -39,6 +39,11 @@ import type { Collection } from "@mmp/shared/types";
 
 const f = providerFixtures;
 
+// A monotonic id source so each mock-created catalog item gets a distinct id
+// (the real server assigns one) — reusing a fixture id would collide React keys
+// when the UI lists several just-created items.
+let mockCatalogSeq = 0;
+
 /** A single-page collection envelope (no cursor) over a bounded fixture list. */
 function bounded<T>(data: T[]): Collection<T> {
   return { data, page: { nextCursor: null, hasMore: false } };
@@ -91,6 +96,7 @@ export const mockProviderClient: ProviderApiClient = {
     // sees its own input; the real server assigns the id + defaults.
     return Promise.resolve({
       ...f.catalogItems[0]!,
+      catalogItemId: `mock-catalog-${++mockCatalogSeq}`,
       name: input.name,
       componentGroup: input.componentGroup,
       canonicalUnit: input.canonicalUnit,

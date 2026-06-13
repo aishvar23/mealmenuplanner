@@ -1,9 +1,12 @@
 import { ValidationError, type ValidationIssue } from "@/lib/errors";
 import type { JsonObject } from "@/lib/http";
+import { isUuid } from "@/lib/validation/uuid";
 import {
   PROVIDER_COMPONENT_GROUPS,
   type ProviderComponentGroup,
 } from "@/packages/shared/provider";
+
+import { optionalText, requiredText } from "./text-validators";
 
 // Re-exported for the service barrel (`./index`) — the canonical list lives in
 // `@mmp/shared/provider` so the web/mobile pickers and this validator share one set.
@@ -21,12 +24,16 @@ const NAME_MAX = 120;
 const UNIT_MAX = 40;
 const ALLERGY_MAX = 200;
 const IMAGE_URL_MAX = 2048;
-/** A sane upper bound on a per-portion default quantity (the DB only checks > 0). */
-const QUANTITY_MAX = 1_000_000;
-
-/** RFC-4122 UUID (any version), for the optional `sourceDishId` soft link. */
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/**
+ * Bounds coordinated with the `default_quantity numeric(10,3)` column: a value
+ * with more than {@link QUANTITY_SCALE} decimals would be silently rounded by
+ * Postgres (a quiet data-fidelity loss), and a value above {@link QUANTITY_MAX}
+ * (the column's true capacity) would raise a `22003` overflow at insert instead
+ * of a clean 400. Validating both here keeps the validator the single source of
+ * truth for what the column can faithfully hold.
+ */
+const QUANTITY_SCALE = 3;
+const QUANTITY_MAX = 9_999_999.999;
 
 /** The catalog columns (snake_case) for a DB insert — `provider_id` is added by
  * the service from the route, never the client (plan § 9). */
@@ -47,49 +54,32 @@ export type CatalogUpdatePatch = Partial<CatalogInsertValues> & {
   is_active?: boolean;
 };
 
-/** A trimmed, bounded required string; pushes an issue and returns null if invalid. */
-function requiredText(
-  value: unknown,
-  field: string,
-  max: number,
-  issues: ValidationIssue[],
-): string | null {
-  if (typeof value !== "string" || value.trim().length === 0) {
-    issues.push({ field, rule: "required" });
-    return null;
-  }
-  const trimmed = value.trim();
-  if (trimmed.length > max) {
-    issues.push({ field, rule: "maxLength", max });
-    return null;
-  }
-  return trimmed;
-}
-
 /**
- * A nullable free-text field: `undefined` → omitted (returns `undefined`), `null`
- * or blank → `null`, otherwise a trimmed/bounded string. Pushes an issue (and
- * returns `undefined`) on a non-string or over-length value.
+ * A nullable image URL: same trim/blank/length rules as {@link optionalText},
+ * plus an `http(s)`-only scheme check so an unsafe value (e.g. `javascript:` or a
+ * `data:` URI) can't be stored and later bound into an `<img src>` / link by the
+ * web/mobile UI. Pushes a `url` issue (and returns `undefined`) on a malformed or
+ * non-`http(s)` URL.
  */
-function optionalText(
+function optionalImageUrl(
   value: unknown,
   field: string,
-  max: number,
   issues: ValidationIssue[],
 ): string | null | undefined {
-  if (value === undefined) return undefined;
-  if (value === null) return null;
-  if (typeof value !== "string") {
-    issues.push({ field, rule: "type" });
+  const text = optionalText(value, field, issues, IMAGE_URL_MAX);
+  if (text === undefined || text === null) return text;
+  let url: URL;
+  try {
+    url = new URL(text);
+  } catch {
+    issues.push({ field, rule: "url" });
     return undefined;
   }
-  const trimmed = value.trim();
-  if (trimmed.length === 0) return null;
-  if (trimmed.length > max) {
-    issues.push({ field, rule: "maxLength", max });
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    issues.push({ field, rule: "url" });
     return undefined;
   }
-  return trimmed;
+  return text;
 }
 
 /** Validate a component group against the shared allow-list; null + issue if bad. */
@@ -111,7 +101,23 @@ function componentGroup(
   return value as ProviderComponentGroup;
 }
 
-/** Validate a positive, finite default quantity; null + issue if bad. */
+/**
+ * True if `value` carries more than {@link QUANTITY_SCALE} decimal places (or is
+ * expressed in scientific notation, which only arises outside the normal quantity
+ * range) — i.e. a precision the `numeric(10,3)` column can't hold without silently
+ * rounding. Uses the number's canonical string form to avoid float-multiply error.
+ */
+function exceedsQuantityScale(value: number): boolean {
+  const s = value.toString();
+  if (s.includes("e") || s.includes("E")) return true;
+  const dot = s.indexOf(".");
+  return dot !== -1 && s.length - dot - 1 > QUANTITY_SCALE;
+}
+
+/**
+ * Validate a positive, finite default quantity within the bounds and precision the
+ * `numeric(10,3)` column can faithfully store; null + issue if bad.
+ */
 function defaultQuantity(
   value: unknown,
   issues: ValidationIssue[],
@@ -122,6 +128,14 @@ function defaultQuantity(
   }
   if (value > QUANTITY_MAX) {
     issues.push({ field: "defaultQuantity", rule: "max", max: QUANTITY_MAX });
+    return null;
+  }
+  if (exceedsQuantityScale(value)) {
+    issues.push({
+      field: "defaultQuantity",
+      rule: "scale",
+      scale: QUANTITY_SCALE,
+    });
     return null;
   }
   return value;
@@ -149,7 +163,7 @@ function optionalUuid(
 ): string | null | undefined {
   if (value === undefined) return undefined;
   if (value === null) return null;
-  if (typeof value !== "string" || !UUID_RE.test(value)) {
+  if (typeof value !== "string" || !isUuid(value)) {
     issues.push({ field, rule: "uuid" });
     return undefined;
   }
@@ -175,17 +189,12 @@ export function validateCreateCatalogItem(
     issues,
   );
   const qty = defaultQuantity(body.defaultQuantity, issues);
-  const imageUrl = optionalText(
-    body.imageUrl,
-    "imageUrl",
-    IMAGE_URL_MAX,
-    issues,
-  );
+  const imageUrl = optionalImageUrl(body.imageUrl, "imageUrl", issues);
   const allergy = optionalText(
     body.allergyWarning,
     "allergyWarning",
-    ALLERGY_MAX,
     issues,
+    ALLERGY_MAX,
   );
   const sourceDishId = optionalUuid(body.sourceDishId, "sourceDishId", issues);
   const supportsSpice = optionalBool(
@@ -250,18 +259,13 @@ export function validateUpdateCatalogItem(
     if (qty !== null) patch.default_quantity = qty;
   }
 
-  const imageUrl = optionalText(
-    body.imageUrl,
-    "imageUrl",
-    IMAGE_URL_MAX,
-    issues,
-  );
+  const imageUrl = optionalImageUrl(body.imageUrl, "imageUrl", issues);
   if (imageUrl !== undefined) patch.image_url = imageUrl;
   const allergy = optionalText(
     body.allergyWarning,
     "allergyWarning",
-    ALLERGY_MAX,
     issues,
+    ALLERGY_MAX,
   );
   if (allergy !== undefined) patch.allergy_warning = allergy;
   const sourceDishId = optionalUuid(body.sourceDishId, "sourceDishId", issues);

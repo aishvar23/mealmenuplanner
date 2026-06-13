@@ -95,6 +95,59 @@ describe("validateCreateCatalogItem", () => {
     ).toEqual([{ field: "defaultQuantity", rule: "positive" }]);
   });
 
+  it("rejects a default quantity above the numeric(10,3) capacity", () => {
+    expect(
+      issuesOf(() =>
+        validateCreateCatalogItem({ ...VALID, defaultQuantity: 10_000_000 }),
+      )[0],
+    ).toMatchObject({ field: "defaultQuantity", rule: "max" });
+  });
+
+  it("rejects a default quantity with more than 3 decimal places", () => {
+    expect(
+      issuesOf(() =>
+        validateCreateCatalogItem({ ...VALID, defaultQuantity: 16.1234 }),
+      )[0],
+    ).toMatchObject({ field: "defaultQuantity", rule: "scale" });
+  });
+
+  it("accepts a default quantity at exactly 3 decimal places", () => {
+    expect(
+      validateCreateCatalogItem({ ...VALID, defaultQuantity: 16.125 })
+        .default_quantity,
+    ).toBe(16.125);
+  });
+
+  it("accepts an http(s) image url and rejects an unsafe / malformed one", () => {
+    expect(
+      validateCreateCatalogItem({
+        ...VALID,
+        imageUrl: "https://cdn.example.com/rajma.jpg",
+      }).image_url,
+    ).toBe("https://cdn.example.com/rajma.jpg");
+    expect(
+      issuesOf(() =>
+        validateCreateCatalogItem({
+          ...VALID,
+          imageUrl: "javascript:alert(document.cookie)",
+        }),
+      ),
+    ).toEqual([{ field: "imageUrl", rule: "url" }]);
+    expect(
+      issuesOf(() =>
+        validateCreateCatalogItem({ ...VALID, imageUrl: "not a url" }),
+      ),
+    ).toEqual([{ field: "imageUrl", rule: "url" }]);
+  });
+
+  it("rejects an unsafe image url in a patch too", () => {
+    expect(
+      issuesOf(() =>
+        validateUpdateCatalogItem({ imageUrl: "data:text/html,<script>" }),
+      ),
+    ).toEqual([{ field: "imageUrl", rule: "url" }]);
+  });
+
   it("rejects a malformed sourceDishId", () => {
     expect(
       issuesOf(() =>

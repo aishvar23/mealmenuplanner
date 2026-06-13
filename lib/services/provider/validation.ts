@@ -2,6 +2,8 @@ import { ValidationError, type ValidationIssue } from "@/lib/errors";
 import { EMAIL_RE } from "@/lib/validation/email";
 import type { ProviderUpdateInput } from "@/packages/shared/provider";
 
+import { optionalText } from "./text-validators";
+
 /**
  * Provider onboarding/settings input validation (MP-A-101, contract 03 § 8/§ 11).
  *
@@ -82,28 +84,6 @@ export interface ProviderUpdatePatch {
   timezone?: string;
   default_cutoff_local_time?: string | null;
   summary_email_recipients?: string[];
-}
-
-/** A nullable free-text field: trims, maps blank → null, bounds length. */
-function optionalText(
-  value: unknown,
-  field: string,
-  issues: ValidationIssue[],
-  max = 200,
-): string | null | undefined {
-  if (value === undefined) return undefined;
-  if (value === null) return null;
-  if (typeof value !== "string") {
-    issues.push({ field, rule: "type" });
-    return undefined;
-  }
-  const trimmed = value.trim();
-  if (trimmed.length === 0) return null;
-  if (trimmed.length > max) {
-    issues.push({ field, rule: "maxLength", max });
-    return undefined;
-  }
-  return trimmed;
 }
 
 /**

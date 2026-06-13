@@ -75,11 +75,23 @@ function makeChain(result: { data: unknown; error: unknown }) {
   return { chain, calls };
 }
 
-function stubFrom(result: { data: unknown; error: unknown }) {
+/**
+ * Stub the Supabase client. `owner` is the `is_provider_owner` RPC result the
+ * draft-safe ownership gate reads (defaults to owner=true so the table query under
+ * test is reached); pass `{ data: false }` to exercise the non-owner gate.
+ */
+function stubFrom(
+  result: { data: unknown; error: unknown },
+  owner: { data: unknown; error: unknown } = { data: true, error: null },
+) {
   const { chain, calls } = makeChain(result);
   const from = vi.fn(() => chain);
-  vi.mocked(createServerSupabaseClient).mockResolvedValue({ from } as never);
-  return { from, calls };
+  const rpc = vi.fn(() => Promise.resolve(owner));
+  vi.mocked(createServerSupabaseClient).mockResolvedValue({
+    from,
+    rpc,
+  } as never);
+  return { from, rpc, calls };
 }
 
 beforeEach(() => {
@@ -103,9 +115,28 @@ describe("listProviderCatalog", () => {
     expect(calls.order?.[1]?.[0]).toBe("name");
   });
 
-  it("returns an empty list when RLS yields no rows (non-owner)", async () => {
+  it("returns an empty list when the owner has no items", async () => {
     stubFrom({ data: [], error: null });
     expect(await listProviderCatalog(PROVIDER_ID)).toEqual([]);
+  });
+
+  it("404s a non-owner via the ownership gate before reading the table", async () => {
+    const { from } = stubFrom(
+      { data: [], error: null },
+      { data: false, error: null },
+    );
+    await expect(listProviderCatalog(PROVIDER_ID)).rejects.toBeInstanceOf(
+      NotFoundError,
+    );
+    expect(from).not.toHaveBeenCalled();
+  });
+
+  it("404s a malformed provider id without an RPC round trip", async () => {
+    const { rpc } = stubFrom({ data: [], error: null });
+    await expect(listProviderCatalog("not-a-uuid")).rejects.toBeInstanceOf(
+      NotFoundError,
+    );
+    expect(rpc).not.toHaveBeenCalled();
   });
 });
 
@@ -143,6 +174,40 @@ describe("createCatalogItem", () => {
       createCatalogItem(PROVIDER_ID, VALID_CREATE),
     ).rejects.toBeInstanceOf(ValidationError);
   });
+
+  it("maps a 22003 numeric overflow to a defaultQuantity ValidationError", async () => {
+    stubFrom({ data: null, error: { code: "22003" } });
+    await expect(
+      createCatalogItem(PROVIDER_ID, VALID_CREATE),
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  it("attributes a 23514 CHECK to the violated constraint's field", async () => {
+    stubFrom({
+      data: null,
+      error: {
+        code: "23514",
+        message:
+          'new row for relation "provider_catalog_items" violates check constraint "provider_catalog_unit_not_blank"',
+      },
+    });
+    await expect(
+      createCatalogItem(PROVIDER_ID, VALID_CREATE),
+    ).rejects.toMatchObject({
+      details: [{ field: "canonicalUnit", rule: "required" }],
+    });
+  });
+
+  it("404s a non-owner via the ownership gate before inserting", async () => {
+    const { from } = stubFrom(
+      { data: ROW, error: null },
+      { data: false, error: null },
+    );
+    await expect(
+      createCatalogItem(PROVIDER_ID, VALID_CREATE),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    expect(from).not.toHaveBeenCalled();
+  });
 });
 
 describe("updateCatalogItem", () => {
@@ -179,6 +244,17 @@ describe("updateCatalogItem", () => {
     await expect(
       updateCatalogItem(PROVIDER_ID, ITEM_ID, { defaultQuantity: -5 }),
     ).rejects.toBeInstanceOf(ValidationError);
+    expect(from).not.toHaveBeenCalled();
+  });
+
+  it("404s a non-owner via the ownership gate before updating", async () => {
+    const { from } = stubFrom(
+      { data: ROW, error: null },
+      { data: false, error: null },
+    );
+    await expect(
+      updateCatalogItem(PROVIDER_ID, ITEM_ID, { name: "X" }),
+    ).rejects.toBeInstanceOf(NotFoundError);
     expect(from).not.toHaveBeenCalled();
   });
 });
