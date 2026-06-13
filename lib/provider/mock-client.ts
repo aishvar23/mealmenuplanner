@@ -25,9 +25,11 @@ import {
   type MenuDayDto,
   type MyProviderMembershipDto,
   type ProviderApiClient,
+  type ProviderBatchRevisionDto,
   type ProviderCreateInput,
   type ProviderDto,
   type ProviderInvitePreviewDto,
+  type ProviderOverrideResultDto,
   type ProviderSummaryDto,
   type ProviderUpdateInput,
   type SaveProviderResponseRequest,
@@ -200,5 +202,13 @@ export const mockProviderClient: ProviderApiClient = {
   // ── Preparation ──
   getPreparationBatch(): Promise<BatchDto> {
     return Promise.resolve(f.currentBatch);
+  },
+
+  // ── Provider override / batch regenerate ──
+  overrideResponse(responseId: string): Promise<ProviderOverrideResultDto> {
+    return Promise.resolve({ ...f.overrideResult, responseId });
+  },
+  regenerateBatch(): Promise<ProviderBatchRevisionDto> {
+    return Promise.resolve(f.batchRevision);
   },
 };

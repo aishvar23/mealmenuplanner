@@ -2775,6 +2775,24 @@ export type Database = {
         Returns: string | null;
       };
       run_provider_cutoffs: { Args: never; Returns: number };
+      provider_override_response: {
+        // p_items is `| null` (hand-adjusted, like save_provider_response): the
+        // generator does not emit argument nullability. Returns a jsonb result
+        // ({ responseId, menuDayId, status, staleBatchId }) the route serves directly.
+        Args: { p_response_id: string; p_reason: string; p_items: Json | null };
+        Returns: Json;
+      };
+      regenerate_provider_batch: {
+        // Returns a jsonb batch summary ({ batchId, menuDayId, revision, status,
+        // generatedAt, emailStatus, totals }) the route serves directly.
+        Args: { p_batch_id: string };
+        Returns: Json;
+      };
+      insert_provider_batch_lines: {
+        // service_role-only aggregation helper (regenerate writer); not user-callable.
+        Args: { p_batch_id: string; p_menu_day_id: string };
+        Returns: undefined;
+      };
       get_provider_invite_preview: {
         Args: { p_token_hash: string };
         Returns: {

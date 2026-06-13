@@ -289,6 +289,48 @@ export interface SaveProviderResponseRequest {
   memberNote: string | null;
 }
 
+// ───────────────────── Provider override / regenerate ─────────────────────
+
+/**
+ * `POST /api/provider-responses/{responseId}/provider-override` body (UC-OVERRIDE-001,
+ * BR-007; MP-A-150). The owner corrects a LOCKED member response after cutoff:
+ * `reason` is mandatory (audited) and `items` is the corrected order in the SAME shape
+ * as a member save — the server DERIVES authoritative quantity/unit from the menu
+ * config (§ 11.6); client-sent quantity/unit values are ignored.
+ */
+export interface ProviderOverrideResponseRequest {
+  reason: string;
+  items: SaveProviderResponseRequest["items"];
+}
+
+/**
+ * `POST .../provider-override` result. The response is now `provider_overridden`;
+ * `staleBatchId` is the batch revision this override marked stale (null when no batch
+ * existed yet), the cue for the owner to regenerate.
+ */
+export interface ProviderOverrideResultDto {
+  responseId: string;
+  menuDayId: string;
+  status: ProviderResponseStatus;
+  staleBatchId: string | null;
+}
+
+/**
+ * `POST /api/provider-preparation-batches/{batchId}/regenerate` result (UC-OVERRIDE-002;
+ * MP-A-150) — the freshly-created current revision N+1. A lightweight header (no lines);
+ * the full roster is read separately via the preparation-batch route (MP-B-050). The
+ * summary email is NOT auto-resent (`emailStatus` resets to null).
+ */
+export interface ProviderBatchRevisionDto {
+  batchId: string;
+  menuDayId: string;
+  revision: number;
+  status: "current" | "stale";
+  generatedAt: string;
+  totals: BatchDto["totals"];
+  emailStatus: "queued" | "sent" | "failed" | null;
+}
+
 // ───────────────────────── Preparation / batch ─────────────────────────
 
 /** One aggregated or per-member preparation line (§ 10). */

@@ -17,8 +17,10 @@ import type {
   MenuDayDto,
   MyProviderMembershipDto,
   PreparationLine,
+  ProviderBatchRevisionDto,
   ProviderDto,
   ProviderInvitePreviewDto,
+  ProviderOverrideResultDto,
   ProviderSummaryDto,
 } from "./dtos";
 import type { WorkspaceDiscovery, WorkspaceRef } from "./workspace";
@@ -580,6 +582,27 @@ export const staleBatch: BatchDto = {
   ...currentBatch,
   batchId: "batch-rev1-stale",
   status: "stale",
+};
+
+/** Result of an owner override (UC-OVERRIDE-001; MP-A-150) — the response is now
+ * `provider_overridden` and the day's current batch was marked stale. */
+export const overrideResult: ProviderOverrideResultDto = {
+  responseId: "resp-confirmed",
+  menuDayId: MENU_DAY_ID,
+  status: "provider_overridden",
+  staleBatchId: currentBatch.batchId,
+};
+
+/** Result of a regenerate (UC-OVERRIDE-002; MP-A-150) — the fresh current revision 2;
+ * email is NOT auto-resent. */
+export const batchRevision: ProviderBatchRevisionDto = {
+  batchId: "batch-rev2",
+  menuDayId: MENU_DAY_ID,
+  revision: 2,
+  status: "current",
+  generatedAt: "2026-06-11T15:10:00Z",
+  totals: currentBatch.totals,
+  emailStatus: null,
 };
 
 // ──────────────────────── Workspace discovery ────────────────────────

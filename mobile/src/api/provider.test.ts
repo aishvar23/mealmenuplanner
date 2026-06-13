@@ -227,4 +227,27 @@ describe("providerApiClient — menus & response", () => {
       "/api/provider-menu-days/md1/preparation-batch",
     );
   });
+
+  it("overrideResponse POSTs the reason + corrected items to the override route", async () => {
+    mockApiRequest.mockResolvedValue({ responseId: "r1" });
+    const body = { reason: "swap to B", items: [] };
+
+    await providerApiClient.overrideResponse("r1", body);
+
+    expect(mockApiRequest).toHaveBeenCalledWith(
+      "/api/provider-responses/r1/provider-override",
+      { method: "POST", body },
+    );
+  });
+
+  it("regenerateBatch POSTs the regenerate route for the batch", async () => {
+    mockApiRequest.mockResolvedValue({ batchId: "b2", revision: 2 });
+
+    await providerApiClient.regenerateBatch("b1");
+
+    expect(mockApiRequest).toHaveBeenCalledWith(
+      "/api/provider-preparation-batches/b1/regenerate",
+      { method: "POST" },
+    );
+  });
 });

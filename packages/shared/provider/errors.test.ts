@@ -38,6 +38,7 @@ const EXPECTED: Record<
   cutoff_passed: { code: "CONFLICT", httpStatus: 409 },
   response_already_locked: { code: "CONFLICT", httpStatus: 409 },
   response_cancelled: { code: "CONFLICT", httpStatus: 409 },
+  menu_not_locked: { code: "CONFLICT", httpStatus: 409 },
   stale_version: { code: "CONFLICT", httpStatus: 409 },
   batch_stale: { code: "CONFLICT", httpStatus: 409 },
   provider_invite_not_pending: { code: "CONFLICT", httpStatus: 409 },

@@ -250,12 +250,13 @@ report ambiguity with file/symbol/observed-behavior/why.
 - **Use cases:** UC-CUTOFF-001/002, UC-SUBSCRIPTION-002, BR-001/002/003; `04`§5/§7. **Tests:** idempotent re-run (no dup batch/auto-accept/quantities); no-response counted; cancelled not auto-accepted; auto-accept uses default only + requires consent.
 - **Rollback:** `cron.unschedule` + remove RPC. **Verify:** email queued **after** commit.
 
-### MP-A-150 — Provider override + batch regenerate — `NOT_STARTED` (after MP-A-141)
+### MP-A-150 — Provider override + batch regenerate — `DONE` (#25, migration `pmp_12_override_regenerate`)
 
 - **Track:** A · **Checkpoint:** 5 · **Branch:** provider-cutoff-aggregation.
 - **Objective:** `provider_override_response` (reason, preserve original, event, mark stale); `regenerate_provider_batch` (rev N+1, old immutable); `provider-override`/`regenerate` endpoints.
 - **Use cases:** UC-OVERRIDE-001/002; `03`§7. **Tests:** override audited; old revision immutable; new revision correct; email NOT auto-resent.
 - **Rollback:** remove routes/RPCs.
+- **Shipped (PR AB#25):** owner-gated SECURITY DEFINER RPCs `provider_override_response(response, reason, items)` + `regenerate_provider_batch(batch)` + the shared `insert_provider_batch_lines` aggregation helper (filter `confirmed`/`auto_accepted`/`provider_overridden`, same key the cutoff dedups on; the `uq_provider_preparation_batch_lines_key` index is the TS/SQL drift backstop). Override is post-lock only (PRNLK), reason mandatory (PRRSN), owner-only (PROWN), re-derives the corrected order from the menu config (mirrors `save_provider_response`, §11.6), preserves the prior order in a `provider_override_applied` activity event, and marks the day's current batch `stale`. Regenerate marks current `stale`, inserts revision N+1 `current` with a recomputed census (`provider_overridden` folds into the confirmed bucket) + aggregate lines, writes `provider_batch_generated`, and does **not** auto-resend the summary email (`email_status` NULL — UC-OVERRIDE-002). `PR*` SQLSTATEs map in `lib/services/provider/override.ts` to `provider_owner_required`(403)/`reason required`(400)/`menu_not_locked`(409, new reason); routes `POST /api/provider-responses/{id}/provider-override` + `POST /api/provider-preparation-batches/{id}/regenerate`. **Backend-only DoD** (owner preparation UI is #26 / MP-B-050): override/regenerate added to the `@mmp/shared` `ProviderApiClient` seam + web/mobile mock + mobile HTTP client + fixtures (mobile API contract stays green, no RN screen) + Vitest service tests + a rolled-back MCP behaviour/RLS probe (11/11: negative gates PRRSN/PROWN×2/PRNLK; override flip + re-derive + stale + audit; regenerate rev2/immutable rev1/recomputed lines/no-resend/monotonic rev3). Applied to cloud dev + types patched surgically. With MP-A-014/140 already shipped (#40/#42), **#25 is now complete pending PR merge.**
 
 ### MP-A-160 — CSV export backend — `NOT_STARTED` (after MP-A-140)
 

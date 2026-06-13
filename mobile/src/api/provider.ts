@@ -11,9 +11,12 @@ import type {
   MenuDayDto,
   MyProviderMembershipDto,
   ProviderApiClient,
+  ProviderBatchRevisionDto,
   ProviderCreateInput,
   ProviderDto,
   ProviderInvitePreviewDto,
+  ProviderOverrideResponseRequest,
+  ProviderOverrideResultDto,
   ProviderSummaryDto,
   ProviderUpdateInput,
   SaveProviderResponseRequest,
@@ -208,5 +211,22 @@ export const providerApiClient: ProviderApiClient = {
   // ── Preparation ──
   getPreparationBatch(menuDayId: string): Promise<BatchDto> {
     return apiRequest<BatchDto>(`${menuDay(menuDayId)}/preparation-batch`);
+  },
+
+  // ── Provider override / batch regenerate (owner; MP-A-150) ──
+  overrideResponse(
+    responseId: string,
+    body: ProviderOverrideResponseRequest,
+  ): Promise<ProviderOverrideResultDto> {
+    return apiRequest<ProviderOverrideResultDto>(
+      `/api/provider-responses/${responseId}/provider-override`,
+      { method: "POST", body },
+    );
+  },
+  regenerateBatch(batchId: string): Promise<ProviderBatchRevisionDto> {
+    return apiRequest<ProviderBatchRevisionDto>(
+      `/api/provider-preparation-batches/${batchId}/regenerate`,
+      { method: "POST" },
+    );
   },
 };
