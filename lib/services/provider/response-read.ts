@@ -3,13 +3,11 @@ import "server-only";
 import { requireAuthUser } from "@/lib/auth";
 import type { Database } from "@/lib/db/database.types";
 import { createServerSupabaseClient } from "@/lib/db/server";
-import {
-  InternalError,
-  NotFoundError,
-  UnauthenticatedError,
-} from "@/lib/errors";
+import { NotFoundError } from "@/lib/errors";
 import { isUuid } from "@/lib/validation/uuid";
 import type { MemberResponseDto } from "@/packages/shared/provider";
+
+import { mapReadError, numOrNull, type SupabaseClient } from "./read-utils";
 
 /**
  * Provider member-response READ service (the read half of MP-A-130, contract
@@ -34,8 +32,6 @@ import type { MemberResponseDto } from "@/packages/shared/provider";
  * Route handlers stay thin: parse, call, serialize. `numeric` columns arrive as
  * strings via PostgREST and are coerced to numbers here at the boundary.
  */
-
-type SupabaseClient = Awaited<ReturnType<typeof createServerSupabaseClient>>;
 
 /** The response projection: the response + its nested item/customization tree. */
 const MY_RESPONSE_SELECT: string = `
@@ -70,11 +66,6 @@ interface RawResponse {
   member_note: string | null;
   locked_at: string | null;
   items: RawItem[] | null;
-}
-
-/** `numeric | null` → `number | null` (PostgREST may serialize numeric as string). */
-function numOrNull(value: number | string | null): number | null {
-  return value === null ? null : Number(value);
 }
 
 /** The contract's "caller has not responded yet" shape (§ 4). */
@@ -117,12 +108,6 @@ function toMemberResponseDto(
   };
 }
 
-/** A read error that is not an auth failure is an internal error. */
-function mapReadError(error: { code?: string; message?: string }): never {
-  if (error.code === "28000") throw new UnauthenticatedError();
-  throw new InternalError("Failed to load your response.", { cause: error });
-}
-
 /**
  * `GET /api/provider-menu-days/{menuDayId}/my-response` — the caller's own
  * response to the day, or the empty "no response yet" shape. RLS self-scopes to
@@ -141,7 +126,7 @@ export async function getMyResponse(
     .eq("menu_day_id", menuDayId)
     .eq("member_user_id", user.id)
     .maybeSingle();
-  if (error) mapReadError(error);
+  if (error) mapReadError(error, "Failed to load your response.");
   if (!data) return emptyResponse(menuDayId);
   return toMemberResponseDto(data as unknown as RawResponse, menuDayId);
 }

@@ -236,10 +236,16 @@ create policy pms_select on provider_meal_suggestions
     is_provider_owner(provider_id)
     or member_user_id = (select auth.uid())
   );
+-- Bind the suggestion to the day's own provider (derive via provider_of_menu_day,
+-- the pmp_4 pattern) — never trust the client-supplied provider_id. Without the
+-- equality + active-member-of-the-DAY's-provider checks, an active member of
+-- provider A could file a suggestion carrying provider_id = A but menu_day_id =
+-- a day of provider B (the FKs only check existence), breaking tenant isolation.
 create policy pms_insert on provider_meal_suggestions
   for insert with check (
     member_user_id = (select auth.uid())
-    and is_active_provider_member(provider_id)
+    and provider_id = provider_of_menu_day(menu_day_id)
+    and is_active_provider_member(provider_of_menu_day(menu_day_id))
   );
 create policy pms_update on provider_meal_suggestions
   for update using (is_provider_owner(provider_id))
