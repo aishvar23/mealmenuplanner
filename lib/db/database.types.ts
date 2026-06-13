@@ -2742,6 +2742,26 @@ export type Database = {
         };
         Returns: undefined;
       };
+      save_provider_response: {
+        // p_expected_version / p_member_note are hand-adjusted to `| null`: the
+        // generator does not emit argument nullability, but the response-write
+        // service passes null for a first save (no version) and an absent note.
+        Args: {
+          p_expected_version: number | null;
+          p_items: Json;
+          p_member_note: string | null;
+          p_menu_day_id: string;
+        };
+        Returns: string;
+      };
+      confirm_provider_response: {
+        Args: { p_response_id: string };
+        Returns: string;
+      };
+      cancel_provider_response: {
+        Args: { p_response_id: string };
+        Returns: string;
+      };
       get_provider_invite_preview: {
         Args: { p_token_hash: string };
         Returns: {

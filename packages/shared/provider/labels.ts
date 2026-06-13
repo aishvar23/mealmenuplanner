@@ -9,6 +9,7 @@ import type {
   ProviderComponentGroup,
   ProviderMembershipRole,
   ProviderMembershipStatus,
+  ProviderSaltLevel,
   ProviderSpiceLevel,
 } from "./enums";
 
@@ -30,6 +31,25 @@ export const PROVIDER_SPICE_OPTIONS: {
 /** Just the spice-level values, in display order (server validation allow-list). */
 export const PROVIDER_SPICE_LEVELS: readonly ProviderSpiceLevel[] =
   PROVIDER_SPICE_OPTIONS.map((o) => o.value);
+
+/**
+ * The provider salt levels a member may pick on a response component, with display
+ * labels — the single source for the web + mobile response pickers AND the
+ * server-side response validation allow-list (MP-A-130), so the set can never
+ * drift across the three.
+ */
+export const PROVIDER_SALT_OPTIONS: {
+  value: ProviderSaltLevel;
+  label: string;
+}[] = [
+  { value: "low_salt", label: "Low salt" },
+  { value: "regular_salt", label: "Regular salt" },
+  { value: "high_salt", label: "High salt" },
+];
+
+/** Just the salt-level values, in display order (server validation allow-list). */
+export const PROVIDER_SALT_LEVELS: readonly ProviderSaltLevel[] =
+  PROVIDER_SALT_OPTIONS.map((o) => o.value);
 
 /**
  * The component groups a catalog item / menu component can belong to, with display

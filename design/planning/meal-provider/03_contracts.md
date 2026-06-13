@@ -129,6 +129,7 @@ Mapping (provider semantic → existing code · HTTP · `details.reason`):
 | Menu already locked                    | `CONFLICT`             | 409     | `menu_already_locked`                                                       |
 | Cutoff passed                          | `CONFLICT`             | 409     | `cutoff_passed`                                                             |
 | Response already locked                | `CONFLICT`             | 409     | `response_already_locked`                                                   |
+| Response cancelled (confirm blocked)   | `CONFLICT`             | 409     | `response_cancelled` (revive via save first)                                |
 | Stale version (optimistic concurrency) | `CONFLICT`             | 409     | `stale_version` (+ `currentVersion`)                                        |
 | Batch stale                            | `CONFLICT`             | 409     | `batch_stale`                                                               |
 | Batch not available                    | `NOT_FOUND`            | 404     | `batch_not_available`                                                       |

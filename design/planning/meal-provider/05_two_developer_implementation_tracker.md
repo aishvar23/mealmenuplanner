@@ -205,12 +205,28 @@ report ambiguity with file/symbol/observed-behavior/why.
 - **Use cases:** UC-MENU-001..005; `03`§5/§8. **Tests:** completeness validator unit; publish failure cases; edit blocked once response exists (per ADR-7).
 - **Rollback:** remove routes/RPC. **Verify:** ADR-7 must be resolved before edit affordance.
 
-### MP-A-130 — Member response service + APIs (cutoff + concurrency) — `NOT_STARTED` (after MP-A-013, MP-A-120)
+### MP-A-130 — Member response service + APIs (cutoff + concurrency) — `DONE` (#23, migration `pmp_10_response_rpcs`)
 
 - **Track:** A · **Checkpoint:** 4 · **Branch:** provider-services-api · **Conflict risk:** Low.
 - **Objective:** `save_provider_response` (derive quantities, validate alternatives/customizations/limits, enforce `cutoff_at>now()` + `version`), confirm, cancel; `GET/PUT my-response`, `confirm`, `cancel`.
 - **Use cases:** UC-RESPONSE-001..009; `03`§6/§7. **Tests:** server derives quantity; alt must belong to component; extra>max rejected (no partial write); post-cutoff mutation rejected; stale version → conflict; cross-provider item rejected.
 - **Rollback:** remove routes/RPC.
+- **Shipped (PR AB#23, migration `pmp_10_response_rpcs`):** the three SECURITY DEFINER
+  RPCs — `save_provider_response` (derives quantity/unit from the component default /
+  active alternative, validates customization belonging + per-group/increment limits,
+  enforces active-membership + published + `cutoff_at>now()` + optimistic `version`,
+  rebuilds the item/customization tree atomically — no partial write),
+  `confirm_provider_response` (draft→confirmed, idempotent, ≥1 line), and
+  `cancel_provider_response` (→cancelled). Custom `PR*` SQLSTATEs carry the contract
+  `03`§3 `details.reason` discriminators (`stale_version` returns `currentVersion` via
+  the RAISE hint), mapped in `response-write.ts` to Conflict/Forbidden/Validation
+  errors. Routes: `PUT /api/provider-menu-days/{id}/my-response`,
+  `POST /api/provider-responses/{id}/confirm|cancel`. Verified by a rolled-back
+  cloud-dev functional probe (derive/stale/alt/limit/confirm/cancel matrix) + web
+  Vitest (service + validation + route). Backend-only: the mobile API-client seam
+  (`saveMyResponse`/`confirmResponse`/`cancelResponse`) is already green; the member
+  response UI is MP-B-041 / MP-C-041 (a later #23 PR). **#23 stays in Doing** —
+  MP-A-131 (suggestions) + MP-B-041/MP-C-041 (response UI) remain.
 
 ### MP-A-131 — Suggestions service + APIs — `NOT_STARTED` (after MP-A-013)
 
