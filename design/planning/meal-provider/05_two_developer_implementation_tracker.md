@@ -137,12 +137,13 @@ report ambiguity with file/symbol/observed-behavior/why.
 - **Tests:** structural edit blocked when a response exists; non-structural edit allowed; correct error reason.
 - **Rollback:** remove guard (reverts to no-edit-after-publish behavior). **Verify:** must not silently invalidate member responses (UC-MENU-005).
 
-### MP-A-013 — Response + suggestion schema + RLS — `NOT_STARTED` (after MP-A-012)
+### MP-A-013 — Response + suggestion schema + RLS — `DONE` (#23, migration `pmp_5_responses`)
 
 - **Track:** A · **Checkpoint:** 4 · **Branch:** provider-schema-rls.
 - **Objective:** `provider_member_responses` (+`version`), `_items`, `_customizations`, `provider_meal_suggestions` + RLS (self-scope) + indexes.
 - **Use cases:** UC-RESPONSE-_, UC-SUGGEST-_; `04`§2.12–2.15. **Tests:** customer reads only own response; owner reads all; index on `(menu_day_id,status)`.
 - **Rollback:** drop tables.
+- **Shipped (PR AB#23):** the 4 tables + `version` + indexes; RLS **read posture** — responses/items/customizations are SELECT-only (member self via the `can_read_provider_response`/`_item` chain helpers, owner all); every response mutation flows through the server-derived MP-A-130/141/150 RPCs (quantities are client-never-controlled). Suggestions grant member self-INSERT + owner UPDATE. Verified by a rolled-back impersonation probe (self/owner/cross-provider matrix). The read half of MP-A-130 (`getMyResponse` + `GET /api/provider-menu-days/{id}/my-response`) shipped in the same PR; the save/confirm/cancel + cutoff + concurrency path is the MP-A-130 remainder (#23 stays in Doing).
 
 ### MP-A-014 — Batch + events + notifications schema — `NOT_STARTED` (after MP-A-013)
 

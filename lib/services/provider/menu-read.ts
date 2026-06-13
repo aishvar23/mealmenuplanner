@@ -3,17 +3,15 @@ import "server-only";
 import { requireAuthUser } from "@/lib/auth";
 import type { Database } from "@/lib/db/database.types";
 import { createServerSupabaseClient } from "@/lib/db/server";
-import {
-  InternalError,
-  NotFoundError,
-  UnauthenticatedError,
-} from "@/lib/errors";
+import { NotFoundError } from "@/lib/errors";
 import { isUuid } from "@/lib/validation/uuid";
 import type {
   CustomizationGroupDto,
   MenuComponentDto,
   MenuDayDto,
 } from "@/packages/shared/provider";
+
+import { mapReadError, numOrNull, type SupabaseClient } from "./read-utils";
 
 /**
  * Provider menu READ service (MP-A-120, contract 03 § 8). The read-only half of
@@ -41,8 +39,6 @@ import type {
  * Route handlers stay thin: parse, call one of these, serialize. `numeric` columns
  * arrive as strings via PostgREST and are coerced to numbers here at the boundary.
  */
-
-type SupabaseClient = Awaited<ReturnType<typeof createServerSupabaseClient>>;
 
 /** The menu-day projection: the day + its nested component tree, no `*`. */
 const MENU_DAY_SELECT: string = `
@@ -117,11 +113,6 @@ interface RawMenuDay {
   published_at: string | null;
   locked_at: string | null;
   components: RawComponent[] | null;
-}
-
-/** `numeric | null` → `number | null` (PostgREST may serialize numeric as string). */
-function numOrNull(value: number | string | null): number | null {
-  return value === null ? null : Number(value);
 }
 
 /** Ascending `sort_order` comparator (stable plate order). */
@@ -200,12 +191,6 @@ function toMenuDayDto(row: RawMenuDay): MenuDayDto {
   };
 }
 
-/** A read error that is not an auth failure is an internal error. */
-function mapReadError(error: { code?: string; message?: string }): never {
-  if (error.code === "28000") throw new UnauthenticatedError();
-  throw new InternalError("Failed to load the menu.", { cause: error });
-}
-
 /** `YYYY-MM-DD` for `now` in `timeZone` (en-CA renders ISO date order). */
 function dateInTimeZone(now: Date, timeZone: string): string {
   try {
@@ -247,12 +232,7 @@ async function providerToday(
     .select("timezone")
     .eq("id", providerId)
     .maybeSingle();
-  if (error) {
-    if (error.code === "28000") throw new UnauthenticatedError();
-    throw new InternalError("Failed to resolve the provider timezone.", {
-      cause: error,
-    });
-  }
+  if (error) mapReadError(error, "Failed to resolve the provider timezone.");
   if (!data) throw new NotFoundError("Provider not found.");
   return dateInTimeZone(new Date(), data.timezone);
 }
@@ -271,7 +251,7 @@ export async function getMenuDay(menuDayId: string): Promise<MenuDayDto> {
     .select(MENU_DAY_SELECT)
     .eq("id", menuDayId)
     .maybeSingle();
-  if (error) mapReadError(error);
+  if (error) mapReadError(error, "Failed to load the menu.");
   if (!data) throw new NotFoundError("Menu not found.");
   return toMenuDayDto(data as unknown as RawMenuDay);
 }
@@ -301,7 +281,7 @@ export async function getTodayMenu(
     .order("id", { ascending: true })
     .limit(1)
     .maybeSingle();
-  if (error) mapReadError(error);
+  if (error) mapReadError(error, "Failed to load the menu.");
   return data ? toMenuDayDto(data as unknown as RawMenuDay) : null;
 }
 
@@ -324,6 +304,6 @@ export async function getWeeklyMenu(providerId: string): Promise<MenuDayDto[]> {
     .gte("menu_date", today)
     .lte("menu_date", weekEnd)
     .order("menu_date", { ascending: true });
-  if (error) mapReadError(error);
+  if (error) mapReadError(error, "Failed to load the menu.");
   return ((data ?? []) as unknown as RawMenuDay[]).map(toMenuDayDto);
 }
