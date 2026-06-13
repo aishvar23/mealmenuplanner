@@ -8,13 +8,17 @@
 // runtime forbids `Date.now()`); IDs are stable, readable strings.
 
 import type {
+  AcceptProviderInviteResult,
   BatchDto,
   CatalogItemDto,
+  CreateProviderInviteResult,
   MemberDto,
   MemberResponseDto,
   MenuDayDto,
+  MyProviderMembershipDto,
   PreparationLine,
   ProviderDto,
+  ProviderInvitePreviewDto,
   ProviderSummaryDto,
 } from "./dtos";
 import type { WorkspaceDiscovery, WorkspaceRef } from "./workspace";
@@ -138,6 +142,50 @@ export const members: MemberDto[] = [
   approvedMember,
   awaitingMember,
 ];
+
+// ─────────────────────────── Invites / onboarding ───────────────────────────
+
+export const INVITE_TOKEN = "prov-invite-token-abc123";
+
+export const createInviteResult: CreateProviderInviteResult = {
+  inviteId: "invite-1",
+  inviteLink: `https://app.example.com/provider-invite/${INVITE_TOKEN}`,
+  emailStatus: "sent",
+};
+
+export const invitePreview: ProviderInvitePreviewDto = {
+  providerName: providerA.name,
+  invitedByName: "Anna",
+  role: "customer",
+  expiresAt: "2026-06-18T12:00:00Z",
+};
+
+export const acceptInviteResult: AcceptProviderInviteResult = {
+  providerId: PROVIDER_A_ID,
+  membershipStatus: "awaiting_approval",
+};
+
+/** An approved customer who has NOT yet completed minimal onboarding. */
+export const myMembershipPending: MyProviderMembershipDto = {
+  providerId: PROVIDER_B_ID,
+  role: "customer",
+  status: "active",
+  onboardingComplete: false,
+  displayName: null,
+  phone: null,
+  defaultSpiceLevel: null,
+  autoAcceptEligible: false,
+  autoAcceptConsented: false,
+};
+
+/** The same customer once minimal onboarding is complete. */
+export const myMembershipOnboarded: MyProviderMembershipDto = {
+  ...myMembershipPending,
+  onboardingComplete: true,
+  displayName: "Chitra",
+  phone: "+15555550301",
+  defaultSpiceLevel: "regular",
+};
 
 // ─────────────────────────────── Catalog ───────────────────────────────
 

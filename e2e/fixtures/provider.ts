@@ -68,11 +68,17 @@ export interface ProviderTeam {
     owner: ProviderUser,
     opts?: { name?: string; timezone?: string },
   ): Promise<string>;
-  /** Attach `customer` to `providerId` in the given membership state. */
+  /**
+   * Attach `customer` to `providerId` in the given membership state. An
+   * `approved` customer is marked as having completed minimal onboarding by
+   * default (so menu pages don't bounce them to the onboarding gate); pass
+   * `{ onboarded: false }` to seed an approved-but-not-onboarded member.
+   */
   addCustomer(
     providerId: string,
     customer: ProviderUser,
     status: ProviderMembershipStatus,
+    opts?: { onboarded?: boolean },
   ): Promise<void>;
   /** Give `customer` an active, consented subscription to `providerId`. */
   addSubscription(providerId: string, customer: ProviderUser): Promise<void>;
@@ -126,17 +132,25 @@ export const test = base.extend<{ providerTeam: ProviderTeam }>({
         }
         return providerId;
       },
-      async addCustomer(providerId, customer, status) {
+      async addCustomer(providerId, customer, status, opts) {
         const dbStatus = CUSTOMER_DB_STATUS[status];
         const now = new Date().toISOString();
+        const isActive = dbStatus === "active";
+        // Default: an approved (active) customer is treated as already onboarded
+        // so the menu pages don't redirect them to the onboarding gate.
+        const onboarded = isActive && (opts?.onboarded ?? true);
         const { error } = await admin.from("provider_memberships").insert({
           provider_id: providerId,
           user_id: customer.id,
           role: "customer",
           status: dbStatus,
-          joined_at: dbStatus === "active" ? now : null,
-          approved_at: dbStatus === "active" ? now : null,
+          joined_at: isActive ? now : null,
+          approved_at: isActive ? now : null,
           removed_at: dbStatus === "removed" ? now : null,
+          onboarding_completed_at: onboarded ? now : null,
+          allergy_ack_at: onboarded ? now : null,
+          terms_ack_at: onboarded ? now : null,
+          member_display_name: onboarded ? "E2E Customer" : null,
         });
         if (error) {
           throw new Error(

@@ -14,14 +14,19 @@
 import { boundedCollection, type Collection } from "@/lib/http/collection";
 import {
   providerFixtures,
+  type AcceptProviderInviteResult,
   type BatchDto,
   type CatalogItemDto,
+  type CompleteMemberOnboardingRequest,
+  type CreateProviderInviteResult,
   type MemberDto,
   type MemberResponseDto,
   type MenuDayDto,
+  type MyProviderMembershipDto,
   type ProviderApiClient,
   type ProviderCreateInput,
   type ProviderDto,
+  type ProviderInvitePreviewDto,
   type ProviderSummaryDto,
   type ProviderUpdateInput,
   type SaveProviderResponseRequest,
@@ -85,6 +90,35 @@ export const mockProviderClient: ProviderApiClient = {
   },
   removeMember(): Promise<MemberDto> {
     return Promise.resolve({ ...f.approvedMember, status: "removed" });
+  },
+
+  // ── Invites ──
+  createInvite(): Promise<CreateProviderInviteResult> {
+    return Promise.resolve(f.createInviteResult);
+  },
+  getInvitePreview(): Promise<ProviderInvitePreviewDto> {
+    return Promise.resolve(f.invitePreview);
+  },
+  acceptInvite(): Promise<AcceptProviderInviteResult> {
+    return Promise.resolve(f.acceptInviteResult);
+  },
+
+  // ── Member onboarding ──
+  getMyMembership(): Promise<MyProviderMembershipDto> {
+    return Promise.resolve(f.myMembershipPending);
+  },
+  completeMemberOnboarding(
+    _providerId: string,
+    input: CompleteMemberOnboardingRequest,
+  ): Promise<MyProviderMembershipDto> {
+    return Promise.resolve({
+      ...f.myMembershipOnboarded,
+      displayName: input.displayName,
+      phone: input.phone,
+      defaultSpiceLevel: input.defaultSpiceLevel,
+      autoAcceptConsented:
+        input.autoAcceptConsent && f.myMembershipPending.autoAcceptEligible,
+    });
   },
 
   // ── Menus ──

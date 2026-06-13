@@ -5,7 +5,30 @@
 // list never drift. Pure (no `server-only`, no `next/*`, no I/O) — web imports
 // via `@/packages/shared/provider`, mobile via `@mmp/shared/provider`.
 
-import type { ProviderMembershipRole, ProviderMembershipStatus } from "./enums";
+import type {
+  ProviderMembershipRole,
+  ProviderMembershipStatus,
+  ProviderSpiceLevel,
+} from "./enums";
+
+/**
+ * The provider spice levels a member may pick as their default, with display
+ * labels — the single source for the web + mobile onboarding pickers AND the
+ * server-side validation allow-list, so the set can never drift across the three.
+ */
+export const PROVIDER_SPICE_OPTIONS: {
+  value: ProviderSpiceLevel;
+  label: string;
+}[] = [
+  { value: "non_spicy", label: "Non-spicy" },
+  { value: "mild", label: "Mild" },
+  { value: "regular", label: "Regular" },
+  { value: "spicy", label: "Spicy" },
+];
+
+/** Just the spice-level values, in display order (server validation allow-list). */
+export const PROVIDER_SPICE_LEVELS: readonly ProviderSpiceLevel[] =
+  PROVIDER_SPICE_OPTIONS.map((o) => o.value);
 
 /**
  * The caller's standing with a provider as a short, lowercase noun phrase:

@@ -12,17 +12,8 @@
  * flow can't silently drift from the frozen `/api/*` contract.
  */
 
+import { readApiErrorMessage } from "@/packages/shared/provider";
 import type { ProviderApiClient } from "@/packages/shared/provider";
-
-/** Pull the human-readable message out of the uniform `{ error }` envelope. */
-async function errorMessage(res: Response, fallback: string): Promise<string> {
-  try {
-    const body = (await res.json()) as { error?: { message?: string } };
-    return body.error?.message ?? fallback;
-  } catch {
-    return fallback;
-  }
-}
 
 /** `POST /api/providers` — create (or resume) the caller's draft provider org. */
 export const createProvider: ProviderApiClient["createProvider"] = async (
@@ -34,7 +25,9 @@ export const createProvider: ProviderApiClient["createProvider"] = async (
     body: JSON.stringify(input),
   });
   if (!res.ok) {
-    throw new Error(await errorMessage(res, "Couldn't create the provider."));
+    throw new Error(
+      await readApiErrorMessage(res, "Couldn't create the provider."),
+    );
   }
   return res.json();
 };
@@ -50,7 +43,9 @@ export const updateProvider: ProviderApiClient["updateProvider"] = async (
     body: JSON.stringify(patch),
   });
   if (!res.ok) {
-    throw new Error(await errorMessage(res, "Couldn't save your changes."));
+    throw new Error(
+      await readApiErrorMessage(res, "Couldn't save your changes."),
+    );
   }
   return res.json();
 };
@@ -63,7 +58,7 @@ export const completeProviderOnboarding: ProviderApiClient["completeProviderOnbo
       { method: "POST" },
     );
     if (!res.ok) {
-      throw new Error(await errorMessage(res, "Couldn't finish setup."));
+      throw new Error(await readApiErrorMessage(res, "Couldn't finish setup."));
     }
     return res.json();
   };

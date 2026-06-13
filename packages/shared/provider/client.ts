@@ -20,12 +20,18 @@
 import type { Collection } from "../types";
 
 import type {
+  AcceptProviderInviteResult,
   BatchDto,
   CatalogItemDto,
+  CompleteMemberOnboardingRequest,
+  CreateProviderInviteRequest,
+  CreateProviderInviteResult,
   MemberDto,
   MemberResponseDto,
   MenuDayDto,
+  MyProviderMembershipDto,
   ProviderDto,
+  ProviderInvitePreviewDto,
   ProviderSummaryDto,
   SaveProviderResponseRequest,
 } from "./dtos";
@@ -85,6 +91,26 @@ export interface ProviderApiClient {
   rejectMember(providerId: string, memberId: string): Promise<MemberDto>;
   /** `POST .../members/{memberId}/remove`. */
   removeMember(providerId: string, memberId: string): Promise<MemberDto>;
+
+  // ── Invites ──
+  /** `POST /api/providers/{providerId}/invites` — invite a customer (owner). */
+  createInvite(
+    providerId: string,
+    input: CreateProviderInviteRequest,
+  ): Promise<CreateProviderInviteResult>;
+  /** `GET /api/provider-invites/{token}` — safe invite preview (pre-acceptance). */
+  getInvitePreview(token: string): Promise<ProviderInvitePreviewDto>;
+  /** `POST /api/provider-invites/{token}/accept` — accept → awaiting approval. */
+  acceptInvite(token: string): Promise<AcceptProviderInviteResult>;
+
+  // ── Member onboarding ──
+  /** `GET /api/providers/{providerId}/my-membership` — the caller's own membership. */
+  getMyMembership(providerId: string): Promise<MyProviderMembershipDto>;
+  /** `POST /api/providers/{providerId}/complete-member-onboarding`. */
+  completeMemberOnboarding(
+    providerId: string,
+    input: CompleteMemberOnboardingRequest,
+  ): Promise<MyProviderMembershipDto>;
 
   // ── Menus ──
   /** `GET /api/provider-menu-days/{menuDayId}`. */

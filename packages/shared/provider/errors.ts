@@ -40,6 +40,10 @@ export const PROVIDER_ERROR_REASONS = {
   response_already_locked: "response_already_locked",
   stale_version: "stale_version",
   batch_stale: "batch_stale",
+  provider_invite_not_pending: "provider_invite_not_pending",
+  provider_already_member: "provider_already_member",
+  provider_member_not_pending: "provider_member_not_pending",
+  provider_member_not_removable: "provider_member_not_removable",
   // NOT_FOUND (404)
   batch_not_available: "batch_not_available",
 } as const;
@@ -93,6 +97,13 @@ export const PROVIDER_REASON_TO_CODE: Record<
   response_already_locked: { code: ERROR_CODES.CONFLICT, httpStatus: 409 },
   stale_version: { code: ERROR_CODES.CONFLICT, httpStatus: 409 },
   batch_stale: { code: ERROR_CODES.CONFLICT, httpStatus: 409 },
+  provider_invite_not_pending: { code: ERROR_CODES.CONFLICT, httpStatus: 409 },
+  provider_already_member: { code: ERROR_CODES.CONFLICT, httpStatus: 409 },
+  provider_member_not_pending: { code: ERROR_CODES.CONFLICT, httpStatus: 409 },
+  provider_member_not_removable: {
+    code: ERROR_CODES.CONFLICT,
+    httpStatus: 409,
+  },
   batch_not_available: { code: ERROR_CODES.NOT_FOUND, httpStatus: 404 },
 };
 

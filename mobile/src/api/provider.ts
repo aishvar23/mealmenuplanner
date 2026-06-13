@@ -1,12 +1,18 @@
 import type {
+  AcceptProviderInviteResult,
   BatchDto,
   CatalogItemDto,
+  CompleteMemberOnboardingRequest,
+  CreateProviderInviteRequest,
+  CreateProviderInviteResult,
   MemberDto,
   MemberResponseDto,
   MenuDayDto,
+  MyProviderMembershipDto,
   ProviderApiClient,
   ProviderCreateInput,
   ProviderDto,
+  ProviderInvitePreviewDto,
   ProviderSummaryDto,
   ProviderUpdateInput,
   SaveProviderResponseRequest,
@@ -93,6 +99,44 @@ export const providerApiClient: ProviderApiClient = {
     return apiRequest<MemberDto>(
       `${providers}/${providerId}/members/${memberId}/remove`,
       { method: "POST" },
+    );
+  },
+
+  // ── Invites ──
+  createInvite(
+    providerId: string,
+    input: CreateProviderInviteRequest,
+  ): Promise<CreateProviderInviteResult> {
+    return apiRequest<CreateProviderInviteResult>(
+      `${providers}/${providerId}/invites`,
+      { method: "POST", body: input },
+    );
+  },
+  getInvitePreview(token: string): Promise<ProviderInvitePreviewDto> {
+    return apiRequest<ProviderInvitePreviewDto>(
+      `/api/provider-invites/${token}`,
+    );
+  },
+  acceptInvite(token: string): Promise<AcceptProviderInviteResult> {
+    return apiRequest<AcceptProviderInviteResult>(
+      `/api/provider-invites/${token}/accept`,
+      { method: "POST" },
+    );
+  },
+
+  // ── Member onboarding ──
+  getMyMembership(providerId: string): Promise<MyProviderMembershipDto> {
+    return apiRequest<MyProviderMembershipDto>(
+      `${providers}/${providerId}/my-membership`,
+    );
+  },
+  completeMemberOnboarding(
+    providerId: string,
+    input: CompleteMemberOnboardingRequest,
+  ): Promise<MyProviderMembershipDto> {
+    return apiRequest<MyProviderMembershipDto>(
+      `${providers}/${providerId}/complete-member-onboarding`,
+      { method: "POST", body: input },
     );
   },
 
