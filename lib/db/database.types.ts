@@ -2287,6 +2287,245 @@ export type Database = {
           },
         ];
       };
+      provider_preparation_batches: {
+        Row: {
+          created_at: string;
+          email_status: string | null;
+          generated_at: string;
+          id: string;
+          menu_day_id: string;
+          provider_id: string;
+          revision: number;
+          source_response_watermark: string | null;
+          status: string;
+          total_auto_accepted: number;
+          total_cancelled: number;
+          total_confirmed: number;
+          total_no_response: number;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          email_status?: string | null;
+          generated_at?: string;
+          id?: string;
+          menu_day_id: string;
+          provider_id: string;
+          revision: number;
+          source_response_watermark?: string | null;
+          status: string;
+          total_auto_accepted?: number;
+          total_cancelled?: number;
+          total_confirmed?: number;
+          total_no_response?: number;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          email_status?: string | null;
+          generated_at?: string;
+          id?: string;
+          menu_day_id?: string;
+          provider_id?: string;
+          revision?: number;
+          source_response_watermark?: string | null;
+          status?: string;
+          total_auto_accepted?: number;
+          total_cancelled?: number;
+          total_confirmed?: number;
+          total_no_response?: number;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "provider_preparation_batches_menu_day_id_fkey";
+            columns: ["menu_day_id"];
+            isOneToOne: false;
+            referencedRelation: "provider_menu_days";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "provider_preparation_batches_provider_id_fkey";
+            columns: ["provider_id"];
+            isOneToOne: false;
+            referencedRelation: "provider_organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      provider_preparation_batch_lines: {
+        Row: {
+          batch_id: string;
+          canonical_unit: string;
+          catalog_item_id: string;
+          created_at: string;
+          extra_quantity: number;
+          id: string;
+          included_quantity: number;
+          salt_level: Database["public"]["Enums"]["provider_salt_level"] | null;
+          spice_level:
+            | Database["public"]["Enums"]["provider_spice_level"]
+            | null;
+          total_quantity: number;
+        };
+        Insert: {
+          batch_id: string;
+          canonical_unit: string;
+          catalog_item_id: string;
+          created_at?: string;
+          extra_quantity?: number;
+          id?: string;
+          included_quantity?: number;
+          salt_level?:
+            | Database["public"]["Enums"]["provider_salt_level"]
+            | null;
+          spice_level?:
+            | Database["public"]["Enums"]["provider_spice_level"]
+            | null;
+          total_quantity: number;
+        };
+        Update: {
+          batch_id?: string;
+          canonical_unit?: string;
+          catalog_item_id?: string;
+          created_at?: string;
+          extra_quantity?: number;
+          id?: string;
+          included_quantity?: number;
+          salt_level?:
+            | Database["public"]["Enums"]["provider_salt_level"]
+            | null;
+          spice_level?:
+            | Database["public"]["Enums"]["provider_spice_level"]
+            | null;
+          total_quantity?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "provider_preparation_batch_lines_batch_id_fkey";
+            columns: ["batch_id"];
+            isOneToOne: false;
+            referencedRelation: "provider_preparation_batches";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "provider_preparation_batch_lines_catalog_item_id_fkey";
+            columns: ["catalog_item_id"];
+            isOneToOne: false;
+            referencedRelation: "provider_catalog_items";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      provider_activity_events: {
+        Row: {
+          actor_user_id: string | null;
+          created_at: string;
+          entity_id: string | null;
+          entity_type: string;
+          event_type: string;
+          id: string;
+          new_value: Json | null;
+          old_value: Json | null;
+          provider_id: string;
+        };
+        Insert: {
+          actor_user_id?: string | null;
+          created_at?: string;
+          entity_id?: string | null;
+          entity_type: string;
+          event_type: string;
+          id?: string;
+          new_value?: Json | null;
+          old_value?: Json | null;
+          provider_id: string;
+        };
+        Update: {
+          actor_user_id?: string | null;
+          created_at?: string;
+          entity_id?: string | null;
+          entity_type?: string;
+          event_type?: string;
+          id?: string;
+          new_value?: Json | null;
+          old_value?: Json | null;
+          provider_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "provider_activity_events_actor_user_id_fkey";
+            columns: ["actor_user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "provider_activity_events_provider_id_fkey";
+            columns: ["provider_id"];
+            isOneToOne: false;
+            referencedRelation: "provider_organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      provider_notifications: {
+        Row: {
+          actor_user_id: string | null;
+          created_at: string;
+          event_type: string;
+          id: string;
+          message: string;
+          provider_id: string;
+          read_at: string | null;
+          recipient_user_id: string;
+          title: string;
+        };
+        Insert: {
+          actor_user_id?: string | null;
+          created_at?: string;
+          event_type: string;
+          id?: string;
+          message: string;
+          provider_id: string;
+          read_at?: string | null;
+          recipient_user_id: string;
+          title: string;
+        };
+        Update: {
+          actor_user_id?: string | null;
+          created_at?: string;
+          event_type?: string;
+          id?: string;
+          message?: string;
+          provider_id?: string;
+          read_at?: string | null;
+          recipient_user_id?: string;
+          title?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "provider_notifications_actor_user_id_fkey";
+            columns: ["actor_user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "provider_notifications_provider_id_fkey";
+            columns: ["provider_id"];
+            isOneToOne: false;
+            referencedRelation: "provider_organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "provider_notifications_recipient_user_id_fkey";
+            columns: ["recipient_user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       user_active_workspace: {
         Row: {
           updated_at: string;
@@ -2452,6 +2691,7 @@ export type Database = {
         Args: { i: string };
         Returns: boolean;
       };
+      can_read_provider_batch: { Args: { b: string }; Returns: boolean };
       abandon_stale_drafts: { Args: never; Returns: number };
       accept_invite: { Args: { p_token_hash: string }; Returns: Json };
       can_view_provider_identity: { Args: { p: string }; Returns: boolean };
