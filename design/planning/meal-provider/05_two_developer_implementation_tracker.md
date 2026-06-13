@@ -116,7 +116,7 @@ report ambiguity with file/symbol/observed-behavior/why.
 - **Steps/Tests/Acceptance:** table + policies; archive=is_active=false; RLS owner-write/customer-no-access; history preserved on archive.
 - **Rollback:** drop table. **Verify:** `source_dish_id` nullable `on delete set null`.
 
-### MP-A-012 — Menu schema + RLS — `NOT_STARTED` (after MP-A-011)
+### MP-A-012 — Menu schema + RLS — `DONE` (#22, PR pmp_4_menu)
 
 - **Track:** A · **Checkpoint:** 3 · **Branch:** provider-schema-rls · **Conflict risk:** Medium.
 - **Objective:** `provider_weekly_menus`, `provider_menu_days`, `provider_menu_components`, `provider_menu_alternatives`, `provider_customization_groups/options` + RLS + indexes (incl. cutoff sweep index). **Table shape only — no edit-policy enforcement (that is MP-A-012E).**
@@ -189,7 +189,7 @@ report ambiguity with file/symbol/observed-behavior/why.
 - **Use cases:** UC-CATALOG-\*; `03`§8. **Tests:** quantity>0/unit/name validation; cross-provider write denied; archive hides from new menus.
 - **Rollback:** remove routes/service.
 
-### MP-A-120 — Menu read service + APIs — `NOT_STARTED` (after MP-A-012)
+### MP-A-120 — Menu read service + APIs — `DONE` (#22)
 
 - **Track:** A · **Checkpoint:** 2/3 · **Branch:** provider-services-api · **Conflict risk:** Low.
 - **Objective:** menu-day read + today/weekly read with owner/customer authorization; `GET /api/provider-menu-days/{id}`, `today-menu`, `weekly-menu`. **(Read-only; no publish/mutation here — split out.)**
