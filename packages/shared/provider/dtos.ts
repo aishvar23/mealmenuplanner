@@ -132,6 +132,47 @@ export interface CatalogItemDto {
   sourceDishId: string | null;
 }
 
+/**
+ * `POST /api/providers/{id}/catalog` body — add an item to the provider's catalog
+ * (MP-A-110, owner only). `defaultQuantity` must be > 0 and `componentGroup` is
+ * one of the fixed groups; the optional flags default false and the nullable
+ * fields default null server-side. `provider_id` is never client-controlled (it
+ * comes from the route + RLS) and `isActive` is implicitly true on create —
+ * archiving is a later PATCH (§ 2.5, ADR-4).
+ */
+export interface CreateCatalogItemRequest {
+  name: string;
+  componentGroup: ProviderComponentGroup;
+  canonicalUnit: string;
+  defaultQuantity: number;
+  imageUrl?: string | null;
+  supportsSpiceLevel?: boolean;
+  supportsSaltLevel?: boolean;
+  allergyWarning?: string | null;
+  sourceDishId?: string | null;
+}
+
+/**
+ * `PATCH /api/providers/{id}/catalog/{catalogItemId}` body — a partial update of
+ * one catalog item. Only the keys present are written. Toggling `isActive` is how
+ * an item is archived (`false`) or restored (`true`) — items are never hard
+ * deleted (ADR-4).
+ */
+export type UpdateCatalogItemRequest = Partial<
+  Pick<
+    CreateCatalogItemRequest,
+    | "name"
+    | "componentGroup"
+    | "canonicalUnit"
+    | "defaultQuantity"
+    | "imageUrl"
+    | "supportsSpiceLevel"
+    | "supportsSaltLevel"
+    | "allergyWarning"
+    | "sourceDishId"
+  >
+> & { isActive?: boolean };
+
 // ──────────────────────────────── Menu ────────────────────────────────
 
 /** A customization group attached to a menu component (§ 4). */

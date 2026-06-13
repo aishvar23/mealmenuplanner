@@ -108,7 +108,7 @@ report ambiguity with file/symbol/observed-behavior/why.
 - **Rollback:** reverse-order drops (data-loss caveat once rows exist).
 - **Verify:** auto-enable-RLS trigger means policies are mandatory; confirm no policy recursion (SECURITY DEFINER helpers).
 
-### MP-A-011 — Catalog schema + RLS — `NOT_STARTED` (after MP-A-010)
+### MP-A-011 — Catalog schema + RLS — `DONE` (#21)
 
 - **Track:** A · **Checkpoint:** 3 · **Branch:** provider-schema-rls · **Conflict risk:** Medium (types).
 - **Objective:** `provider_catalog_items` (+ `source_dish_id`) + RLS + archive semantics.
@@ -182,7 +182,7 @@ report ambiguity with file/symbol/observed-behavior/why.
 - **Use cases:** UC-MEMBER-001..005; `03`§8. **Tests:** accept→awaiting (not active); approval gates menu access; expired invite rejected; preview leaks nothing sensitive; rate-limit invite endpoint.
 - **Rollback:** remove routes/RPCs.
 
-### MP-A-110 — Catalog service + APIs — `NOT_STARTED` (after MP-A-011)
+### MP-A-110 — Catalog service + APIs — `DONE` (#21)
 
 - **Track:** A · **Checkpoint:** 3 · **Branch:** provider-services-api.
 - **Objective:** create/update/archive catalog; grouped-by-component read; `GET/POST/PATCH /api/providers/{id}/catalog`.

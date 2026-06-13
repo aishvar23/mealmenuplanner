@@ -6,6 +6,7 @@
 // via `@/packages/shared/provider`, mobile via `@mmp/shared/provider`.
 
 import type {
+  ProviderComponentGroup,
   ProviderMembershipRole,
   ProviderMembershipStatus,
   ProviderSpiceLevel,
@@ -29,6 +30,30 @@ export const PROVIDER_SPICE_OPTIONS: {
 /** Just the spice-level values, in display order (server validation allow-list). */
 export const PROVIDER_SPICE_LEVELS: readonly ProviderSpiceLevel[] =
   PROVIDER_SPICE_OPTIONS.map((o) => o.value);
+
+/**
+ * The component groups a catalog item / menu component can belong to, with display
+ * labels — the single source for the web + mobile catalog & menu-builder pickers
+ * AND the server-side catalog validation allow-list (MP-A-110), so the set can
+ * never drift across the three. Order is the natural plate order (a thali reads
+ * main → dal → sabzi → bread → rice → side → add-on).
+ */
+export const PROVIDER_COMPONENT_GROUP_OPTIONS: {
+  value: ProviderComponentGroup;
+  label: string;
+}[] = [
+  { value: "main", label: "Main" },
+  { value: "dal_or_legume", label: "Dal / legume" },
+  { value: "sabzi", label: "Sabzi" },
+  { value: "bread", label: "Bread" },
+  { value: "rice", label: "Rice" },
+  { value: "side", label: "Side" },
+  { value: "add_on", label: "Add-on" },
+];
+
+/** Just the component-group values, in display order (server validation allow-list). */
+export const PROVIDER_COMPONENT_GROUPS: readonly ProviderComponentGroup[] =
+  PROVIDER_COMPONENT_GROUP_OPTIONS.map((o) => o.value);
 
 /**
  * The caller's standing with a provider as a short, lowercase noun phrase:

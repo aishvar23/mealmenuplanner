@@ -116,6 +116,52 @@ describe("providerApiClient — members", () => {
   });
 });
 
+describe("providerApiClient — catalog", () => {
+  it("listCatalog GETs the provider catalog route", async () => {
+    mockApiRequest.mockResolvedValue([{ catalogItemId: "c1" }]);
+
+    const result = await providerApiClient.listCatalog("prov-a");
+
+    expect(mockApiRequest).toHaveBeenCalledWith(
+      "/api/providers/prov-a/catalog",
+    );
+    expect(result).toEqual([{ catalogItemId: "c1" }]);
+  });
+
+  it("createCatalogItem POSTs the create body to the catalog route", async () => {
+    mockApiRequest.mockResolvedValue({ catalogItemId: "c1" });
+    const body = {
+      name: "Rajma",
+      componentGroup: "dal_or_legume" as const,
+      canonicalUnit: "oz",
+      defaultQuantity: 16,
+    };
+
+    await providerApiClient.createCatalogItem("prov-a", body);
+
+    expect(mockApiRequest).toHaveBeenCalledWith(
+      "/api/providers/prov-a/catalog",
+      {
+        method: "POST",
+        body,
+      },
+    );
+  });
+
+  it("updateCatalogItem PATCHes the item route (archive toggles isActive)", async () => {
+    mockApiRequest.mockResolvedValue({ catalogItemId: "c1", isActive: false });
+
+    await providerApiClient.updateCatalogItem("prov-a", "c1", {
+      isActive: false,
+    });
+
+    expect(mockApiRequest).toHaveBeenCalledWith(
+      "/api/providers/prov-a/catalog/c1",
+      { method: "PATCH", body: { isActive: false } },
+    );
+  });
+});
+
 describe("providerApiClient — menus & response", () => {
   it("getMenuDay / today / weekly hit the menu read routes", async () => {
     mockApiRequest.mockResolvedValue(null);

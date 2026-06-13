@@ -1383,6 +1383,72 @@ export type Database = {
           },
         ];
       };
+      provider_catalog_items: {
+        Row: {
+          allergy_warning: string | null;
+          canonical_unit: string;
+          component_group: Database["public"]["Enums"]["provider_component_group"];
+          created_at: string;
+          default_quantity: number;
+          id: string;
+          image_url: string | null;
+          is_active: boolean;
+          name: string;
+          provider_id: string;
+          source_dish_id: string | null;
+          supports_salt_level: boolean;
+          supports_spice_level: boolean;
+          updated_at: string;
+        };
+        Insert: {
+          allergy_warning?: string | null;
+          canonical_unit: string;
+          component_group: Database["public"]["Enums"]["provider_component_group"];
+          created_at?: string;
+          default_quantity: number;
+          id?: string;
+          image_url?: string | null;
+          is_active?: boolean;
+          name: string;
+          provider_id: string;
+          source_dish_id?: string | null;
+          supports_salt_level?: boolean;
+          supports_spice_level?: boolean;
+          updated_at?: string;
+        };
+        Update: {
+          allergy_warning?: string | null;
+          canonical_unit?: string;
+          component_group?: Database["public"]["Enums"]["provider_component_group"];
+          created_at?: string;
+          default_quantity?: number;
+          id?: string;
+          image_url?: string | null;
+          is_active?: boolean;
+          name?: string;
+          provider_id?: string;
+          source_dish_id?: string | null;
+          supports_salt_level?: boolean;
+          supports_spice_level?: boolean;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "provider_catalog_items_provider_id_fkey";
+            columns: ["provider_id"];
+            isOneToOne: false;
+            referencedRelation: "provider_organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "provider_catalog_items_source_dish_id_fkey";
+            columns: ["source_dish_id"];
+            isOneToOne: false;
+            referencedRelation: "dishes";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       provider_invites: {
         Row: {
           accepted_at: string | null;

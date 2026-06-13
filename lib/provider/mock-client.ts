@@ -18,6 +18,7 @@ import {
   type BatchDto,
   type CatalogItemDto,
   type CompleteMemberOnboardingRequest,
+  type CreateCatalogItemRequest,
   type CreateProviderInviteResult,
   type MemberDto,
   type MemberResponseDto,
@@ -30,9 +31,15 @@ import {
   type ProviderSummaryDto,
   type ProviderUpdateInput,
   type SaveProviderResponseRequest,
+  type UpdateCatalogItemRequest,
 } from "@/packages/shared/provider";
 
 const f = providerFixtures;
+
+// A monotonic id source so each mock-created catalog item gets a distinct id
+// (the real server assigns one) — reusing a fixture id would collide React keys
+// when the UI lists several just-created items.
+let mockCatalogSeq = 0;
 
 /** Pick the fixture provider matching an id, defaulting to provider A. */
 function providerFor(providerId: string): ProviderDto {
@@ -72,6 +79,34 @@ export const mockProviderClient: ProviderApiClient = {
   // ── Catalog ──
   listCatalog(): Promise<CatalogItemDto[]> {
     return Promise.resolve(f.catalogItems);
+  },
+  createCatalogItem(
+    _providerId: string,
+    input: CreateCatalogItemRequest,
+  ): Promise<CatalogItemDto> {
+    // Echo the submitted item as a freshly-created active catalog item so the UI
+    // sees its own input; the real server assigns the id + defaults.
+    return Promise.resolve({
+      ...f.catalogItems[0]!,
+      catalogItemId: `mock-catalog-${++mockCatalogSeq}`,
+      name: input.name,
+      componentGroup: input.componentGroup,
+      canonicalUnit: input.canonicalUnit,
+      defaultQuantity: input.defaultQuantity,
+      imageUrl: input.imageUrl ?? null,
+      supportsSpiceLevel: input.supportsSpiceLevel ?? false,
+      supportsSaltLevel: input.supportsSaltLevel ?? false,
+      allergyWarning: input.allergyWarning ?? null,
+      sourceDishId: input.sourceDishId ?? null,
+      isActive: true,
+    });
+  },
+  updateCatalogItem(
+    _providerId: string,
+    catalogItemId: string,
+    patch: UpdateCatalogItemRequest,
+  ): Promise<CatalogItemDto> {
+    return Promise.resolve({ ...f.catalogItems[0]!, catalogItemId, ...patch });
   },
 
   // ── Members ──
