@@ -79,6 +79,15 @@ create trigger trg_set_updated_at before update on provider_preparation_batches
 create index ix_provider_preparation_batches_day
   on provider_preparation_batches (menu_day_id, revision desc);
 
+-- "Exactly one current revision per menu day" is the core ADR-11 invariant
+-- (a stale revision is kept for history; only the latest is 'current'). The
+-- cutoff/regenerate RPCs flip the prior revision to 'stale' in the same tx, but
+-- a partial-failure or future bug must NOT be able to leave two 'current' rows —
+-- a reader selecting the current batch would then get an ambiguous/duplicate
+-- roster. Enforce it in the schema, not just in every writer.
+create unique index uq_provider_preparation_batches_one_current
+  on provider_preparation_batches (menu_day_id) where status = 'current';
+
 -- ── provider_preparation_batch_lines ─────────────────────────────────────────────
 -- UC-BATCH-002. The aggregated preparation lines of one batch revision, keyed
 -- (catalog_item, canonical_unit, spice_level, salt_level) by the MP-A-140 aggregator:
@@ -106,6 +115,19 @@ create table provider_preparation_batch_lines (
 -- Read a revision's lines in one indexed lookup.
 create index ix_provider_preparation_batch_lines_batch
   on provider_preparation_batch_lines (batch_id);
+
+-- One aggregated line per (catalog item, unit, spice, salt) within a batch
+-- revision — the exact key the MP-A-140 aggregator dedups on. The aggregator
+-- already guarantees this, but a bug in the cutoff/regenerate persistence (a
+-- key mismatch between TS and SQL, or a double-insert on retry) must not be able
+-- to write duplicate aggregate rows and silently double the roster. NULLS NOT
+-- DISTINCT (PG15+) is required so the "no spice / no salt selected" variant
+-- (spice_level / salt_level NULL) collapses to a single line instead of NULLs
+-- being treated as all-distinct.
+create unique index uq_provider_preparation_batch_lines_key
+  on provider_preparation_batch_lines (
+    batch_id, catalog_item_id, canonical_unit, spice_level, salt_level
+  ) nulls not distinct;
 
 -- ── provider_activity_events ─────────────────────────────────────────────────────
 -- ADR-3 / spec § 8.18 (option 2: the household event-envelope pattern WITHOUT

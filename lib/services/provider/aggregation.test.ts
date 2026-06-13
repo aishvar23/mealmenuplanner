@@ -215,4 +215,75 @@ describe("aggregatePreparation", () => {
       "Zucchini",
     ]);
   });
+
+  it("orders item names with pinned numeric collation, not lexicographically", () => {
+    const result = aggregatePreparation([
+      line({
+        catalogItemId: "i10",
+        itemName: "Item 10",
+        componentGroup: "main",
+        includedQuantity: 1,
+      }),
+      line({
+        catalogItemId: "i2",
+        itemName: "Item 2",
+        componentGroup: "main",
+        includedQuantity: 1,
+      }),
+    ]);
+    // numeric collation → "Item 2" before "Item 10" (lexicographic would invert).
+    expect(result.map((l) => l.itemName)).toEqual(["Item 2", "Item 10"]);
+  });
+
+  it("breaks ties by catalogItemId so distinct items have a stable order", () => {
+    const idA = "00000000-0000-0000-0000-0000000000aa";
+    const idB = "00000000-0000-0000-0000-0000000000bb";
+    const mk = (id: string) =>
+      line({
+        catalogItemId: id,
+        itemName: "Same",
+        componentGroup: "main",
+        includedQuantity: 1,
+      });
+    // Identical in every sorted field but id; order must not depend on input order.
+    const forward = aggregatePreparation([mk(idB), mk(idA)]);
+    const reverse = aggregatePreparation([mk(idA), mk(idB)]);
+    expect(forward.map((l) => l.catalogItemId)).toEqual([idA, idB]);
+    expect(reverse.map((l) => l.catalogItemId)).toEqual([idA, idB]);
+  });
+
+  it("resolves itemName/componentGroup deterministically when member lines disagree", () => {
+    // Same aggregation key (id + unit + spice + salt) but differing display
+    // fields — e.g. a response captured before an item rename/regroup.
+    const stale = line({
+      catalogItemId: DAL,
+      itemName: "Dal (old name)",
+      componentGroup: "sabzi",
+      includedQuantity: 5,
+    });
+    const fresh = line({
+      catalogItemId: DAL,
+      itemName: "Dal",
+      componentGroup: "dal_or_legume",
+      includedQuantity: 5,
+    });
+    // dal_or_legume (rank 1) sorts before sabzi (rank 2): "fresh" wins either way.
+    const forward = aggregatePreparation([stale, fresh]);
+    const reverse = aggregatePreparation([fresh, stale]);
+    expect(forward).toHaveLength(1);
+    expect(forward[0]?.itemName).toBe("Dal");
+    expect(forward[0]?.componentGroup).toBe("dal_or_legume");
+    expect(forward[0]?.includedQuantity).toBe(10);
+    expect(reverse).toEqual(forward);
+  });
+
+  it("never collides keys when a value straddles the separator boundary", () => {
+    // Under a space separator ["a","b c"] and ["a b","c"] both join to "a b c ",
+    // wrongly merging two distinct items; the NUL separator keeps them apart.
+    const result = aggregatePreparation([
+      line({ catalogItemId: "a", canonicalUnit: "b c", includedQuantity: 1 }),
+      line({ catalogItemId: "a b", canonicalUnit: "c", includedQuantity: 1 }),
+    ]);
+    expect(result).toHaveLength(2);
+  });
 });
