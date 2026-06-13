@@ -121,6 +121,16 @@ function mapSaveError(error: RpcError): never {
       throw new ValidationError("Some response details are invalid.", [
         { field: "items", rule: "invalid" },
       ]);
+    case "40P01": // deadlock_detected
+    case "40001": // serialization_failure
+      // A transient concurrency abort (the RPCs lock day→response in one order to
+      // avoid the AB/BA deadlock, but map it defensively): a clean retryable 409,
+      // never an opaque 500. The client can simply re-issue the request.
+      throw new ConflictError(
+        "A concurrent change interrupted your request. Please retry.",
+        undefined,
+        { cause: error },
+      );
     default:
       throw new InternalError("Failed to save your response.", {
         cause: error,
@@ -130,8 +140,8 @@ function mapSaveError(error: RpcError): never {
 
 /**
  * Map a confirm/cancel RPC error. These share the save guards minus the
- * derivation/validation reasons; `PREMP` (confirm of an empty response) is the one
- * extra case.
+ * derivation/validation reasons; `PREMP` (confirm of an empty response) and `PRCAN`
+ * (confirm of a cancelled response) are the two extra cases.
  */
 function mapTransitionError(error: RpcError): never {
   switch (error.code) {
@@ -139,6 +149,13 @@ function mapTransitionError(error: RpcError): never {
       throw new ValidationError(
         "Add at least one selection before confirming.",
         [{ field: "items", rule: "required" }],
+      );
+    case "PRCAN":
+      // Confirm of a cancelled response — the member must re-save (revive to draft)
+      // first, so a stale pre-cancel item tree can't re-enter the batch.
+      throw new ConflictError(
+        "This response was cancelled. Reopen and save it before confirming.",
+        { reason: PROVIDER_ERROR_REASONS.response_cancelled },
       );
     case "P0002":
       throw new NotFoundError("Response not found.");

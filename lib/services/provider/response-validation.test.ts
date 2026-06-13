@@ -87,6 +87,17 @@ describe("validateSaveProviderResponse", () => {
     });
   });
 
+  it("accepts expectedVersion 0 (the empty-shape version a first save echoes back)", () => {
+    // The 'no response yet' DTO carries version 0; a client echoing it back sends 0.
+    // The validator must pass 0 through (the RPC treats 0 like null = no prior
+    // version on a first save) rather than reject it.
+    const result = validateSaveProviderResponse({
+      expectedVersion: 0,
+      items: [],
+    });
+    expect(result.expectedVersion).toBe(0);
+  });
+
   it("rejects a bad component / catalog uuid", () => {
     const issues = issuesOf({
       items: [{ menuComponentId: "x", selectedCatalogItemId: "y" }],

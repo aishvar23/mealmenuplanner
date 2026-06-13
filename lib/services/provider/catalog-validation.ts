@@ -1,11 +1,16 @@
 import { ValidationError, type ValidationIssue } from "@/lib/errors";
 import type { JsonObject } from "@/lib/http";
-import { isUuid } from "@/lib/validation/uuid";
 import {
   PROVIDER_COMPONENT_GROUPS,
   type ProviderComponentGroup,
 } from "@/packages/shared/provider";
 
+import {
+  QUANTITY_MAX,
+  QUANTITY_SCALE,
+  exceedsQuantityScale,
+  optionalUuid,
+} from "./field-validators";
 import { optionalText, requiredText } from "./text-validators";
 
 // Re-exported for the service barrel (`./index`) — the canonical list lives in
@@ -24,16 +29,6 @@ const NAME_MAX = 120;
 const UNIT_MAX = 40;
 const ALLERGY_MAX = 200;
 const IMAGE_URL_MAX = 2048;
-/**
- * Bounds coordinated with the `default_quantity numeric(10,3)` column: a value
- * with more than {@link QUANTITY_SCALE} decimals would be silently rounded by
- * Postgres (a quiet data-fidelity loss), and a value above {@link QUANTITY_MAX}
- * (the column's true capacity) would raise a `22003` overflow at insert instead
- * of a clean 400. Validating both here keeps the validator the single source of
- * truth for what the column can faithfully hold.
- */
-const QUANTITY_SCALE = 3;
-const QUANTITY_MAX = 9_999_999.999;
 
 /** The catalog columns (snake_case) for a DB insert — `provider_id` is added by
  * the service from the route, never the client (plan § 9). */
@@ -102,19 +97,6 @@ function componentGroup(
 }
 
 /**
- * True if `value` carries more than {@link QUANTITY_SCALE} decimal places (or is
- * expressed in scientific notation, which only arises outside the normal quantity
- * range) — i.e. a precision the `numeric(10,3)` column can't hold without silently
- * rounding. Uses the number's canonical string form to avoid float-multiply error.
- */
-function exceedsQuantityScale(value: number): boolean {
-  const s = value.toString();
-  if (s.includes("e") || s.includes("E")) return true;
-  const dot = s.indexOf(".");
-  return dot !== -1 && s.length - dot - 1 > QUANTITY_SCALE;
-}
-
-/**
  * Validate a positive, finite default quantity within the bounds and precision the
  * `numeric(10,3)` column can faithfully store; null + issue if bad.
  */
@@ -151,21 +133,6 @@ function optionalBool(
   if (typeof value !== "boolean") {
     issues.push({ field, rule: "type" });
     return false;
-  }
-  return value;
-}
-
-/** Validate an optional nullable UUID (the `sourceDishId` soft link). */
-function optionalUuid(
-  value: unknown,
-  field: string,
-  issues: ValidationIssue[],
-): string | null | undefined {
-  if (value === undefined) return undefined;
-  if (value === null) return null;
-  if (typeof value !== "string" || !isUuid(value)) {
-    issues.push({ field, rule: "uuid" });
-    return undefined;
   }
   return value;
 }

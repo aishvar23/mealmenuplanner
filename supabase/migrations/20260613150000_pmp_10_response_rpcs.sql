@@ -23,9 +23,18 @@
 --     (UC-RESPONSE-006). Atomic — any failure rolls back the whole tree (no partial
 --     write, UC-RESPONSE-005).
 --   • confirm_provider_response(response_id) — UC-RESPONSE-001/007: draft → confirmed
---     (idempotent on an already-confirmed response), version++. Requires ≥ 1 line.
+--     (idempotent on an already-confirmed response — returns cleanly even after the
+--     cutoff, so a retry never 409s), version++. Requires ≥ 1 line. A CANCELLED
+--     response is rejected (PRCAN): the member must revive it through save (which
+--     re-derives quantities) so a stale item tree can't re-enter the batch.
 --   • cancel_provider_response(response_id) — UC-RESPONSE-008: → cancelled, version++.
---     A cancelled response is excluded from the batch but stays auditable.
+--     A cancelled response is excluded from the batch but stays auditable. Idempotent
+--     on an already-cancelled response (returns cleanly even after the cutoff).
+--
+-- Lock discipline: all three RPCs take row locks in ONE order — menu day, then the
+-- member response — so concurrent save/confirm/cancel on the same rows can't deadlock
+-- (AB/BA). confirm/cancel resolve the response's menu_day_id with an unlocked read
+-- first so the day lock can be taken before the response lock.
 --
 -- Error semantics (contract 03 § 3): each provider failure is raised with a custom
 -- 5-char SQLSTATE in the 'PR' class which the response-write.ts service maps to the
@@ -34,6 +43,7 @@
 --   PRMEM provider_membership_required   PRAPP provider_approval_required (403)
 --   PRPUB menu_not_published   PRLCK menu_already_locked   PRCUT cutoff_passed
 --   PRRLK response_already_locked   PRVER stale_version (hint=currentVersion) (409)
+--   PRCAN response_cancelled (confirm of a cancelled response) (409)
 --   PRALT invalid_menu_alternative   PRCUS invalid_customization
 --   PRLIM customization_limit_exceeded   PREMP empty-response (confirm) (400)
 --
@@ -83,7 +93,6 @@ declare
   v_option_id    uuid;
   v_cust_qty     numeric(10, 3);
   v_opt          record;
-  v_grp          record;
   v_count        integer;
 begin
   if v_user_id is null then
@@ -101,12 +110,16 @@ begin
     raise exception 'menu day not found' using errcode = 'P0002';
   end if;
 
-  -- Active (approved) membership required (contract 03 § 3: 403 reasons).
+  -- Active (approved) membership required (contract 03 § 3: 403 reasons). 'invited'
+  -- is the pre-acceptance state (the user has not accepted the invite, so is not yet
+  -- a member): it is NOT in the IN-list, so v_mstatus stays null → membership_required
+  -- (PRMEM), not approval_required. Only an accepted-but-not-approved member
+  -- ('awaiting_approval') gets approval_required (PRAPP).
   select m.status into v_mstatus
   from public.provider_memberships m
   where m.provider_id = v_provider_id
     and m.user_id = v_user_id
-    and m.status in ('invited', 'awaiting_approval', 'active')
+    and m.status in ('awaiting_approval', 'active')
   limit 1;
   if v_mstatus is null then
     raise exception 'membership required' using errcode = 'PRMEM';
@@ -154,8 +167,11 @@ begin
     -- Rebuild the tree from scratch (child rows cascade on the item delete).
     delete from public.provider_member_response_items where response_id = v_response_id;
   else
-    -- No response yet: the client must not claim a version.
-    if p_expected_version is not null then
+    -- No response yet: the client must not claim a PRIOR version. The empty
+    -- "no response yet" DTO carries version 0, so a client that echoes it back sends
+    -- expectedVersion 0 on its FIRST save — treat 0 (like null) as "no prior version"
+    -- rather than a stale conflict (a real response always starts at version 1).
+    if p_expected_version is not null and p_expected_version <> 0 then
       raise exception 'stale version' using errcode = 'PRVER', hint = '0';
     end if;
     insert into public.provider_member_responses (
@@ -254,22 +270,23 @@ begin
     end loop;
 
     -- Per-group selection-count cap (e.g. single_select / boolean ≤ 1, multi_select
-    -- ≤ N): more options chosen in a group than its maximum is over the limit.
-    for v_grp in
-      select g.id, g.maximum_selections
-      from public.provider_customization_groups g
-      where g.menu_component_id = v_component_id
-        and g.maximum_selections is not null
-    loop
-      select count(*) into v_count
-      from public.provider_member_response_customizations rc
-      join public.provider_customization_options o on o.id = rc.customization_option_id
-      where rc.response_item_id = v_item_id
-        and o.customization_group_id = v_grp.id;
-      if v_count > v_grp.maximum_selections then
-        raise exception 'customization limit exceeded' using errcode = 'PRLIM';
-      end if;
-    end loop;
+    -- ≤ N): more options chosen in a group than its maximum is over the limit. One
+    -- aggregate pass over this line's just-inserted customizations (group → count)
+    -- instead of a COUNT(*) per group, so the menu-day FOR UPDATE lock is held for
+    -- a single query rather than N.
+    select 1 into v_count
+    from public.provider_member_response_customizations rc
+    join public.provider_customization_options o on o.id = rc.customization_option_id
+    join public.provider_customization_groups g on g.id = o.customization_group_id
+    where rc.response_item_id = v_item_id
+      and g.menu_component_id = v_component_id
+      and g.maximum_selections is not null
+    group by g.id, g.maximum_selections
+    having count(*) > g.maximum_selections
+    limit 1;
+    if found then
+      raise exception 'customization limit exceeded' using errcode = 'PRLIM';
+    end if;
   end loop;
 
   return v_response_id;
@@ -302,9 +319,30 @@ begin
     raise exception 'authentication required' using errcode = '28000';
   end if;
 
-  -- The caller's OWN response (scoped by member_user_id → no leak of others').
-  select r.menu_day_id, r.status, r.version
-    into v_menu_day_id, v_status, v_version
+  -- Resolve the caller's OWN response to its menu day WITHOUT locking, so we can take
+  -- the day lock FIRST and keep ONE consistent lock order (day → response) across
+  -- save/confirm/cancel. (save locks day-then-response; if confirm locked
+  -- response-then-day, two concurrent ops on the same rows could deadlock AB/BA.)
+  select r.menu_day_id into v_menu_day_id
+  from public.provider_member_responses r
+  where r.id = p_response_id and r.member_user_id = v_user_id;
+  if not found then
+    raise exception 'response not found' using errcode = 'P0002';
+  end if;
+
+  -- 1) Lock the day (same first lock as save).
+  select md.status, md.cutoff_at, md.locked_at
+    into v_day_status, v_cutoff_at, v_locked_at
+  from public.provider_menu_days md
+  where md.id = v_menu_day_id
+  for update;
+  if not found then
+    raise exception 'response not found' using errcode = 'P0002';
+  end if;
+
+  -- 2) Lock + re-read the response (second lock; caller-scoped).
+  select r.status, r.version
+    into v_status, v_version
   from public.provider_member_responses r
   where r.id = p_response_id and r.member_user_id = v_user_id
   for update;
@@ -312,26 +350,32 @@ begin
     raise exception 'response not found' using errcode = 'P0002';
   end if;
 
+  -- A locked / auto-accepted / overridden response is immutable to the member.
   if v_status in ('locked', 'auto_accepted', 'provider_overridden') then
     raise exception 'response locked' using errcode = 'PRRLK';
   end if;
 
-  -- Lock the day + re-check the cutoff/lock window (a save and a confirm share the
-  -- same open-menu rule, contract 03 § 7).
-  select md.status, md.cutoff_at, md.locked_at
-    into v_day_status, v_cutoff_at, v_locked_at
-  from public.provider_menu_days md
-  where md.id = v_menu_day_id
-  for update;
+  -- Idempotent replay BEFORE the cutoff/lock gate: an already-confirmed response is a
+  -- no-op and returns cleanly even after the menu closed, so a client retry around
+  -- the cutoff never surfaces a spurious cutoff_passed for work already done.
+  if v_status = 'confirmed' then
+    return v_menu_day_id;
+  end if;
+
+  -- A cancelled response can't be confirmed directly — the member must revive it via
+  -- save, which re-derives quantities, so a stale (pre-cancel) item tree can never
+  -- re-enter the batch. Raised regardless of the cutoff window (clearer than cutoff).
+  if v_status = 'cancelled' then
+    raise exception 'response cancelled' using errcode = 'PRCAN';
+  end if;
+
+  -- The response is a draft → a REAL state change, gated by the open-menu window
+  -- (cutoff + lock, contract 03 § 7).
   if v_day_status = 'locked' or v_locked_at is not null then
     raise exception 'menu locked' using errcode = 'PRLCK';
   end if;
   if v_cutoff_at <= pg_catalog.now() then
     raise exception 'cutoff passed' using errcode = 'PRCUT';
-  end if;
-
-  if v_status = 'confirmed' then
-    return v_menu_day_id; -- idempotent replay
   end if;
 
   -- Can't confirm an empty response (nothing to prepare).
@@ -378,8 +422,28 @@ begin
     raise exception 'authentication required' using errcode = '28000';
   end if;
 
-  select r.menu_day_id, r.status, r.version
-    into v_menu_day_id, v_status, v_version
+  -- Same lock discipline as confirm: resolve the menu day unlocked, then lock
+  -- day → response (one consistent order with save, so no AB/BA deadlock).
+  select r.menu_day_id into v_menu_day_id
+  from public.provider_member_responses r
+  where r.id = p_response_id and r.member_user_id = v_user_id;
+  if not found then
+    raise exception 'response not found' using errcode = 'P0002';
+  end if;
+
+  -- 1) Lock the day.
+  select md.status, md.cutoff_at, md.locked_at
+    into v_day_status, v_cutoff_at, v_locked_at
+  from public.provider_menu_days md
+  where md.id = v_menu_day_id
+  for update;
+  if not found then
+    raise exception 'response not found' using errcode = 'P0002';
+  end if;
+
+  -- 2) Lock + re-read the response (caller-scoped).
+  select r.status, r.version
+    into v_status, v_version
   from public.provider_member_responses r
   where r.id = p_response_id and r.member_user_id = v_user_id
   for update;
@@ -391,20 +455,19 @@ begin
     raise exception 'response locked' using errcode = 'PRRLK';
   end if;
 
-  select md.status, md.cutoff_at, md.locked_at
-    into v_day_status, v_cutoff_at, v_locked_at
-  from public.provider_menu_days md
-  where md.id = v_menu_day_id
-  for update;
+  -- Idempotent replay BEFORE the cutoff/lock gate: an already-cancelled response is a
+  -- no-op and returns cleanly even after the menu closed (a retry must not 409).
+  if v_status = 'cancelled' then
+    return v_menu_day_id;
+  end if;
+
+  -- Cancelling a draft/confirmed response is a REAL state change, gated by the
+  -- open-menu window (cutoff + lock, contract 03 § 7).
   if v_day_status = 'locked' or v_locked_at is not null then
     raise exception 'menu locked' using errcode = 'PRLCK';
   end if;
   if v_cutoff_at <= pg_catalog.now() then
     raise exception 'cutoff passed' using errcode = 'PRCUT';
-  end if;
-
-  if v_status = 'cancelled' then
-    return v_menu_day_id; -- idempotent replay
   end if;
 
   update public.provider_member_responses

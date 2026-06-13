@@ -1,6 +1,5 @@
 import { ValidationError, type ValidationIssue } from "@/lib/errors";
 import type { JsonObject } from "@/lib/http";
-import { isUuid } from "@/lib/validation/uuid";
 import {
   PROVIDER_SALT_LEVELS,
   PROVIDER_SPICE_LEVELS,
@@ -10,6 +9,13 @@ import type {
   ProviderSpiceLevel,
 } from "@/packages/shared/provider";
 
+import {
+  QUANTITY_MAX,
+  QUANTITY_SCALE,
+  exceedsQuantityScale,
+  optionalEnum,
+  requiredUuid,
+} from "./field-validators";
 import { optionalText } from "./text-validators";
 
 // Re-exported for the service barrel (`./index`) — the canonical lists live in
@@ -34,10 +40,9 @@ export { PROVIDER_SALT_LEVELS, PROVIDER_SPICE_LEVELS };
 const NOTE_MAX = 1000;
 const MAX_ITEMS = 30;
 const MAX_CUSTOMIZATIONS = 30;
-/** A customization increment count: bounded here only as a sanity cap; the real,
- * provider-specific maximum is enforced by the RPC (BR-010). `numeric(10,3)`. */
-const QUANTITY_MAX = 9_999_999.999;
-const QUANTITY_SCALE = 3;
+// A customization increment count is bounded here only as a sanity cap (the
+// `numeric(10,3)` range/scale via the shared QUANTITY_MAX/exceedsQuantityScale); the
+// real, provider-specific maximum is enforced by the RPC (BR-010).
 
 /** The normalized save payload the service hands to the RPC (items stay camelCase
  * for the jsonb arg the RPC reads). `quantity`/`canonicalUnit` are intentionally
@@ -58,36 +63,9 @@ export interface NormalizedResponseSave {
   items: NormalizedResponseItem[];
 }
 
-/** A required UUID at `field`; pushes a `uuid` issue and returns null if bad. */
-function requiredUuid(
-  value: unknown,
-  field: string,
-  issues: ValidationIssue[],
-): string | null {
-  if (typeof value !== "string" || !isUuid(value)) {
-    issues.push({ field, rule: "uuid" });
-    return null;
-  }
-  return value;
-}
-
-/** An optional enum value (null/undefined → null); pushes an `enum` issue if bad. */
-function optionalEnum<T extends string>(
-  value: unknown,
-  field: string,
-  allowed: readonly T[],
-  issues: ValidationIssue[],
-): T | null {
-  if (value === undefined || value === null) return null;
-  if (typeof value !== "string" || !allowed.includes(value as T)) {
-    issues.push({ field, rule: "enum", allowed });
-    return null;
-  }
-  return value as T;
-}
-
 /** A customization increment quantity: null/undefined → null, else a finite
- * positive number within the column's range/scale. */
+ * positive number within the column's range/scale (shared with the catalog
+ * quantity rules via {@link file://./field-validators.ts}). */
 function optionalQuantity(
   value: unknown,
   field: string,
@@ -102,9 +80,7 @@ function optionalQuantity(
     issues.push({ field, rule: "max", max: QUANTITY_MAX });
     return null;
   }
-  const s = value.toString();
-  const dot = s.indexOf(".");
-  if (s.includes("e") || (dot !== -1 && s.length - dot - 1 > QUANTITY_SCALE)) {
+  if (exceedsQuantityScale(value)) {
     issues.push({ field, rule: "scale", scale: QUANTITY_SCALE });
     return null;
   }

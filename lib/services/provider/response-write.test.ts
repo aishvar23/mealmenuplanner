@@ -172,6 +172,20 @@ describe("saveMyResponse", () => {
       saveMyResponse(MENU_DAY, VALID_BODY as never),
     ).rejects.toBeInstanceOf(InternalError);
   });
+
+  it("maps a deadlock (40P01) → CONFLICT (clean retryable, not a 500)", async () => {
+    stubRpc({ data: null, error: { code: "40P01" } });
+    await expect(
+      saveMyResponse(MENU_DAY, VALID_BODY as never),
+    ).rejects.toBeInstanceOf(ConflictError);
+  });
+
+  it("maps a serialization failure (40001) → CONFLICT", async () => {
+    stubRpc({ data: null, error: { code: "40001" } });
+    await expect(
+      saveMyResponse(MENU_DAY, VALID_BODY as never),
+    ).rejects.toBeInstanceOf(ConflictError);
+  });
 });
 
 describe("confirmMyResponse / cancelMyResponse", () => {
@@ -206,6 +220,22 @@ describe("confirmMyResponse / cancelMyResponse", () => {
     expect((err as ConflictError).details).toMatchObject({
       reason: "response_already_locked",
     });
+  });
+
+  it("confirm maps PRCAN → CONFLICT response_cancelled (revive via save first)", async () => {
+    stubRpc({ data: null, error: { code: "PRCAN" } });
+    const err = await confirmMyResponse(RESPONSE).catch((e) => e);
+    expect(err).toBeInstanceOf(ConflictError);
+    expect((err as ConflictError).details).toMatchObject({
+      reason: "response_cancelled",
+    });
+  });
+
+  it("confirm maps a deadlock (40P01) → CONFLICT (clean retryable)", async () => {
+    stubRpc({ data: null, error: { code: "40P01" } });
+    await expect(confirmMyResponse(RESPONSE)).rejects.toBeInstanceOf(
+      ConflictError,
+    );
   });
 
   it("404s a malformed response id without an RPC call", async () => {
