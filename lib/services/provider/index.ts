@@ -16,6 +16,7 @@ export {
   type ProviderUpdatePatch,
 } from "./validation";
 export { requireOwnedProvider } from "./access";
+export { getMenuDay, getTodayMenu, getWeeklyMenu } from "./menu-read";
 export {
   createCatalogItem,
   listProviderCatalog,
