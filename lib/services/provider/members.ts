@@ -10,6 +10,7 @@ import {
   UnauthenticatedError,
 } from "@/lib/errors";
 import { boundedCollection, type Collection } from "@/lib/http";
+import { PROVIDER_ERROR_REASONS } from "@/packages/shared/provider";
 import type { MemberDto } from "@/packages/shared/provider";
 
 /**
@@ -54,41 +55,69 @@ export async function listProviderMembers(
   return boundedCollection((data ?? []).map(toMemberDto));
 }
 
-/** Re-read one member after a lifecycle mutation, for the response DTO. */
+/**
+ * Re-read one member after a lifecycle mutation, for the response DTO. Uses the
+ * single-member `get_provider_member` projection (not a full-roster list), so a
+ * single-member action costs one row read instead of an O(roster) scan + join.
+ */
 async function readMember(
   providerId: string,
   memberId: string,
 ): Promise<MemberDto> {
-  const collection = await listProviderMembers(providerId);
-  const member = collection.data.find((m) => m.memberId === memberId);
-  if (!member) {
+  const supabase = await createServerSupabaseClient();
+  const { data, error } = await supabase.rpc("get_provider_member", {
+    p_provider_id: providerId,
+    p_member_id: memberId,
+  });
+  if (error) {
+    if (error.code === "28000") throw new UnauthenticatedError();
+    // The lifecycle write already succeeded and we re-read as the same owner, so
+    // any read error here (incl. 42501) is unexpected — surface it as internal.
+    throw new InternalError("Member updated but could not be read back.", {
+      cause: error,
+    });
+  }
+  const row = (data ?? [])[0];
+  if (!row) {
     throw new InternalError("Member updated but could not be read back.");
   }
-  return member;
+  return toMemberDto(row);
 }
 
-function mapLifecycleError(error: { code?: string; cause?: unknown }): never {
+type LifecycleRpc =
+  | "approve_provider_member"
+  | "reject_provider_member"
+  | "remove_provider_member";
+
+function mapLifecycleError(
+  error: { code?: string; cause?: unknown },
+  rpc: LifecycleRpc,
+): never {
   if (error.code === "28000") throw new UnauthenticatedError();
   // Not the owner → existence-hiding 404, same as an unknown member.
   if (error.code === "42501" || error.code === "P0002") {
     throw new NotFoundError("Member not found.", { cause: error });
   }
   if (error.code === "23514") {
-    throw new ConflictError(
-      "This member can't be updated in their current state.",
-      {
-        reason: "provider_member_not_pending",
-      },
-    );
+    // The RPC raises 23514 for two distinct states: a member who is no longer
+    // awaiting approval (approve/reject) vs one who is not in a removable state
+    // (remove). Surface a reason that matches the action so a client branching on
+    // `details.reason` shows accurate copy.
+    if (rpc === "remove_provider_member") {
+      throw new ConflictError(
+        "This member can't be removed in their current state.",
+        { reason: PROVIDER_ERROR_REASONS.provider_member_not_removable },
+      );
+    }
+    throw new ConflictError("This member is no longer awaiting approval.", {
+      reason: PROVIDER_ERROR_REASONS.provider_member_not_pending,
+    });
   }
   throw new InternalError("Failed to update the member.", { cause: error });
 }
 
 async function runLifecycle(
-  rpc:
-    | "approve_provider_member"
-    | "reject_provider_member"
-    | "remove_provider_member",
+  rpc: LifecycleRpc,
   providerId: string,
   memberId: string,
 ): Promise<MemberDto> {
@@ -98,7 +127,7 @@ async function runLifecycle(
     p_provider_id: providerId,
     p_member_id: memberId,
   });
-  if (error) mapLifecycleError(error);
+  if (error) mapLifecycleError(error, rpc);
   return readMember(providerId, memberId);
 }
 

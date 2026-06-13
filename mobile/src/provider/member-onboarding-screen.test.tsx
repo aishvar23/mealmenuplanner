@@ -27,6 +27,10 @@ jest.mock("./client", () => ({ providerClient: {} }));
 const mockReplace = jest.fn();
 jest.mock("expo-router", () => ({
   useRouter: () => ({ replace: mockReplace }),
+  Redirect: ({ href }: { href: string }) => {
+    const { Text: RNText } = require("react-native");
+    return <RNText>{`redirect:${href}`}</RNText>;
+  },
 }));
 
 const mockUseMyMembership = jest.mocked(useMyMembership);
@@ -97,6 +101,18 @@ describe("MemberOnboardingScreen", () => {
     setMembership({ autoAcceptEligible: true });
     render(<MemberOnboardingScreen providerId="prov-1" />);
     expect(screen.getAllByRole("checkbox")).toHaveLength(3);
+  });
+
+  it("bounces an already-onboarded member to their menu (no re-submit)", () => {
+    setMembership({ onboardingComplete: true });
+    render(<MemberOnboardingScreen providerId="prov-1" />);
+    // The onboarding form is not shown; we redirect to today instead.
+    expect(
+      screen.queryByRole("button", { name: "Continue to today's menu" }),
+    ).toBeNull();
+    expect(
+      screen.getByText("redirect:/(provider-member)/prov-1/today"),
+    ).toBeOnTheScreen();
   });
 
   it("never shows any household input field", () => {

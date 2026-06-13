@@ -1,10 +1,13 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRouter, type Href } from "expo-router";
+import { Redirect, useRouter, type Href } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import type { ProviderSpiceLevel } from "@mmp/shared/provider";
+import {
+  PROVIDER_SPICE_OPTIONS,
+  type ProviderSpiceLevel,
+} from "@mmp/shared/provider";
 
 import { Button } from "@/components/Button";
 import { ErrorBanner, LoadingState } from "@/components/Feedback";
@@ -21,13 +24,6 @@ import { myMembershipQueryKey, useMyMembership } from "./use-my-membership";
  * acknowledgments, and (when subscription-eligible) auto-accept consent — never
  * any household field. On submit it routes to Today's Menu.
  */
-
-const SPICE_OPTIONS: { value: ProviderSpiceLevel; label: string }[] = [
-  { value: "non_spicy", label: "Non-spicy" },
-  { value: "mild", label: "Mild" },
-  { value: "regular", label: "Regular" },
-  { value: "spicy", label: "Spicy" },
-];
 
 export function MemberOnboardingScreen({ providerId }: { providerId: string }) {
   const router = useRouter();
@@ -70,6 +66,12 @@ export function MemberOnboardingScreen({ providerId }: { providerId: string }) {
   });
 
   if (isLoading) return <LoadingState />;
+  // An already-onboarded member who navigates/deep-links back here is bounced to
+  // their menu, so onboarding can't be re-submitted (matches the web
+  // `requireMemberForOnboarding` guard).
+  if (membership?.onboardingComplete) {
+    return <Redirect href={`/(provider-member)/${providerId}/today` as Href} />;
+  }
 
   const canSubmit =
     displayName.trim().length > 0 &&
@@ -126,7 +128,7 @@ export function MemberOnboardingScreen({ providerId }: { providerId: string }) {
             Default spice level
           </Text>
           <SelectChips
-            options={SPICE_OPTIONS}
+            options={PROVIDER_SPICE_OPTIONS}
             selected={spice ? [spice] : []}
             onChange={(next) =>
               setSpice((next[0] as ProviderSpiceLevel) ?? null)

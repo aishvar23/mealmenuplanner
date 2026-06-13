@@ -6,19 +6,11 @@
  * `ProviderApiClient` so a contract change is a compile error here.
  */
 
+import { readApiErrorMessage } from "@/packages/shared/provider";
 import type {
   CompleteMemberOnboardingRequest,
   MyProviderMembershipDto,
 } from "@/packages/shared/provider";
-
-async function errorMessage(res: Response, fallback: string): Promise<string> {
-  try {
-    const body = (await res.json()) as { error?: { message?: string } };
-    return body.error?.message ?? fallback;
-  } catch {
-    return fallback;
-  }
-}
 
 /** `POST /api/providers/{id}/complete-member-onboarding`. */
 export async function completeMemberOnboarding(
@@ -34,7 +26,9 @@ export async function completeMemberOnboarding(
     },
   );
   if (!res.ok) {
-    throw new Error(await errorMessage(res, "Couldn't save your details."));
+    throw new Error(
+      await readApiErrorMessage(res, "Couldn't save your details."),
+    );
   }
   return res.json();
 }

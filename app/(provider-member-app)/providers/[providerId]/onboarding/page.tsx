@@ -1,5 +1,4 @@
 import { MemberOnboardingView } from "@/components/provider-member-onboarding/onboarding-view";
-import { getMyProviderMembership } from "@/lib/services/provider";
 
 import { requireMemberForOnboarding } from "../member-access";
 
@@ -18,8 +17,7 @@ export default async function ProviderMemberOnboardingPage({
   params: Promise<{ providerId: string }>;
 }) {
   const { providerId } = await params;
-  const summary = await requireMemberForOnboarding(providerId);
-  const membership = await getMyProviderMembership(providerId);
+  const { summary, membership } = await requireMemberForOnboarding(providerId);
 
   return (
     <MemberOnboardingView

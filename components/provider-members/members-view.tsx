@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { MemberDto } from "@/packages/shared/provider";
 
-import { createInvite, listMembers, memberAction } from "./members-client";
+import { createInvite, memberAction } from "./members-client";
 
 /**
  * Owner Members page (MP-B-022, spec §13.4): invite a customer by email/phone,
@@ -65,14 +65,6 @@ export function MembersView({
   const pending = members.filter((m) => m.status === "awaiting_approval");
   const active = members.filter((m) => m.status === "active");
 
-  async function refresh() {
-    try {
-      setMembers(await listMembers(providerId));
-    } catch {
-      // Keep the optimistic list; the next action surfaces any real error.
-    }
-  }
-
   async function onInvite(e: React.FormEvent) {
     e.preventDefault();
     if (busy) return;
@@ -106,11 +98,13 @@ export function MembersView({
     setActingId(memberId);
     setError(null);
     try {
+      // The mutation returns the authoritative updated member, so apply it
+      // directly — the status change moves the row between the pending/active
+      // lists (or out of both), no full-roster re-fetch needed.
       const updated = await memberAction(providerId, memberId, action);
       setMembers((list) =>
         list.map((m) => (m.memberId === memberId ? updated : m)),
       );
-      await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {

@@ -85,10 +85,10 @@ describe("member lifecycle", () => {
     vi.mocked(requireAuthUser).mockResolvedValue({ id: USER_ID } as never);
   });
 
-  it("approves then reads the member back", async () => {
+  it("approves then reads the member back via the single-member RPC", async () => {
     stubRpcByName({
       approve_provider_member: { data: null, error: null },
-      list_provider_members: { data: [MEMBER_ROW], error: null },
+      get_provider_member: { data: [MEMBER_ROW], error: null },
     });
     const result = await approveProviderMember("prov-1", MEMBER_ID);
     expect(result.memberId).toBe(MEMBER_ID);
@@ -104,7 +104,20 @@ describe("member lifecycle", () => {
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 
-  it("maps 23514 (wrong state) to Conflict member_not_pending", async () => {
+  it("maps approve 23514 (not awaiting) to Conflict member_not_pending", async () => {
+    stubRpcByName({
+      approve_provider_member: { data: null, error: { code: "23514" } },
+    });
+    const error = await approveProviderMember("prov-1", MEMBER_ID).catch(
+      (e) => e,
+    );
+    expect(error).toBeInstanceOf(ConflictError);
+    expect((error.details as ConflictDetails).reason).toBe(
+      "provider_member_not_pending",
+    );
+  });
+
+  it("maps remove 23514 (not removable) to Conflict member_not_removable", async () => {
     stubRpcByName({
       remove_provider_member: { data: null, error: { code: "23514" } },
     });
@@ -113,7 +126,7 @@ describe("member lifecycle", () => {
     );
     expect(error).toBeInstanceOf(ConflictError);
     expect((error.details as ConflictDetails).reason).toBe(
-      "provider_member_not_pending",
+      "provider_member_not_removable",
     );
   });
 });

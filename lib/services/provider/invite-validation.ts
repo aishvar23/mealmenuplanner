@@ -1,7 +1,12 @@
 import { ValidationError, type ValidationIssue } from "@/lib/errors";
 import type { JsonObject } from "@/lib/http";
 import { EMAIL_RE } from "@/lib/validation/email";
+import { PROVIDER_SPICE_LEVELS } from "@/packages/shared/provider";
 import type { ProviderSpiceLevel } from "@/packages/shared/provider";
+
+// Re-exported for the service barrel (`./index`) — the canonical list lives in
+// `@mmp/shared/provider` so the web/mobile pickers and this validator share one set.
+export { PROVIDER_SPICE_LEVELS };
 
 /**
  * Pure request validation for the provider membership flows (MP-A-102 +
@@ -18,14 +23,6 @@ export const MAX_PROVIDER_INVITE_TTL_DAYS = 365;
 
 const PHONE_MAX = 40;
 const NAME_MAX = 120;
-
-/** The provider spice levels a member may pick as their default (contract 03 §1). */
-export const PROVIDER_SPICE_LEVELS: readonly ProviderSpiceLevel[] = [
-  "non_spicy",
-  "mild",
-  "regular",
-  "spicy",
-];
 
 /** A trimmed non-empty string, or null. */
 function optionalString(value: unknown): string | null {

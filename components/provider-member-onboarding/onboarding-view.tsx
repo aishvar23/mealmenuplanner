@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PROVIDER_SPICE_OPTIONS } from "@/packages/shared/provider";
 import type {
   MyProviderMembershipDto,
   ProviderSpiceLevel,
@@ -20,13 +21,6 @@ import { completeMemberOnboarding } from "./onboarding-client";
  * NO household field (size, cuisine, variety, grocery, cooking time, dishes).
  * On submit it routes to Today's Menu.
  */
-
-const SPICE_OPTIONS: { value: ProviderSpiceLevel; label: string }[] = [
-  { value: "non_spicy", label: "Non-spicy" },
-  { value: "mild", label: "Mild" },
-  { value: "regular", label: "Regular" },
-  { value: "spicy", label: "Spicy" },
-];
 
 export function MemberOnboardingView({
   providerId,
@@ -134,7 +128,7 @@ export function MemberOnboardingView({
             className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
           >
             <option value="">No preference</option>
-            {SPICE_OPTIONS.map((o) => (
+            {PROVIDER_SPICE_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
               </option>

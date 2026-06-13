@@ -8,20 +8,12 @@
  * `{ error }` envelope.
  */
 
+import { readApiErrorMessage } from "@/packages/shared/provider";
 import type {
   CreateProviderInviteRequest,
   CreateProviderInviteResult,
   MemberDto,
 } from "@/packages/shared/provider";
-
-async function errorMessage(res: Response, fallback: string): Promise<string> {
-  try {
-    const body = (await res.json()) as { error?: { message?: string } };
-    return body.error?.message ?? fallback;
-  } catch {
-    return fallback;
-  }
-}
 
 /** `POST /api/providers/{id}/invites` — invite a customer by email and/or phone. */
 export async function createInvite(
@@ -34,7 +26,9 @@ export async function createInvite(
     body: JSON.stringify(input),
   });
   if (!res.ok) {
-    throw new Error(await errorMessage(res, "Couldn't create the invite."));
+    throw new Error(
+      await readApiErrorMessage(res, "Couldn't create the invite."),
+    );
   }
   return res.json();
 }
@@ -45,7 +39,7 @@ export async function listMembers(providerId: string): Promise<MemberDto[]> {
     headers: { accept: "application/json" },
   });
   if (!res.ok) {
-    throw new Error(await errorMessage(res, "Couldn't load members."));
+    throw new Error(await readApiErrorMessage(res, "Couldn't load members."));
   }
   const body = (await res.json()) as { data: MemberDto[] };
   return body.data;
@@ -64,7 +58,9 @@ export async function memberAction(
     { method: "POST" },
   );
   if (!res.ok) {
-    throw new Error(await errorMessage(res, "Couldn't update the member."));
+    throw new Error(
+      await readApiErrorMessage(res, "Couldn't update the member."),
+    );
   }
   return res.json();
 }

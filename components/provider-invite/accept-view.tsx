@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
+import { readApiErrorMessage } from "@/packages/shared/provider";
 import type { ProviderInvitePreviewDto } from "@/packages/shared/provider";
 
 /**
@@ -36,10 +37,9 @@ export function AcceptInviteView({
         method: "POST",
       });
       if (!res.ok) {
-        const body = (await res.json().catch(() => null)) as {
-          error?: { message?: string };
-        } | null;
-        throw new Error(body?.error?.message ?? "Couldn't accept this invite.");
+        throw new Error(
+          await readApiErrorMessage(res, "Couldn't accept this invite."),
+        );
       }
       const result = (await res.json()) as { providerId: string };
       router.replace(`/providers/${result.providerId}/awaiting-approval`);

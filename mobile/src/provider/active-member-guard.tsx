@@ -38,7 +38,10 @@ export function ActiveMemberGuard({
       />
     );
   }
-  if (self && !self.onboardingComplete) {
+  // Fail CLOSED on a missing/errored self-membership read: if we can't confirm
+  // onboarding is complete, route to onboarding rather than letting the menu
+  // render (matching the web `requireActiveMember`, which throws on this read).
+  if (!self || !self.onboardingComplete) {
     return (
       <Redirect href={`/(provider-member)/${providerId}/onboarding` as Href} />
     );

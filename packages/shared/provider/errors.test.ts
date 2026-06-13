@@ -42,6 +42,7 @@ const EXPECTED: Record<
   provider_invite_not_pending: { code: "CONFLICT", httpStatus: 409 },
   provider_already_member: { code: "CONFLICT", httpStatus: 409 },
   provider_member_not_pending: { code: "CONFLICT", httpStatus: 409 },
+  provider_member_not_removable: { code: "CONFLICT", httpStatus: 409 },
   batch_not_available: { code: "NOT_FOUND", httpStatus: 404 },
 };
 

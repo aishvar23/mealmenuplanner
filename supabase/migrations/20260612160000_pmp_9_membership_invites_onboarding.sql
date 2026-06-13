@@ -85,8 +85,9 @@ security definer
 set search_path = ''
 as $$
 declare
-  v_user_id uuid := auth.uid();
-  v_invite  public.provider_invites%rowtype;
+  v_user_id  uuid := auth.uid();
+  v_invite   public.provider_invites%rowtype;
+  v_existing public.provider_memberships%rowtype;
 begin
   if v_user_id is null then
     raise exception 'authentication required' using errcode = '28000';
@@ -106,16 +107,39 @@ begin
     raise exception 'invite is no longer valid' using errcode = '23514'; -- → 409
   end if;
 
-  -- uq_one_live_provider_membership rejects a duplicate live membership for this
-  -- (provider, user) → 23505 → ConflictError, rolling the whole function back so
-  -- the invite stays pending.
-  insert into public.provider_memberships (
-    provider_id, user_id, role, status, invited_by_user_id
-  )
-  values (
-    v_invite.provider_id, v_user_id, 'customer', 'awaiting_approval',
-    v_invite.invited_by_user_id
-  );
+  -- Reuse the caller's existing membership row for this provider rather than
+  -- inserting a second one. uq_one_live_provider_membership only covers the LIVE
+  -- statuses (invited/awaiting_approval/active), so a previously rejected/removed
+  -- customer who is re-invited would otherwise get a duplicate row (one stale,
+  -- one new) — breaking the owner roster and the own-membership read. A row that
+  -- is still live is a real conflict (23505 → ConflictError already_member); a
+  -- rejected/removed row is reactivated as a fresh awaiting_approval.
+  select * into v_existing
+  from public.provider_memberships
+  where provider_id = v_invite.provider_id and user_id = v_user_id
+  for update;
+
+  if found then
+    if v_existing.status in ('invited', 'awaiting_approval', 'active') then
+      raise exception 'already a member' using errcode = '23505'; -- → 409
+    end if;
+    update public.provider_memberships
+    set status = 'awaiting_approval',
+        invited_by_user_id = v_invite.invited_by_user_id,
+        approved_by_user_id = null,
+        approved_at = null,
+        joined_at = null,
+        removed_at = null
+    where id = v_existing.id;
+  else
+    insert into public.provider_memberships (
+      provider_id, user_id, role, status, invited_by_user_id
+    )
+    values (
+      v_invite.provider_id, v_user_id, 'customer', 'awaiting_approval',
+      v_invite.invited_by_user_id
+    );
+  end if;
 
   update public.provider_invites
   set status = 'accepted',
@@ -311,6 +335,54 @@ $$;
 revoke execute on function public.list_provider_members(uuid) from public, anon;
 grant  execute on function public.list_provider_members(uuid) to authenticated;
 
+-- ════════════════ get_provider_member(provider_id, member_id) — one row ══════════
+-- The single-member twin of list_provider_members (same projection + owner gate),
+-- so the lifecycle mutations (approve/reject/remove) can echo just the updated row
+-- without re-listing and re-joining `users` across the whole roster.
+create or replace function public.get_provider_member(
+  p_provider_id uuid, p_member_id uuid
+)
+returns table (
+  member_id    uuid,
+  user_id      uuid,
+  display_name text,
+  email        text,
+  phone        text,
+  role         public.provider_membership_role,
+  status       public.provider_membership_status,
+  approved_at  timestamptz,
+  joined_at    timestamptz
+)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  if not public.is_provider_owner(p_provider_id) then
+    raise exception 'owner required' using errcode = '42501';
+  end if;
+
+  return query
+  select
+    m.id,
+    m.user_id,
+    coalesce(m.member_display_name, u.display_name),
+    u.email,
+    coalesce(m.member_phone, u.phone),
+    m.role,
+    m.status,
+    m.approved_at,
+    m.joined_at
+  from public.provider_memberships m
+  left join public.users u on u.id = m.user_id
+  where m.provider_id = p_provider_id and m.id = p_member_id;
+end;
+$$;
+
+revoke execute on function public.get_provider_member(uuid, uuid) from public, anon;
+grant  execute on function public.get_provider_member(uuid, uuid) to authenticated;
+
 -- ════════════ complete_member_onboarding(...) — UC-MEMBER-ONBOARD-001 ═══════════
 -- The approved customer's minimal onboarding write: provider-facing name/phone,
 -- optional default spice, allergy + terms acknowledgments, and (only if a
@@ -367,16 +439,20 @@ begin
   where id = v_member.id;
 
   -- Auto-accept consent is captured ONLY when the customer already has a
-  -- subscription row (provider-provisioned eligibility, BR-002). With no row we
-  -- silently ignore consent rather than manufacture a subscription — the UI only
-  -- offers the toggle when eligible. Consent timestamp is server-set here.
-  if coalesce(p_auto_accept_consent, false) then
-    update public.provider_subscriptions
-    set auto_accept_enabled = true,
-        auto_accept_consented_at = coalesce(auto_accept_consented_at, pg_catalog.now())
-    where provider_id = p_provider_id
-      and customer_user_id = v_user_id;
-  end if;
+  -- subscription row (provider-provisioned eligibility, BR-002) — with no row the
+  -- UPDATE is a no-op and we never manufacture a subscription (the UI offers the
+  -- toggle only when eligible). The toggle is TWO-WAY: a member can grant OR
+  -- withdraw consent here, so the value is set unconditionally (not just on grant)
+  -- and the consent timestamp is cleared when consent is withdrawn.
+  update public.provider_subscriptions
+  set auto_accept_enabled = coalesce(p_auto_accept_consent, false),
+      auto_accept_consented_at = case
+        when coalesce(p_auto_accept_consent, false)
+          then coalesce(auto_accept_consented_at, pg_catalog.now())
+        else null
+      end
+  where provider_id = p_provider_id
+    and customer_user_id = v_user_id;
 end;
 $$;
 

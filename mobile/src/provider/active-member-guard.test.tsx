@@ -97,6 +97,25 @@ describe("ActiveMemberGuard", () => {
     ).toBeOnTheScreen();
   });
 
+  it("fails CLOSED when the self-membership read errors (no menu leak)", () => {
+    // An active membership, but the self read returned no data (transient error):
+    // the guard must NOT render the menu — it routes to onboarding instead.
+    mockMembership.mockReturnValue(membershipResult(summary()));
+    mockMyMembership.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+    } as unknown as ReturnType<typeof useMyMembership>);
+    render(
+      <ActiveMemberGuard providerId="prov-a">
+        <Text>Today menu</Text>
+      </ActiveMemberGuard>,
+    );
+    expect(screen.queryByText("Today menu")).not.toBeOnTheScreen();
+    expect(
+      screen.getByText("redirect:/(provider-member)/prov-a/onboarding"),
+    ).toBeOnTheScreen();
+  });
+
   it("redirects an awaiting customer to the holding screen, not the menu", () => {
     mockMembership.mockReturnValue(
       membershipResult(summary({ membershipStatus: "awaiting_approval" })),

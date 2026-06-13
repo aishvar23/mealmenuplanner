@@ -73,6 +73,63 @@ test.describe("Provider members (MP-B-022)", () => {
     await expect(page.getByText(customer.email).first()).toBeVisible();
   });
 
+  test("a removed customer can be re-invited and re-accepts without a duplicate membership", async ({
+    page,
+    providerTeam,
+  }) => {
+    // Regression for the duplicate-membership bug: a previously removed customer
+    // re-accepting must reactivate their single row, not insert a second one (the
+    // partial unique index doesn't cover 'removed'). A duplicate would make the
+    // own-membership read throw, so reaching the onboarding form after approval
+    // proves a single row.
+    const owner = await providerTeam.createUser("reinvite-owner");
+    const providerId = await providerTeam.createProvider(owner, {
+      name: "Reinvite Kitchen",
+    });
+    const customer = await providerTeam.createUser("reinvite-cust");
+    await providerTeam.addCustomer(providerId, customer, "removed");
+
+    // ── Owner re-invites the removed customer ──
+    await signInWithPassword(page, owner.email, owner.password);
+    await page.waitForURL("**/provider/dashboard", { timeout: 30_000 });
+    await page.goto("/provider/members");
+    await page.getByLabel("Email").fill(customer.email);
+    await page.getByRole("button", { name: "Send invite" }).click();
+    const linkInput = page.getByLabel("Invite link");
+    await expect(linkInput).toBeVisible({ timeout: 15_000 });
+    const token = (await linkInput.inputValue()).split("/provider-invite/")[1]!;
+
+    // ── Customer re-accepts (reactivation, not a 'already a member' conflict) ──
+    await signInWithPassword(page, customer.email, customer.password);
+    await page.waitForURL("**/onboarding", { timeout: 30_000 });
+    await page.goto(`/provider-invite/${token}`);
+    await page.getByRole("button", { name: "Accept invitation" }).click();
+    await page.waitForURL(`**/providers/${providerId}/awaiting-approval`, {
+      timeout: 30_000,
+    });
+
+    // ── Owner approves; exactly one awaiting entry to approve ──
+    await signInWithPassword(page, owner.email, owner.password);
+    await page.waitForURL("**/provider/dashboard", { timeout: 30_000 });
+    await page.goto("/provider/members");
+    await expect(page.getByRole("button", { name: "Approve" })).toHaveCount(1);
+    await page.getByRole("button", { name: "Approve" }).click();
+    await expect(page.getByRole("button", { name: "Approve" })).toHaveCount(0, {
+      timeout: 15_000,
+    });
+
+    // ── Customer reaches the onboarding form (own-membership read did not throw
+    //    on a duplicate row) ──
+    await signInWithPassword(page, customer.email, customer.password);
+    // Wait for the post-login redirect (no household → household onboarding) so
+    // the session cookie is set before navigating to the provider onboarding page.
+    await page.waitForURL("**/onboarding", { timeout: 30_000 });
+    await page.goto(`/providers/${providerId}/onboarding`);
+    await expect(
+      page.getByRole("heading", { name: /A few details for/ }),
+    ).toBeVisible({ timeout: 30_000 });
+  });
+
   test("rejecting an awaiting customer removes them from the list", async ({
     page,
     providerTeam,

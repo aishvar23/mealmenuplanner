@@ -5,7 +5,10 @@ import { redirect } from "next/navigation";
 import { getAuthUser } from "@/lib/auth";
 import { getMyProviderMembership } from "@/lib/services/provider";
 import { resolveCustomerAccess } from "@/lib/services/workspace";
-import type { ProviderSummaryDto } from "@/packages/shared/provider";
+import type {
+  MyProviderMembershipDto,
+  ProviderSummaryDto,
+} from "@/packages/shared/provider";
 
 /**
  * Access guards for the provider member shell (MP-B-012). Centralizes the
@@ -58,16 +61,19 @@ export async function requireActiveMember(
  * onboarding — instead send an already-onboarded member on to their Today's Menu,
  * so the onboarding page is the one place a not-yet-onboarded active member lands.
  */
-export async function requireMemberForOnboarding(
-  providerId: string,
-): Promise<ProviderSummaryDto> {
-  const membership = await requireMember(providerId);
-  if (membership.membershipStatus !== "active") {
+export async function requireMemberForOnboarding(providerId: string): Promise<{
+  summary: ProviderSummaryDto;
+  membership: MyProviderMembershipDto;
+}> {
+  const summary = await requireMember(providerId);
+  if (summary.membershipStatus !== "active") {
     redirect(`/providers/${providerId}/awaiting-approval`);
   }
-  const self = await getMyProviderMembership(providerId);
-  if (self.onboardingComplete) {
+  const membership = await getMyProviderMembership(providerId);
+  if (membership.onboardingComplete) {
     redirect(`/providers/${providerId}/today`);
   }
-  return membership;
+  // Return the membership we just read so the page renders without a second
+  // getMyProviderMembership round-trip.
+  return { summary, membership };
 }

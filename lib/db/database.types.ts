@@ -1876,6 +1876,20 @@ export type Database = {
           joined_at: string | null;
         }[];
       };
+      get_provider_member: {
+        Args: { p_provider_id: string; p_member_id: string };
+        Returns: {
+          member_id: string;
+          user_id: string;
+          display_name: string | null;
+          email: string | null;
+          phone: string | null;
+          role: Database["public"]["Enums"]["provider_membership_role"];
+          status: Database["public"]["Enums"]["provider_membership_status"];
+          approved_at: string | null;
+          joined_at: string | null;
+        }[];
+      };
       decline_invite: { Args: { p_token_hash: string }; Returns: Json };
       delete_household: { Args: { h: string }; Returns: undefined };
       emit_household_event: {
