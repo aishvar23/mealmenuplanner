@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import {
   formatQuantity,
   providerComponentGroupLabel,
+  providerSummaryEmailNotice,
   providerVariantSuffix,
 } from "@mmp/shared/provider";
 import type {
@@ -133,15 +134,25 @@ function BatchDetail({
   const [notice, setNotice] = useState<string | null>(null);
 
   async function onResend(batchId: string) {
+    // Clear the prior outcome (notice + a stale regenerate error banner) before acting.
     setNotice(null);
-    const result = await resendEmail.mutateAsync(batchId);
-    setNotice(
-      result.emailStatus === "sent"
-        ? `Summary email sent to ${result.recipientCount} recipient${result.recipientCount === 1 ? "" : "s"}.`
-        : result.emailStatus === "no_recipient"
-          ? "No summary-email recipients are configured."
-          : "The summary email couldn't be delivered.",
-    );
+    regenerate.reset();
+    try {
+      const result = await resendEmail.mutateAsync(batchId);
+      setNotice(providerSummaryEmailNotice(result));
+    } catch {
+      // A failed send is surfaced via `resendEmail.error`; swallow the rejection so it
+      // doesn't bubble as an unhandled promise rejection (the web twin uses try/catch too).
+    }
+  }
+
+  function onRegenerate(batchId: string) {
+    // Regenerate supersedes this revision (emailStatus resets to null), so drop any
+    // stale "email sent" notice + resend error banner — otherwise they'd contradict the
+    // refetched revision (the web twin clears both at the top of its onRegenerate).
+    setNotice(null);
+    resendEmail.reset();
+    regenerate.mutate(batchId);
   }
 
   return (
@@ -206,7 +217,7 @@ function BatchDetail({
                 label="Regenerate"
                 variant="secondary"
                 loading={regenerate.isPending}
-                onPress={() => regenerate.mutate(batch.batchId)}
+                onPress={() => onRegenerate(batch.batchId)}
               />
             </View>
 

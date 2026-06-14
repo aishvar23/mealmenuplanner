@@ -27,6 +27,7 @@ function mutation(impl?: (arg: never) => Promise<unknown>) {
   return {
     mutate: jest.fn(),
     mutateAsync: jest.fn(impl ?? (() => Promise.resolve(undefined))),
+    reset: jest.fn(),
     isPending: false,
     error: null,
   };

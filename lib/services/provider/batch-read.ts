@@ -134,26 +134,36 @@ export async function listProviderBatches(
     });
   }
 
-  return (data ?? [])
-    .map(
-      (row): ProviderBatchSummaryDto => ({
-        batchId: row.id,
-        menuDayId: row.menu_day_id,
-        menuDate: row.provider_menu_days.menu_date,
-        cutoffAt: row.provider_menu_days.cutoff_at,
-        revision: row.revision,
-        status: row.status,
-        generatedAt: row.generated_at,
-        emailStatus: row.email_status,
-        totals: {
-          confirmed: row.total_confirmed,
-          autoAccepted: row.total_auto_accepted,
-          cancelled: row.total_cancelled,
-          noResponse: row.total_no_response,
-        },
-      }),
-    )
-    .sort((a, b) => b.menuDate.localeCompare(a.menuDate));
+  return (
+    (data ?? [])
+      .map(
+        (row): ProviderBatchSummaryDto => ({
+          batchId: row.id,
+          menuDayId: row.menu_day_id,
+          menuDate: row.provider_menu_days.menu_date,
+          cutoffAt: row.provider_menu_days.cutoff_at,
+          revision: row.revision,
+          status: row.status,
+          generatedAt: row.generated_at,
+          emailStatus: row.email_status,
+          totals: {
+            confirmed: row.total_confirmed,
+            autoAccepted: row.total_auto_accepted,
+            cancelled: row.total_cancelled,
+            noResponse: row.total_no_response,
+          },
+        }),
+      )
+      // Newest day first; tie-break on generatedAt then batchId so the order is stable
+      // across requests. Two menu days CAN share a menu_date — pmp_4 deferred the
+      // (provider_id, menu_date) unique index (ADR-7) — so a date tie is reachable.
+      .sort(
+        (a, b) =>
+          b.menuDate.localeCompare(a.menuDate) ||
+          b.generatedAt.localeCompare(a.generatedAt) ||
+          a.batchId.localeCompare(b.batchId),
+      )
+  );
 }
 
 /**

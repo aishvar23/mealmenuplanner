@@ -1,6 +1,7 @@
 "use client";
 
 import { Download, Mail, RefreshCw } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -17,6 +18,7 @@ import type { ProviderBatchReadDto } from "@/lib/services/provider";
 import {
   formatQuantity,
   providerComponentGroupLabel,
+  providerSummaryEmailNotice,
   providerVariantSuffix,
 } from "@/packages/shared/provider";
 import type { PreparationLine } from "@/packages/shared/provider";
@@ -105,13 +107,7 @@ export function PreparationDetailView({
     setError(null);
     try {
       const result = await resendSummaryEmail(batch.batchId);
-      setNotice(
-        result.emailStatus === "sent"
-          ? `Summary email sent to ${result.recipientCount} recipient${result.recipientCount === 1 ? "" : "s"}.`
-          : result.emailStatus === "no_recipient"
-            ? "No summary-email recipients are configured."
-            : "The summary email couldn't be delivered. Try again later.",
-      );
+      setNotice(providerSummaryEmailNotice(result));
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't send the email.");
@@ -237,7 +233,13 @@ export function PreparationDetailView({
       ) : null}
       {error ? (
         <p className="text-sm text-tomato" role="alert">
-          {error}
+          {error}{" "}
+          {/* Recovery affordance: an action can fail because this revision was
+              superseded (e.g. a concurrent override), in which case acting on
+              this batchId keeps failing. The index always lists current batches. */}
+          <Link href="/provider/preparation" className="font-medium underline">
+            Back to preparation
+          </Link>
         </p>
       ) : null}
 

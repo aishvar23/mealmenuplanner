@@ -5,6 +5,7 @@
 // list never drift. Pure (no `server-only`, no `next/*`, no I/O) — web imports
 // via `@/packages/shared/provider`, mobile via `@mmp/shared/provider`.
 
+import type { ProviderSummaryEmailResultDto } from "./dtos";
 import type {
   ProviderComponentGroup,
   ProviderMembershipRole,
@@ -110,6 +111,25 @@ export function providerVariantSuffix(
   if (spiceLevel) parts.push(providerSpiceLabel(spiceLevel));
   if (saltLevel) parts.push(providerSaltLabel(saltLevel));
   return parts.length > 0 ? ` (${parts.join(", ")})` : "";
+}
+
+/**
+ * The owner-facing notice for a summary-email send/resend outcome — the single source
+ * for the web (MP-B-050) and mobile (MP-C-050) preparation screens, so the three-way
+ * sent/no_recipient/failed wording (and the recipient pluralization) can't drift across
+ * platforms. Drives off the honest `emailStatus` the best-effort route always returns.
+ */
+export function providerSummaryEmailNotice(
+  result: ProviderSummaryEmailResultDto,
+): string {
+  switch (result.emailStatus) {
+    case "sent":
+      return `Summary email sent to ${result.recipientCount} recipient${result.recipientCount === 1 ? "" : "s"}.`;
+    case "no_recipient":
+      return "No summary-email recipients are configured.";
+    default:
+      return "The summary email couldn't be delivered. Try again later.";
+  }
 }
 
 /**
