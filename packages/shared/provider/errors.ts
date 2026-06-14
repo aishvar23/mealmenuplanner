@@ -46,6 +46,7 @@ export const PROVIDER_ERROR_REASONS = {
   provider_already_member: "provider_already_member",
   provider_member_not_pending: "provider_member_not_pending",
   provider_member_not_removable: "provider_member_not_removable",
+  suggestion_not_pending: "suggestion_not_pending",
   // NOT_FOUND (404)
   batch_not_available: "batch_not_available",
 } as const;
@@ -108,6 +109,7 @@ export const PROVIDER_REASON_TO_CODE: Record<
     code: ERROR_CODES.CONFLICT,
     httpStatus: 409,
   },
+  suggestion_not_pending: { code: ERROR_CODES.CONFLICT, httpStatus: 409 },
   batch_not_available: { code: ERROR_CODES.NOT_FOUND, httpStatus: 404 },
 };
 

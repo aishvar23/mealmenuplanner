@@ -13,6 +13,7 @@ import type {
   ProviderResponseStatus,
   ProviderSaltLevel,
   ProviderSpiceLevel,
+  ProviderSuggestionStatus,
 } from "./enums";
 
 // ─────────────────────────── Invites / membership ───────────────────────────
@@ -287,6 +288,48 @@ export interface SaveProviderResponseRequest {
     }>;
   }>;
   memberNote: string | null;
+}
+
+// ──────────────────────────────── Suggestions ────────────────────────────────
+
+/**
+ * One member meal suggestion for a menu day (`GET`-projection / mutation result;
+ * § 4, UC-SUGGEST-\*). Non-binding — a suggestion NEVER alters a response or batch
+ * (BR-012). `status`/`providerResponse` are owner-controlled; the member owns only
+ * the free text. The owner sees every suggestion for their days; a member sees only
+ * their own (RLS `pms_select`).
+ */
+export interface ProviderSuggestionDto {
+  suggestionId: string;
+  menuDayId: string;
+  memberUserId: string;
+  suggestionText: string;
+  status: ProviderSuggestionStatus;
+  /** The owner's optional note recorded when resolving (accept/reject). */
+  providerResponse: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * `POST /api/provider-menu-days/{menuDayId}/suggestions` body (UC-SUGGEST-001). A
+ * member files a free-text suggestion for the day; `provider_id` and the author are
+ * derived server-side (route + auth), never client-controlled. Rate-limited at the
+ * endpoint (§ 19.1, BR-012).
+ */
+export interface CreateProviderSuggestionRequest {
+  suggestionText: string;
+}
+
+/**
+ * `POST /api/provider-suggestions/{suggestionId}/accept-as-option` and
+ * `.../reject` body (UC-SUGGEST-002/003, owner only). The optional `providerResponse`
+ * is the owner's note back to the member; the resolved `status` is fixed by the route
+ * (accepted_as_option / rejected), not the client. Only a `pending` suggestion can be
+ * resolved — re-resolving is a `409 { reason: "suggestion_not_pending" }`.
+ */
+export interface ResolveProviderSuggestionRequest {
+  providerResponse?: string | null;
 }
 
 // ───────────────────── Provider override / regenerate ─────────────────────

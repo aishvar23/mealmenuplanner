@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { ValidationError } from "@/lib/errors";
-import { readJsonObject } from "@/lib/http";
+import { readJsonObject, readOptionalJsonObject } from "@/lib/http";
 
 /** Build a Request with the given raw body + JSON content type. */
 function jsonRequest(rawBody: string): Request {
@@ -42,5 +42,31 @@ describe("readJsonObject", () => {
         ValidationError,
       );
     }
+  });
+});
+
+describe("readOptionalJsonObject", () => {
+  it("returns the parsed object when a valid JSON body is present", async () => {
+    const body = await readOptionalJsonObject(
+      jsonRequest('{"providerResponse":"yes"}'),
+    );
+    expect(body).toEqual({ providerResponse: "yes" });
+  });
+
+  it("returns {} for an absent / empty body (optional)", async () => {
+    expect(await readOptionalJsonObject(jsonRequest(""))).toEqual({});
+    expect(await readOptionalJsonObject(jsonRequest("   "))).toEqual({});
+  });
+
+  it("still throws ValidationError for present-but-malformed JSON", async () => {
+    await expect(
+      readOptionalJsonObject(jsonRequest("{not json")),
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  it("still throws ValidationError for a non-object body", async () => {
+    await expect(
+      readOptionalJsonObject(jsonRequest("[1,2,3]")),
+    ).rejects.toBeInstanceOf(ValidationError);
   });
 });

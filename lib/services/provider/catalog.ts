@@ -6,9 +6,9 @@ import { mapPgError, type RpcError } from "@/lib/db/rpc-error";
 import { createServerSupabaseClient } from "@/lib/db/server";
 import { InternalError, NotFoundError, ValidationError } from "@/lib/errors";
 import type { JsonObject } from "@/lib/http";
-import { isUuid } from "@/lib/validation/uuid";
 import type { CatalogItemDto } from "@/packages/shared/provider";
 
+import { requireProviderOwner } from "./access";
 import {
   validateCreateCatalogItem,
   validateUpdateCatalogItem,
@@ -27,10 +27,10 @@ import {
  *     restore (toggle `is_active`) through RLS `pcat_update`. Items are never hard
  *     deleted (ADR-4) — past menus/responses keep their referenced item.
  *
- * Every path gates ownership up front via {@link requireProviderOwner} so a
- * non-owner (or an unknown/malformed provider id) gets the same existence-hiding
- * `NotFoundError` on a read as on a write — uniform with the members read
- * (design/04 § 2/§ 4), rather than a read leaking an empty 200. RLS remains the
+ * Every path gates ownership up front via {@link requireProviderOwner} (shared from
+ * `./access`) so a non-owner (or an unknown/malformed provider id) gets the same
+ * existence-hiding `NotFoundError` on a read as on a write — uniform with the members
+ * read (design/04 § 2/§ 4), rather than a read leaking an empty 200. RLS remains the
  * authoritative backstop underneath. The owner membership is `active` even while
  * the org is still a `draft` (`create_provider_draft` mints it atomically), so
  * `is_provider_owner` is true during onboarding — the onboarding wizard's catalog
@@ -41,27 +41,6 @@ import {
 
 type SupabaseClient = Awaited<ReturnType<typeof createServerSupabaseClient>>;
 type CatalogRow = Database["public"]["Tables"]["provider_catalog_items"]["Row"];
-
-/**
- * Draft-safe owner gate. Unlike `requireOwnedProvider` (which lists workspace
- * summaries and excludes `draft` orgs), this calls the SECURITY DEFINER
- * `is_provider_owner(p)` — true for the owner even while the org is a draft
- * (onboarding) — so a non-owner, or an unknown/malformed provider id, is answered
- * with an existence-hiding `NotFoundError` (design/04 § 2). A non-UUID id can't
- * name a real row, so it short-circuits without a round trip (and avoids a `22P02`
- * cast error surfacing as a 500).
- */
-async function requireProviderOwner(
-  supabase: SupabaseClient,
-  providerId: string,
-): Promise<void> {
-  if (!isUuid(providerId)) throw new NotFoundError("Provider not found.");
-  const { data, error } = await supabase.rpc("is_provider_owner", {
-    p: providerId,
-  });
-  if (error) mapPgError(error, "Failed to verify provider ownership.");
-  if (!data) throw new NotFoundError("Provider not found.");
-}
 
 /** The catalog columns the DTO needs — selected explicitly, never `*`. */
 const CATALOG_COLUMNS =

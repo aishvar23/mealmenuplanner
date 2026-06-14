@@ -21,6 +21,7 @@ import type {
   ProviderDto,
   ProviderInvitePreviewDto,
   ProviderOverrideResultDto,
+  ProviderSuggestionDto,
   ProviderSummaryDto,
 } from "./dtos";
 import type { WorkspaceDiscovery, WorkspaceRef } from "./workspace";
@@ -603,6 +604,38 @@ export const batchRevision: ProviderBatchRevisionDto = {
   generatedAt: "2026-06-11T15:10:00Z",
   totals: currentBatch.totals,
   emailStatus: null,
+};
+
+// ──────────────────────────── Suggestions ────────────────────────────
+
+const SUGGESTION_MEMBER_ID = "user-approved-customer";
+
+/** A member's pending suggestion for the day (UC-SUGGEST-001; MP-A-131). */
+export const pendingSuggestion: ProviderSuggestionDto = {
+  suggestionId: "suggestion-pending",
+  menuDayId: MENU_DAY_ID,
+  memberUserId: SUGGESTION_MEMBER_ID,
+  suggestionText: "Could you add a millet roti option?",
+  status: "pending",
+  providerResponse: null,
+  createdAt: "2026-06-11T09:00:00Z",
+  updatedAt: "2026-06-11T09:00:00Z",
+};
+
+/** The same suggestion after the owner accepted it as an option (UC-SUGGEST-002). */
+export const acceptedSuggestion: ProviderSuggestionDto = {
+  ...pendingSuggestion,
+  status: "accepted_as_option",
+  providerResponse: "Great idea — adding it next week.",
+  updatedAt: "2026-06-11T10:00:00Z",
+};
+
+/** The same suggestion after the owner rejected it (UC-SUGGEST-003). */
+export const rejectedSuggestion: ProviderSuggestionDto = {
+  ...pendingSuggestion,
+  status: "rejected",
+  providerResponse: "Sorry, we can't source millet reliably.",
+  updatedAt: "2026-06-11T10:00:00Z",
 };
 
 // ──────────────────────── Workspace discovery ────────────────────────

@@ -73,4 +73,18 @@ describe("mockProviderClient (MP-B-001)", () => {
       mockProviderClient.getPreparationBatch("menu-day"),
     ).resolves.toBe(f.currentBatch);
   });
+
+  it("returns the suggestion fixtures for create / accept / reject", async () => {
+    await expect(
+      mockProviderClient.createSuggestion("menu-day", {
+        suggestionText: "add millet",
+      }),
+    ).resolves.toBe(f.pendingSuggestion);
+    await expect(
+      mockProviderClient.acceptSuggestionAsOption("s1"),
+    ).resolves.toHaveProperty("status", "accepted_as_option");
+    await expect(
+      mockProviderClient.rejectSuggestion("s1"),
+    ).resolves.toHaveProperty("status", "rejected");
+  });
 });

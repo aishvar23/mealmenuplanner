@@ -14,16 +14,16 @@ import { ValidationError } from "@/lib/errors";
 export type JsonObject = Record<string, unknown>;
 
 /**
- * Read and parse the request body as a JSON **object**. Throws `ValidationError`
- * (400) for a body that is absent/malformed JSON, or that parses to a non-object
- * (array, string, number, `null`). Callers then read individual fields off the
- * returned object and validate their types — the service re-validates as the
- * authoritative backstop.
+ * Parse a raw body string into a JSON **object**, or throw `ValidationError` (400)
+ * for malformed JSON or a non-object (array, string, number, `null`). The single
+ * source of the parse + object-shape rule shared by {@link readJsonObject} and
+ * {@link readOptionalJsonObject}, so the 400 envelope can never drift between the
+ * required- and optional-body routes.
  */
-export async function readJsonObject(request: Request): Promise<JsonObject> {
+function parseJsonObject(raw: string): JsonObject {
   let parsed: unknown;
   try {
-    parsed = await request.json();
+    parsed = JSON.parse(raw);
   } catch {
     throw new ValidationError("Request body must be valid JSON.", [
       { field: "body", rule: "json" },
@@ -37,4 +37,30 @@ export async function readJsonObject(request: Request): Promise<JsonObject> {
   }
 
   return parsed as JsonObject;
+}
+
+/**
+ * Read and parse the request body as a JSON **object**. Throws `ValidationError`
+ * (400) for a body that is absent/malformed JSON, or that parses to a non-object
+ * (array, string, number, `null`). Callers then read individual fields off the
+ * returned object and validate their types — the service re-validates as the
+ * authoritative backstop.
+ */
+export async function readJsonObject(request: Request): Promise<JsonObject> {
+  return parseJsonObject(await request.text());
+}
+
+/**
+ * Like {@link readJsonObject} but for routes whose body is OPTIONAL: an absent /
+ * empty body yields `{}` (the caller's field validators then see only defaults),
+ * while a present-but-malformed body or a non-object still throws `ValidationError`.
+ * Used by the suggestion accept/reject routes, where the owner's note is optional —
+ * a bare POST (no body) must succeed, not 400 on "body must be valid JSON".
+ */
+export async function readOptionalJsonObject(
+  request: Request,
+): Promise<JsonObject> {
+  const raw = await request.text();
+  if (raw.trim() === "") return {};
+  return parseJsonObject(raw);
 }
