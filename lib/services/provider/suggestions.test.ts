@@ -118,6 +118,10 @@ describe("createSuggestion", () => {
       member_user_id: USER_ID,
       suggestion_text: "Add a millet roti option",
     });
+    // The rate-limit count is scoped per provider (tenant isolation), not just member.
+    const rlEq = calls["provider_meal_suggestions.eq"] ?? [];
+    expect(rlEq).toContainEqual(["member_user_id", USER_ID]);
+    expect(rlEq).toContainEqual(["provider_id", PROVIDER_ID]);
   });
 
   it("rejects a malformed menu-day id with a 404 (no round trip)", async () => {
@@ -242,12 +246,14 @@ describe("acceptSuggestionAsOption / rejectSuggestion", () => {
   });
 
   it("409s with suggestion_not_pending when already resolved", async () => {
-    // Two reads queued — one per assertion below (each call re-reads the row).
-    const resolvedRead = {
-      data: { status: "accepted_as_option", provider_id: PROVIDER_ID },
-      error: null,
-    };
-    makeClient({ provider_meal_suggestions: [resolvedRead, resolvedRead] });
+    // The pre-read status check was removed: an already-resolved suggestion is now
+    // detected solely by the guarded UPDATE matching no pending row → null → 409.
+    // Each call consumes a provider_id read + a null update; two calls → two pairs.
+    const read = { data: { provider_id: PROVIDER_ID }, error: null };
+    const updateMiss = { data: null, error: null };
+    makeClient({
+      provider_meal_suggestions: [read, updateMiss, read, updateMiss],
+    });
     await expect(
       acceptSuggestionAsOption(SUGGESTION_ID, {}),
     ).rejects.toMatchObject({

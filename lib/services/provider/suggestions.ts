@@ -3,13 +3,13 @@ import "server-only";
 import { requireAuthUser } from "@/lib/auth";
 import type { Database } from "@/lib/db/database.types";
 import { createServerSupabaseClient } from "@/lib/db/server";
-import { mapPgError } from "@/lib/db/rpc-error";
 import { ConflictError, NotFoundError, RateLimitedError } from "@/lib/errors";
 import type { JsonObject } from "@/lib/http";
 import { isUuid } from "@/lib/validation/uuid";
 import { PROVIDER_ERROR_REASONS } from "@/packages/shared/provider";
 import type { ProviderSuggestionDto } from "@/packages/shared/provider";
 
+import { requireProviderOwner } from "./access";
 import { mapReadError, type SupabaseClient } from "./read-utils";
 import {
   validateCreateSuggestion,
@@ -31,13 +31,17 @@ import {
  * directly (migration `pmp_5_responses`, policies `pms_insert`/`pms_update`), so
  * these writes go straight through the RLS-scoped request client — no RPC needed.
  * RLS is the authoritative backstop: `pms_insert` re-derives `provider_id` from the
- * day and requires active membership; `pms_update` requires `is_provider_owner`.
+ * day, requires active membership, AND requires the day be readable to the caller
+ * (`can_read_provider_menu_day` — published/locked for a member), so a direct
+ * PostgREST insert can't target an owner-private draft (migration `pmp_13`);
+ * `pms_update` requires `is_provider_owner`.
  *
  * Creation is rate-limited at the service (§ 19.1, BR-012): a member may file at
- * most {@link SUGGESTION_RATE_MAX} suggestions within a rolling
- * {@link SUGGESTION_RATE_WINDOW_MS} window, counted over their own rows (visible via
- * `pms_select`). Resolution is `pending`-only — re-resolving an already-resolved
- * suggestion is a `409 { reason: "suggestion_not_pending" }`.
+ * most {@link SUGGESTION_RATE_MAX} suggestions to a given provider within a rolling
+ * {@link SUGGESTION_RATE_WINDOW_MS} window. The window is scoped per provider for
+ * tenant isolation — activity in one workspace never throttles another. Resolution
+ * is `pending`-only — re-resolving an already-resolved suggestion is a
+ * `409 { reason: "suggestion_not_pending" }`.
  */
 
 type SuggestionRow =
@@ -72,7 +76,10 @@ function toSuggestionDto(row: SuggestionRow): ProviderSuggestionDto {
  * (the member can see a published/locked day) — an unreadable/unknown id is an
  * existence-hiding `NotFoundError`, never the client-supplied value — then the row
  * is inserted with the route's menu day, the derived provider, and the caller as
- * author. RLS `pms_insert` re-checks all three. Rate-limited before the insert.
+ * author. RLS `pms_insert` independently re-checks the author, the day→provider
+ * binding, active membership, AND the day's readable (non-draft) status — so it is a
+ * complete backstop, not just a partial one. Rate-limited (per provider) before the
+ * insert.
  */
 export async function createSuggestion(
   menuDayId: string,
@@ -95,7 +102,7 @@ export async function createSuggestion(
   if (!day.data) throw new NotFoundError("Menu not found.");
   const providerId = day.data.provider_id;
 
-  await enforceSuggestionRateLimit(supabase, user.id);
+  await enforceSuggestionRateLimit(supabase, user.id, providerId);
 
   const { data, error } = await supabase
     .from("provider_meal_suggestions")
@@ -116,10 +123,17 @@ export async function createSuggestion(
   return toSuggestionDto(data as SuggestionRow);
 }
 
-/** Throw `RateLimitedError` if the caller has hit the rolling-window cap. */
+/**
+ * Throw `RateLimitedError` if the caller has hit the rolling-window cap for this
+ * provider. The count is scoped to `providerId` (not just the member) so the limit
+ * is per workspace — being active in several providers can't make one provider's
+ * suggestions throttle another's. (MVP choice: a coarse per-provider abuse guard;
+ * a global or weighted limit can come later if needed.)
+ */
 async function enforceSuggestionRateLimit(
   supabase: SupabaseClient,
   userId: string,
+  providerId: string,
 ): Promise<void> {
   const windowStart = new Date(
     Date.now() - SUGGESTION_RATE_WINDOW_MS,
@@ -128,6 +142,7 @@ async function enforceSuggestionRateLimit(
     .from("provider_meal_suggestions")
     .select("id", { count: "exact", head: true })
     .eq("member_user_id", userId)
+    .eq("provider_id", providerId)
     .gte("created_at", windowStart);
   if (error) mapReadError(error, "Failed to check the suggestion rate limit.");
   if ((count ?? 0) >= SUGGESTION_RATE_MAX) {
@@ -145,15 +160,15 @@ type ResolvedStatus = Extract<
 >;
 
 /**
- * Resolve a pending suggestion (owner only). Reads the row via RLS — `pms_select`
- * lets BOTH the owner and the authoring member see it, so reading alone doesn't
- * prove ownership: a non-owner (including the author-member) is gated by an explicit
- * `is_provider_owner` check and gets an existence-hiding `NotFoundError`, not a
- * misleading not-pending 409. Then it guards `pending` (re-resolving is a
- * `409 { reason: "suggestion_not_pending" }`) and updates status + the optional note.
- * The `.eq("status", "pending")` on the UPDATE makes the transition atomic — a
- * concurrent resolve loses the race and re-reads as not-pending. RLS `pms_update`
- * is the authoritative backstop.
+ * Resolve a pending suggestion (owner only). Reads the row's `provider_id` via RLS —
+ * `pms_select` lets BOTH the owner and the authoring member see it, so reading alone
+ * doesn't prove ownership: a non-owner (including the author-member) is gated by the
+ * shared {@link requireProviderOwner} check and gets an existence-hiding
+ * `NotFoundError`. The `.eq("status", "pending")` on the UPDATE then guards the
+ * transition atomically and is the SOLE not-pending detector — an UPDATE that matches
+ * no pending row (already resolved, or a concurrent resolve that won the race) yields
+ * `null` → `409 { reason: "suggestion_not_pending" }`. RLS `pms_update` is the
+ * authoritative backstop.
  */
 async function resolveSuggestion(
   suggestionId: string,
@@ -168,9 +183,12 @@ async function resolveSuggestion(
 
   const supabase: SupabaseClient = await createServerSupabaseClient();
 
+  // Read only the provider_id — needed to gate ownership. The pending-status check
+  // is left to the guarded UPDATE below (its `.eq("status","pending")` is the single
+  // source of the not-pending conflict), so no status is pre-read.
   const existing = await supabase
     .from("provider_meal_suggestions")
-    .select("status, provider_id")
+    .select("provider_id")
     .eq("id", suggestionId)
     .maybeSingle();
   if (existing.error) {
@@ -181,19 +199,7 @@ async function resolveSuggestion(
   // The author-member can READ their own suggestion (pms_select), so confirm the
   // caller actually OWNS the provider before treating this as a resolvable row.
   // A non-owner is answered with the same existence-hiding 404 as an unknown id.
-  const owner = await supabase.rpc("is_provider_owner", {
-    p: existing.data.provider_id,
-  });
-  if (owner.error) {
-    mapPgError(owner.error, "Failed to verify provider ownership.");
-  }
-  if (!owner.data) throw new NotFoundError("Suggestion not found.");
-
-  if (existing.data.status !== "pending") {
-    throw new ConflictError("This suggestion has already been resolved.", {
-      reason: PROVIDER_ERROR_REASONS.suggestion_not_pending,
-    });
-  }
+  await requireProviderOwner(supabase, existing.data.provider_id);
 
   const patch: Database["public"]["Tables"]["provider_meal_suggestions"]["Update"] =
     { status };
