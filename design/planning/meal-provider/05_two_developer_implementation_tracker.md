@@ -260,12 +260,37 @@ report ambiguity with file/symbol/observed-behavior/why.
 - **Rollback:** remove routes/RPCs.
 - **Shipped (PR AB#25):** owner-gated SECURITY DEFINER RPCs `provider_override_response(response, reason, items)` + `regenerate_provider_batch(batch)` + the shared `insert_provider_batch_lines` aggregation helper (filter `confirmed`/`auto_accepted`/`provider_overridden`, same key the cutoff dedups on; the `uq_provider_preparation_batch_lines_key` index is the TS/SQL drift backstop). Override is post-lock only (PRNLK), reason mandatory (PRRSN), owner-only (PROWN), re-derives the corrected order from the menu config (mirrors `save_provider_response`, §11.6), preserves the prior order in a `provider_override_applied` activity event, and marks the day's current batch `stale`. Regenerate marks current `stale`, inserts revision N+1 `current` with a recomputed census (`provider_overridden` folds into the confirmed bucket) + aggregate lines, writes `provider_batch_generated`, and does **not** auto-resend the summary email (`email_status` NULL — UC-OVERRIDE-002). `PR*` SQLSTATEs map in `lib/services/provider/override.ts` to `provider_owner_required`(403)/`reason required`(400)/`menu_not_locked`(409, new reason); routes `POST /api/provider-responses/{id}/provider-override` + `POST /api/provider-preparation-batches/{id}/regenerate`. **Backend-only DoD** (owner preparation UI is #26 / MP-B-050): override/regenerate added to the `@mmp/shared` `ProviderApiClient` seam + web/mobile mock + mobile HTTP client + fixtures (mobile API contract stays green, no RN screen) + Vitest service tests + a rolled-back MCP behaviour/RLS probe (11/11: negative gates PRRSN/PROWN×2/PRNLK; override flip + re-derive + stale + audit; regenerate rev2/immutable rev1/recomputed lines/no-resend/monotonic rev3). Applied to cloud dev + types patched surgically. With MP-A-014/140 already shipped (#40/#42), **#25 is now complete pending PR merge.**
 
-### MP-A-160 — CSV export backend — `NOT_STARTED` (after MP-A-140)
+### MP-A-160 — CSV export backend — `DONE` (#26, migration `pmp_13_get_provider_batch`)
 
 - **Track:** A · **Checkpoint:** 5 · **Branch:** provider-exports-email · **Conflict risk:** Low.
 - **Objective:** `lib/services/provider/export/csv.ts` (UTF-8, deterministic, RFC-4180, formula-injection defense); owner-only `aggregate.csv`/`individual.csv` routes from persisted batch.
 - **Use cases:** UC-BATCH-003/004; ADR-13; `03`§11. **Tests:** escaping (comma/quote/newline); injection prefix (`=+-@`); deterministic order; owner-only; totals reconcile with aggregate.
 - **Rollback:** remove util/routes.
+- **Shipped (PR AB#26):** the pure CSV renderer lives in `@mmp/shared/provider/csv.ts`
+  (shared so the web route service, web mock, and mobile mock all render byte-identical
+  output): `renderAggregateCsv`/`renderIndividualCsv` with `escapeCsvCell` (RFC-4180
+  quoting + OWASP formula-injection guard on `= + - @ \t \r`), `formatQuantity`
+  (numeric(10,3) trim), a UTF-8 BOM, CRLF records, and deterministic order via the new
+  shared `preparation-order.ts` (`sortPreparationLines`, extracted from `aggregation.ts`
+  so ordering is single-sourced). The roster is read owner-gated through a new
+  `get_provider_batch(batch)` SECURITY DEFINER RPC (`pmp_13`): aggregate lines straight
+  from the persisted `provider_preparation_batch_lines` (named from the catalog) +
+  per-member lines rebuilt from the day's locked eligible responses with the SAME
+  included/extra rules the cutoff persisted (so they reconcile) + member-name projection
+  across `users` (mirrors `list_provider_members`); non-owner → `PROWN`/403, missing →
+  `P0002`/404. Service `lib/services/provider/batch-read.ts` maps the RPC errors;
+  owner-only routes `GET /api/provider-preparation-batches/{batchId}/aggregate.csv` +
+  `…/individual.csv` stream `text/csv` with a download filename. **Backend-only DoD**:
+  `getAggregateCsv`/`getIndividualCsv` added to the `@mmp/shared` `ProviderApiClient` seam
+  - web mock + mobile HTTP client (`requestText`) + mobile mock + fixtures (mobile API
+    contract stays green, no RN screen — the preparation UI is MP-B-050/MP-C-050). Tests:
+    Vitest (`csv.test.ts` escaping/injection/determinism/reconciliation/included-vs-extra;
+    `batch-read.test.ts` owner-gate/404/401/500), mobile Jest (CSV client routing), and
+    Playwright `e2e/specs/provider-preparation-csv.spec.ts` (real post-cutoff batch: owner
+    downloads both CSVs + reconciles, non-owner 403, unknown batch 404). Applied to cloud
+    dev + types patched surgically (`get_provider_batch` returns `Json`). The `BatchDto`
+    read this RPC provides is reused by the later preparation UI (MP-B-050) + summary email
+    (MP-A-161) + print (MP-B-051).
 
 ### MP-A-161 — Summary email backend + resend — `NOT_STARTED` (after MP-A-141)
 

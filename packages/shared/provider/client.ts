@@ -177,6 +177,12 @@ export interface ProviderApiClient {
   // ── Preparation ──
   /** `GET /api/provider-menu-days/{menuDayId}/preparation-batch`. */
   getPreparationBatch(menuDayId: string): Promise<BatchDto>;
+  /** `GET /api/provider-preparation-batches/{batchId}/aggregate.csv` — owner CSV
+   * of the aggregate roster as UTF-8 text (MP-A-160). */
+  getAggregateCsv(batchId: string): Promise<string>;
+  /** `GET /api/provider-preparation-batches/{batchId}/individual.csv` — owner CSV
+   * of the per-member breakdown as UTF-8 text (MP-A-160). */
+  getIndividualCsv(batchId: string): Promise<string>;
 
   // ── Provider override / batch regenerate (owner; MP-A-150) ──
   /** `POST /api/provider-responses/{responseId}/provider-override` — owner corrects a

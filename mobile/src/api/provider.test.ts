@@ -1,4 +1,4 @@
-import { apiRequest, getCollection } from "./client";
+import { apiRequest, getCollection, requestText } from "./client";
 import { providerApiClient } from "./provider";
 
 // Unit-test the provider HTTP client (MP-C-000) at the transport seam: it must
@@ -10,14 +10,17 @@ import { providerApiClient } from "./provider";
 jest.mock("./client", () => ({
   apiRequest: jest.fn(),
   getCollection: jest.fn(),
+  requestText: jest.fn(),
 }));
 
 const mockApiRequest = jest.mocked(apiRequest);
 const mockGetCollection = jest.mocked(getCollection);
+const mockRequestText = jest.mocked(requestText);
 
 beforeEach(() => {
   mockApiRequest.mockReset();
   mockGetCollection.mockReset();
+  mockRequestText.mockReset();
 });
 
 describe("providerApiClient — discovery / provider", () => {
@@ -282,5 +285,22 @@ describe("providerApiClient — menus & response", () => {
       "/api/provider-preparation-batches/b1/regenerate",
       { method: "POST" },
     );
+  });
+
+  it("getAggregateCsv / getIndividualCsv fetch the CSV routes as raw text", async () => {
+    mockRequestText.mockResolvedValue("component_group,item_name\r\n");
+
+    const agg = await providerApiClient.getAggregateCsv("b1");
+    await providerApiClient.getIndividualCsv("b1");
+
+    expect(mockRequestText).toHaveBeenNthCalledWith(
+      1,
+      "/api/provider-preparation-batches/b1/aggregate.csv",
+    );
+    expect(mockRequestText).toHaveBeenNthCalledWith(
+      2,
+      "/api/provider-preparation-batches/b1/individual.csv",
+    );
+    expect(agg).toBe("component_group,item_name\r\n");
   });
 });

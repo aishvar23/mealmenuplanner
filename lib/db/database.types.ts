@@ -2788,6 +2788,13 @@ export type Database = {
         Args: { p_batch_id: string };
         Returns: Json;
       };
+      get_provider_batch: {
+        // Owner-gated batch detail (pmp_13, MP-A-160): a jsonb BatchDto + print
+        // context ({ providerName, menuDate, cutoffAt }) — aggregate roster from
+        // the persisted lines, per-member roster rebuilt from locked responses.
+        Args: { p_batch_id: string };
+        Returns: Json;
+      };
       insert_provider_batch_lines: {
         // service_role-only aggregation helper (regenerate writer); not user-callable.
         Args: { p_batch_id: string; p_menu_day_id: string };
