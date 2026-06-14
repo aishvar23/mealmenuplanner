@@ -7,6 +7,7 @@ import {
   createAdminClient,
   ensureUserWithPassword,
 } from "./supabase-admin";
+import { createAuthedClient } from "../helpers/authed-client";
 
 /**
  * Provider E2E fixtures (Meal Provider Workspace).
@@ -98,6 +99,34 @@ export interface ProviderTeam {
       timezone?: string;
     },
   ): Promise<MenuDaySeed>;
+  /**
+   * Sign in as `user` with a real anon-key client whose every `.from()/.rpc()`
+   * runs under that user's Postgres RLS context (the RLS-respecting counterpart to
+   * the service-role `admin`). The client is tracked and signed out in teardown so
+   * callers never have to — and a failing assertion mid-test can't leak the session.
+   */
+  signInAs(user: ProviderUser): Promise<SupabaseClient>;
+  /**
+   * Seed a confirmed response (one default dal line) for `customer` on the seeded
+   * `menuDayId`, via the service-role client. Returns the new response id. Shared by
+   * the response/batch/RLS specs so the confirmed-response shape lives in one place.
+   */
+  seedConfirmedResponse(
+    providerId: string,
+    seed: MenuDaySeed,
+    customer: ProviderUser,
+  ): Promise<string>;
+  /** The id of the `current` preparation batch for a menu day, or throws. */
+  currentBatchId(menuDayId: string): Promise<string>;
+  /**
+   * Build a real post-cutoff batch (revision 1, status current) for `providerId`:
+   * a published past-cutoff day + one approved customer with a confirmed response,
+   * then run the cutoff RPC. Returns the ids the override/idempotency specs need.
+   */
+  seedBatch(
+    owner: ProviderUser,
+    providerId: string,
+  ): Promise<{ seed: MenuDaySeed; batchId: string; responseId: string }>;
 }
 
 /** The ids returned by `seedMenuDay`, for assertions + response building. */
@@ -114,6 +143,7 @@ export const test = base.extend<{ providerTeam: ProviderTeam }>({
   providerTeam: async ({}, provide) => {
     const admin = createAdminClient();
     const created: string[] = [];
+    const authedClients: SupabaseClient[] = [];
 
     const api: ProviderTeam = {
       admin,
@@ -384,9 +414,93 @@ export const test = base.extend<{ providerTeam: ProviderTeam }>({
           chanaCatalogId,
         };
       },
+      async signInAs(user) {
+        const client = await createAuthedClient(user.email, user.password);
+        authedClients.push(client);
+        return client;
+      },
+      async seedConfirmedResponse(providerId, seed, customer) {
+        const resp = await admin
+          .from("provider_member_responses")
+          .insert({
+            provider_id: providerId,
+            menu_day_id: seed.menuDayId,
+            member_user_id: customer.id,
+            status: "confirmed",
+            version: 1,
+            confirmed_at: new Date().toISOString(),
+          })
+          .select("id")
+          .single();
+        if (resp.error || !resp.data) {
+          throw new Error(`E2E: seed response failed: ${resp.error?.message}`);
+        }
+        const responseId = resp.data.id as string;
+        const item = await admin.from("provider_member_response_items").insert({
+          response_id: responseId,
+          menu_component_id: seed.dalComponentId,
+          selected_catalog_item_id: seed.rajmaCatalogId,
+          quantity: 16,
+          canonical_unit: "oz",
+          spice_level: "spicy",
+          salt_level: "low_salt",
+        });
+        if (item.error) {
+          throw new Error(
+            `E2E: seed response item failed: ${item.error.message}`,
+          );
+        }
+        return responseId;
+      },
+      async currentBatchId(menuDayId) {
+        const batch = await admin
+          .from("provider_preparation_batches")
+          .select("id")
+          .eq("menu_day_id", menuDayId)
+          .eq("status", "current")
+          .single();
+        if (batch.error || !batch.data) {
+          throw new Error(`E2E: no current batch: ${batch.error?.message}`);
+        }
+        return batch.data.id as string;
+      },
+      async seedBatch(owner, providerId) {
+        const seed = await api.seedMenuDay(providerId, owner, {
+          status: "published",
+          cutoffHoursFromNow: -1,
+        });
+        const customer = await api.createUser("batch-cust");
+        await api.addCustomer(providerId, customer, "approved");
+        // seedConfirmedResponse returns the (stable) response id directly — no need
+        // to re-query it after the cutoff.
+        const responseId = await api.seedConfirmedResponse(
+          providerId,
+          seed,
+          customer,
+        );
+        const cutoff = await admin.rpc("process_provider_cutoff", {
+          p_menu_day_id: seed.menuDayId,
+        });
+        if (cutoff.error) {
+          throw new Error(`E2E: cutoff failed: ${cutoff.error.message}`);
+        }
+        const batchId = await api.currentBatchId(seed.menuDayId);
+        return { seed, batchId, responseId };
+      },
     };
 
     await provide(api);
+
+    // Sign out any RLS-context clients we minted. Best-effort and always runs (even
+    // when a test assertion failed before its own cleanup), so GoTrue sessions don't
+    // leak on shared cloud dev; the user rows are deleted below regardless.
+    for (const client of authedClients) {
+      try {
+        await client.auth.signOut();
+      } catch {
+        /* the user is deleted below regardless */
+      }
+    }
 
     // Delete the provider-owned rows that DON'T cascade on user delete before we
     // delete the users themselves:

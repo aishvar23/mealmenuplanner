@@ -122,18 +122,7 @@ async function seedBatch(
       `E2E: process_provider_cutoff failed: ${cutoff.error.message}`,
     );
   }
-  const batch = await admin
-    .from("provider_preparation_batches")
-    .select("id")
-    .eq("menu_day_id", seed.menuDayId)
-    .eq("status", "current")
-    .single();
-  if (batch.error || !batch.data) {
-    throw new Error(
-      `E2E: no current batch after cutoff: ${batch.error?.message}`,
-    );
-  }
-  return batch.data.id as string;
+  return providerTeam.currentBatchId(seed.menuDayId);
 }
 
 /**

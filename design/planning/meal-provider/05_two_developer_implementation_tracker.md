@@ -319,12 +319,32 @@ report ambiguity with file/symbol/observed-behavior/why.
 - **Shipped (pmp_14):** `emit_provider_event(provider, event_type, entity_type, entity_id, old, new, title, message, recipient_user_ids[])` SECURITY DEFINER — the provider analogue of `emit_household_event`: always writes one `provider_activity_events` audit row, fans out one `provider_notifications` row per explicit recipient (actor-excluded, deduped) **only when title+message are non-null**, request-path tenancy guard (owner or active member; system/cron path allowed with null actor). Recipients are passed by the caller (the single redaction point — the fn never reads allergy/notes/tokens). Wired into `approve_provider_member` (audit + **notify the approved customer**, UC-NOTIFY-003), `reject_provider_member` / `remove_provider_member` (audit only — **never notify** the rejected/removed customer), and `confirm/cancel_provider_response` (audit-only § 19.4 observability). Web Playwright (`provider-events-email.spec.ts`): approve audits AND notifies; reject audits but does NOT notify.
 - **Deferred (noted, not dropped):** `provider_menu_published` fan-out (UC-NOTIFY-001 → active customers) ships with the publish flow MP-A-121 (ADO #22, ADR-7-blocked). Centralising the existing inline audit writes in `process_provider_cutoff` / `provider_override_response` / `regenerate_provider_batch` through `emit_provider_event` is a pure refactor (those rows are already written) tracked under tech-debt ADO #38.
 
-### MP-A-180 — Integration/RLS test suite (cloud dev) — `NOT_STARTED` (rolling, per schema task)
+### MP-A-180 — Integration/RLS test suite (cloud dev) — `DONE (CP2–5 backend)` (#28; rolling, per schema task)
 
 - **Track:** A · **Checkpoint:** 2–5 · **Branch:** matches the feature under test.
 - **Objective:** the integration/RLS coverage in `07_test_strategy.md` §RLS/integration (owner/customer/cross-provider, invite/approval, pre/post-cutoff, auto-accept tx, idempotent cutoff, override, regenerate, customer-cannot-read-batch).
 - **Tests:** as listed. **Acceptance:** every security UC has a passing test. **Rollback:** remove tests.
 - **Verify:** no Docker — runs against cloud dev / e2e; document any skipped local-only checks.
+- **Shipped (PR AB#28):** automated, repeatable integration/RLS suite
+  `e2e/specs/provider-rls-integration.spec.ts` (11 specs) — the CI-runnable form of
+  the rolled-back MCP RLS probes used while the schema was built. A new
+  `e2e/helpers/authed-client.ts` (`createAuthedClient`) signs a real anon-key client
+  in as each actor so every `.from()/.rpc()` is evaluated under that user's Postgres
+  RLS context (the counterpart to the service-role `createAdminClient`). Coverage:
+  owner full read access; approved-customer own-response only (incl. other-member
+  response items hidden); awaiting-customer no menu; active-customer positive menu
+  read; customer cannot read batches/lines (`can_read_provider_batch` = owner-only),
+  catalog, audit log, or the member list (UC-SECURITY-001..006); cross-provider
+  denial (provider B reads nothing of provider A); pre-cutoff `save_provider_response`
+  succeeds vs post-cutoff `PRLCK` + awaiting `PRAPP` (UC-RESPONSE-009); idempotent
+  `process_provider_cutoff` (twice → same batch id, one `current`, no duplicate lines,
+  UC-CUTOFF-002); override → batch `stale` + `regenerate_provider_batch` → revision
+  N+1 `current` with rev 1 retained immutable (UC-OVERRIDE-001..003); the
+  `uq_one_live_provider_membership` partial-unique invariant. Tests-only — **no
+  migration, no type regen**. Full DoD gate green (typecheck/lint/format; vitest
+  1336; test:mobile 86; all 36 provider e2e specs incl. the 11 new ones). **#28 stays
+  in Doing:** MP-B-070 (full-pipeline Playwright E2E onboarding→…→CSV/print) remains
+  blocked on the menu-builder UI (#22 / ADR-7) + the preparation/print UI (#26).
 
 ---
 

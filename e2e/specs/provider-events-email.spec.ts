@@ -47,61 +47,6 @@ async function membershipId(
   return row.data.id as string;
 }
 
-/** Build a real post-cutoff batch (revision 1) for `providerId`, returning its id. */
-async function seedBatch(
-  team: ProviderTeam,
-  owner: ProviderUser,
-  providerId: string,
-): Promise<string> {
-  const seed = await team.seedMenuDay(providerId, owner, {
-    status: "published",
-    cutoffHoursFromNow: -1,
-  });
-  const confirmed = await team.createUser("evt-confirmed");
-  await team.addCustomer(providerId, confirmed, "approved");
-  const resp = await team.admin
-    .from("provider_member_responses")
-    .insert({
-      provider_id: providerId,
-      menu_day_id: seed.menuDayId,
-      member_user_id: confirmed.id,
-      status: "confirmed",
-      version: 1,
-      confirmed_at: new Date().toISOString(),
-    })
-    .select("id")
-    .single();
-  if (resp.error || !resp.data) {
-    throw new Error(`E2E: seed response failed: ${resp.error?.message}`);
-  }
-  await team.admin.from("provider_member_response_items").insert({
-    response_id: resp.data.id as string,
-    menu_component_id: seed.dalComponentId,
-    selected_catalog_item_id: seed.rajmaCatalogId,
-    quantity: 16,
-    canonical_unit: "oz",
-    spice_level: "spicy",
-    salt_level: "low_salt",
-  });
-
-  const cutoff = await team.admin.rpc("process_provider_cutoff", {
-    p_menu_day_id: seed.menuDayId,
-  });
-  if (cutoff.error) {
-    throw new Error(`E2E: cutoff failed: ${cutoff.error.message}`);
-  }
-  const batch = await team.admin
-    .from("provider_preparation_batches")
-    .select("id")
-    .eq("menu_day_id", seed.menuDayId)
-    .eq("status", "current")
-    .single();
-  if (batch.error || !batch.data) {
-    throw new Error(`E2E: no current batch: ${batch.error?.message}`);
-  }
-  return batch.data.id as string;
-}
-
 test.describe("Provider events — member lifecycle (MP-A-170)", () => {
   test("approving a customer audits AND notifies them (UC-NOTIFY-003)", async ({
     page,
@@ -188,7 +133,7 @@ test.describe("Provider summary email (MP-A-161)", () => {
       .from("provider_organizations")
       .update({ summary_email_recipients: ["kitchen@example.com"] })
       .eq("id", providerId);
-    const batchId = await seedBatch(providerTeam, owner, providerId);
+    const { batchId } = await providerTeam.seedBatch(owner, providerId);
 
     await signIn(page, owner.email, owner.password);
     const res = await page.request.post(
@@ -224,7 +169,7 @@ test.describe("Provider summary email (MP-A-161)", () => {
     const providerId = await providerTeam.createProvider(owner, {
       name: "No Recipient Kitchen",
     });
-    const batchId = await seedBatch(providerTeam, owner, providerId);
+    const { batchId } = await providerTeam.seedBatch(owner, providerId);
 
     await signIn(page, owner.email, owner.password);
     const res = await page.request.post(
@@ -251,7 +196,7 @@ test.describe("Provider summary email (MP-A-161)", () => {
     const providerId = await providerTeam.createProvider(owner, {
       name: "Gate Kitchen",
     });
-    const batchId = await seedBatch(providerTeam, owner, providerId);
+    const { batchId } = await providerTeam.seedBatch(owner, providerId);
 
     const outsider = await providerTeam.createUser("email-outsider");
     await providerTeam.addCustomer(providerId, outsider, "approved");
