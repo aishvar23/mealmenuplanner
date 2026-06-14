@@ -34,6 +34,7 @@ import {
   type ProviderOverrideResultDto,
   type ProviderSuggestionDto,
   type ProviderSummaryDto,
+  type ProviderSummaryEmailResultDto,
   type ProviderUpdateInput,
   type SaveProviderResponseRequest,
   type UpdateCatalogItemRequest,
@@ -230,5 +231,10 @@ export const mockProviderClient: ProviderApiClient = {
   },
   regenerateBatch(): Promise<ProviderBatchRevisionDto> {
     return Promise.resolve(f.batchRevision);
+  },
+
+  // ── Summary email ──
+  resendSummaryEmail(): Promise<ProviderSummaryEmailResultDto> {
+    return Promise.resolve({ emailStatus: "sent", recipientCount: 1 });
   },
 };
