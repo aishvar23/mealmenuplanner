@@ -86,6 +86,32 @@ export function providerComponentGroupLabel(
   );
 }
 
+/** Display label for a spice level (falls back to the raw value). */
+export function providerSpiceLabel(level: ProviderSpiceLevel): string {
+  return PROVIDER_SPICE_OPTIONS.find((o) => o.value === level)?.label ?? level;
+}
+
+/** Display label for a salt level (falls back to the raw value). */
+export function providerSaltLabel(level: ProviderSaltLevel): string {
+  return PROVIDER_SALT_OPTIONS.find((o) => o.value === level)?.label ?? level;
+}
+
+/**
+ * The parenthetical spice/salt variant suffix for a preparation line —
+ * e.g. `" (Spicy, Low salt)"`, or `""` when neither is set. The single source for the
+ * preparation UI (MP-B-050/MP-C-050), the summary email (MP-A-161) and the print view,
+ * so the variant reads identically everywhere.
+ */
+export function providerVariantSuffix(
+  spiceLevel: ProviderSpiceLevel | null,
+  saltLevel: ProviderSaltLevel | null,
+): string {
+  const parts: string[] = [];
+  if (spiceLevel) parts.push(providerSpiceLabel(spiceLevel));
+  if (saltLevel) parts.push(providerSaltLabel(saltLevel));
+  return parts.length > 0 ? ` (${parts.join(", ")})` : "";
+}
+
 /**
  * How a member's response status reads to them — the single source for the web +
  * mobile response screens and the response recap, so the wording can't drift. The

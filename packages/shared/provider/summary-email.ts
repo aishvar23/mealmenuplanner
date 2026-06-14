@@ -1,9 +1,4 @@
-import {
-  PROVIDER_SALT_OPTIONS,
-  PROVIDER_SPICE_OPTIONS,
-  providerComponentGroupLabel,
-} from "./labels";
-import type { ProviderSaltLevel, ProviderSpiceLevel } from "./enums";
+import { providerComponentGroupLabel, providerVariantSuffix } from "./labels";
 import type { ProviderSummaryEmailParams } from "./dtos";
 
 /**
@@ -36,23 +31,8 @@ function escapeHtml(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
-const SPICE_LABEL = new Map(
-  PROVIDER_SPICE_OPTIONS.map((o) => [o.value, o.label]),
-);
-const SALT_LABEL = new Map(
-  PROVIDER_SALT_OPTIONS.map((o) => [o.value, o.label]),
-);
-
 /** A spice/salt suffix like " (Spicy, Low salt)", or "" when neither is set. */
-function variantSuffix(
-  spiceLevel: ProviderSpiceLevel | null,
-  saltLevel: ProviderSaltLevel | null,
-): string {
-  const parts: string[] = [];
-  if (spiceLevel) parts.push(SPICE_LABEL.get(spiceLevel) ?? spiceLevel);
-  if (saltLevel) parts.push(SALT_LABEL.get(saltLevel) ?? saltLevel);
-  return parts.length ? ` (${parts.join(", ")})` : "";
-}
+const variantSuffix = providerVariantSuffix;
 
 /** One aggregate roster line as plain text. */
 function lineText(

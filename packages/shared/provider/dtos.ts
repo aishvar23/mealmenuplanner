@@ -376,6 +376,24 @@ export interface ProviderBatchRevisionDto {
 
 // ───────────────────────── Preparation / batch ─────────────────────────
 
+/**
+ * `GET /api/providers/{providerId}/preparation-batches` row (MP-B-050). The owner's
+ * index of generated batches — one per menu day's CURRENT revision, newest day first.
+ * A lightweight header (no rosters); the full batch is read via the preparation-batch
+ * route. Owner-only — batches are owner-private.
+ */
+export interface ProviderBatchSummaryDto {
+  batchId: string;
+  menuDayId: string;
+  menuDate: string;
+  cutoffAt: string;
+  revision: number;
+  status: "current" | "stale";
+  generatedAt: string;
+  emailStatus: "queued" | "sent" | "failed" | null;
+  totals: BatchDto["totals"];
+}
+
 /** One aggregated or per-member preparation line (§ 10). */
 export interface PreparationLine {
   catalogItemId: string;
@@ -409,6 +427,19 @@ export interface BatchDto {
     lines: PreparationLine[];
   }>;
   emailStatus: "queued" | "sent" | "failed" | null;
+}
+
+/**
+ * `GET /api/provider-menu-days/{menuDayId}/preparation-batch` response (MP-B-050) — the
+ * full `BatchDto` roster plus the menu-day/provider context the same owner-gated read
+ * returns (`menuDate`, `cutoffAt`, `providerName`). The preparation UI headers, the CSV
+ * filenames and the print/email views all reuse this context, so it travels with the
+ * roster rather than being re-fetched. (The server `ProviderBatchReadDto` is this DTO.)
+ */
+export interface ProviderBatchDetailDto extends BatchDto {
+  providerName: string;
+  menuDate: string;
+  cutoffAt: string;
 }
 
 /** Server-rendered print view of a persisted batch revision (§ 12). */

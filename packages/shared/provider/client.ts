@@ -21,7 +21,6 @@ import type { Collection } from "../types";
 
 import type {
   AcceptProviderInviteResult,
-  BatchDto,
   CatalogItemDto,
   CompleteMemberOnboardingRequest,
   CreateCatalogItemRequest,
@@ -31,7 +30,9 @@ import type {
   MemberResponseDto,
   MenuDayDto,
   MyProviderMembershipDto,
+  ProviderBatchDetailDto,
   ProviderBatchRevisionDto,
+  ProviderBatchSummaryDto,
   ProviderSummaryEmailResultDto,
   ProviderDto,
   ProviderInvitePreviewDto,
@@ -176,8 +177,12 @@ export interface ProviderApiClient {
   ): Promise<ProviderSuggestionDto>;
 
   // ── Preparation ──
-  /** `GET /api/provider-menu-days/{menuDayId}/preparation-batch`. */
-  getPreparationBatch(menuDayId: string): Promise<BatchDto>;
+  /** `GET /api/providers/{providerId}/preparation-batches` — the owner's index of
+   * generated batches (one per menu day's current revision, newest first). Owner only. */
+  listBatches(providerId: string): Promise<ProviderBatchSummaryDto[]>;
+  /** `GET /api/provider-menu-days/{menuDayId}/preparation-batch` — the current batch's
+   * full roster + menu-day context for a menu day (MP-B-050). Owner only. */
+  getPreparationBatch(menuDayId: string): Promise<ProviderBatchDetailDto>;
   /** `GET /api/provider-preparation-batches/{batchId}/aggregate.csv` — owner CSV
    * of the aggregate roster as UTF-8 text (MP-A-160). */
   getAggregateCsv(batchId: string): Promise<string>;

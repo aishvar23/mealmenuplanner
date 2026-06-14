@@ -39,6 +39,12 @@ describe("mockProviderClient — reads return canonical fixtures", () => {
       f.currentBatch,
     );
   });
+
+  it("listBatches returns the canonical batch index", async () => {
+    await expect(mockProviderClient.listBatches(f.PROVIDER_A_ID)).resolves.toBe(
+      f.batchSummaries,
+    );
+  });
 });
 
 describe("mockProviderClient — mutations echo contract semantics", () => {

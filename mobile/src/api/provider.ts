@@ -1,6 +1,5 @@
 import type {
   AcceptProviderInviteResult,
-  BatchDto,
   CatalogItemDto,
   CompleteMemberOnboardingRequest,
   CreateCatalogItemRequest,
@@ -12,7 +11,9 @@ import type {
   MenuDayDto,
   MyProviderMembershipDto,
   ProviderApiClient,
+  ProviderBatchDetailDto,
   ProviderBatchRevisionDto,
+  ProviderBatchSummaryDto,
   ProviderCreateInput,
   ProviderDto,
   ProviderInvitePreviewDto,
@@ -245,8 +246,15 @@ export const providerApiClient: ProviderApiClient = {
   },
 
   // ── Preparation ──
-  getPreparationBatch(menuDayId: string): Promise<BatchDto> {
-    return apiRequest<BatchDto>(`${menuDay(menuDayId)}/preparation-batch`);
+  listBatches(providerId: string): Promise<ProviderBatchSummaryDto[]> {
+    return apiRequest<ProviderBatchSummaryDto[]>(
+      `${providers}/${providerId}/preparation-batches`,
+    );
+  },
+  getPreparationBatch(menuDayId: string): Promise<ProviderBatchDetailDto> {
+    return apiRequest<ProviderBatchDetailDto>(
+      `${menuDay(menuDayId)}/preparation-batch`,
+    );
   },
   getAggregateCsv(batchId: string): Promise<string> {
     return requestText(

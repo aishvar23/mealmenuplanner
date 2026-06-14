@@ -17,7 +17,9 @@ import type {
   MenuDayDto,
   MyProviderMembershipDto,
   PreparationLine,
+  ProviderBatchDetailDto,
   ProviderBatchRevisionDto,
+  ProviderBatchSummaryDto,
   ProviderDto,
   ProviderInvitePreviewDto,
   ProviderOverrideResultDto,
@@ -566,7 +568,7 @@ const aggregateLines: PreparationLine[] = [
   },
 ];
 
-export const currentBatch: BatchDto = {
+export const currentBatch: ProviderBatchDetailDto = {
   batchId: "batch-rev1",
   menuDayId: MENU_DAY_ID,
   revision: 1,
@@ -576,10 +578,28 @@ export const currentBatch: BatchDto = {
   aggregateLines,
   individualLines: individualBatchLines,
   emailStatus: "sent",
+  providerName: providerA.name,
+  menuDate: publishedMenuDay.menuDate,
+  cutoffAt: publishedMenuDay.cutoffAt,
 };
 
+/** The owner's batch index (MP-B-050) — one row per menu day's current revision. */
+export const batchSummaries: ProviderBatchSummaryDto[] = [
+  {
+    batchId: currentBatch.batchId,
+    menuDayId: currentBatch.menuDayId,
+    menuDate: publishedMenuDay.menuDate,
+    cutoffAt: publishedMenuDay.cutoffAt,
+    revision: currentBatch.revision,
+    status: currentBatch.status,
+    generatedAt: currentBatch.generatedAt,
+    emailStatus: currentBatch.emailStatus,
+    totals: currentBatch.totals,
+  },
+];
+
 /** Same day, superseded after a provider override (UC-OVERRIDE / § 7). */
-export const staleBatch: BatchDto = {
+export const staleBatch: ProviderBatchDetailDto = {
   ...currentBatch,
   batchId: "batch-rev1-stale",
   status: "stale",
