@@ -33,6 +33,7 @@ export {
   type NormalizedProviderOverride,
 } from "./response-validation";
 export { overrideResponse, regenerateBatch } from "./override";
+export { getProviderBatch, type ProviderBatchReadDto } from "./batch-read";
 export {
   createCatalogItem,
   listProviderCatalog,

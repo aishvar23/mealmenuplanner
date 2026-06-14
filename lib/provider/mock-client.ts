@@ -14,6 +14,8 @@
 import { boundedCollection, type Collection } from "@/lib/http/collection";
 import {
   providerFixtures,
+  renderAggregateCsv,
+  renderIndividualCsv,
   type AcceptProviderInviteResult,
   type BatchDto,
   type CatalogItemDto,
@@ -214,6 +216,12 @@ export const mockProviderClient: ProviderApiClient = {
   // ── Preparation ──
   getPreparationBatch(): Promise<BatchDto> {
     return Promise.resolve(f.currentBatch);
+  },
+  getAggregateCsv(): Promise<string> {
+    return Promise.resolve(renderAggregateCsv(f.currentBatch.aggregateLines));
+  },
+  getIndividualCsv(): Promise<string> {
+    return Promise.resolve(renderIndividualCsv(f.currentBatch.individualLines));
   },
 
   // ── Provider override / batch regenerate ──

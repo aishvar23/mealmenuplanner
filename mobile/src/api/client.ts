@@ -103,6 +103,22 @@ export async function apiRequest<T>(
   return (await response.json()) as T;
 }
 
+/**
+ * Issue a request and return the raw text body — for the non-JSON exports (the
+ * preparation CSV routes, MP-A-160). Same auth + refresh-and-retry as `apiRequest`;
+ * a failed response still maps to a typed `ApiError`.
+ */
+export async function requestText(
+  path: string,
+  options: RequestOptions = {},
+): Promise<string> {
+  const response = await rawRequest(path, options, false);
+  if (!response.ok) {
+    throw await toApiError(response);
+  }
+  return response.text();
+}
+
 /** Issue a request to a collection endpoint and return its `{ data, page }`. */
 export function getCollection<T>(
   path: string,

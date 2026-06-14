@@ -27,7 +27,7 @@ import type {
 } from "@mmp/shared/provider";
 import type { Collection } from "@mmp/shared/types";
 
-import { apiRequest, getCollection } from "./client";
+import { apiRequest, getCollection, requestText } from "./client";
 
 /**
  * Typed HTTP client for the Meal Provider Workspace `/api/*` routes (MP-C-000,
@@ -246,6 +246,16 @@ export const providerApiClient: ProviderApiClient = {
   // ── Preparation ──
   getPreparationBatch(menuDayId: string): Promise<BatchDto> {
     return apiRequest<BatchDto>(`${menuDay(menuDayId)}/preparation-batch`);
+  },
+  getAggregateCsv(batchId: string): Promise<string> {
+    return requestText(
+      `/api/provider-preparation-batches/${batchId}/aggregate.csv`,
+    );
+  },
+  getIndividualCsv(batchId: string): Promise<string> {
+    return requestText(
+      `/api/provider-preparation-batches/${batchId}/individual.csv`,
+    );
   },
 
   // ── Provider override / batch regenerate (owner; MP-A-150) ──

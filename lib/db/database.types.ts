@@ -2788,10 +2788,34 @@ export type Database = {
         Args: { p_batch_id: string };
         Returns: Json;
       };
+      get_provider_batch: {
+        // Owner-gated batch detail (pmp_13, MP-A-160): a jsonb BatchDto + print
+        // context ({ providerName, menuDate, cutoffAt }) — aggregate roster from
+        // the persisted lines, per-member roster rebuilt from locked responses.
+        Args: { p_batch_id: string };
+        Returns: Json;
+      };
       insert_provider_batch_lines: {
         // service_role-only aggregation helper (regenerate writer); not user-callable.
+        // Sums provider_member_breakdown_lines across members (pmp_13 single-source).
         Args: { p_batch_id: string; p_menu_day_id: string };
         Returns: undefined;
+      };
+      provider_member_breakdown_lines: {
+        // service_role-only per-member roster (pmp_13, MP-A-160): the single source
+        // of the active-customer eligibility + included/extra rule the persisted
+        // aggregate and the batch read both derive from. Not user-callable.
+        Args: { p_menu_day_id: string };
+        Returns: {
+          member_user_id: string;
+          catalog_item_id: string;
+          canonical_unit: string;
+          spice_level: Database["public"]["Enums"]["provider_spice_level"];
+          salt_level: Database["public"]["Enums"]["provider_salt_level"];
+          included_quantity: number;
+          extra_quantity: number;
+          total_quantity: number;
+        }[];
       };
       get_provider_invite_preview: {
         Args: { p_token_hash: string };
