@@ -32,6 +32,7 @@ import {
   type ProviderDto,
   type ProviderInvitePreviewDto,
   type ProviderOverrideResultDto,
+  type ProviderSuggestionDto,
   type ProviderSummaryDto,
   type ProviderUpdateInput,
   type SaveProviderResponseRequest,
@@ -203,6 +204,17 @@ export const mockProviderClient: ProviderApiClient = {
   },
   cancelResponse(): Promise<MemberResponseDto> {
     return Promise.resolve(f.cancelledResponse);
+  },
+
+  // ── Suggestions ──
+  createSuggestion(): Promise<ProviderSuggestionDto> {
+    return Promise.resolve(f.pendingSuggestion);
+  },
+  acceptSuggestionAsOption(): Promise<ProviderSuggestionDto> {
+    return Promise.resolve(f.acceptedSuggestion);
+  },
+  rejectSuggestion(): Promise<ProviderSuggestionDto> {
+    return Promise.resolve(f.rejectedSuggestion);
   },
 
   // ── Preparation ──

@@ -39,6 +39,21 @@ export {
   updateCatalogItem,
 } from "./catalog";
 export {
+  acceptSuggestionAsOption,
+  createSuggestion,
+  rejectSuggestion,
+  SUGGESTION_RATE_MAX,
+  SUGGESTION_RATE_WINDOW_MS,
+} from "./suggestions";
+export {
+  validateCreateSuggestion,
+  validateResolveSuggestion,
+  SUGGESTION_TEXT_MAX,
+  SUGGESTION_RESPONSE_MAX,
+  type NormalizedSuggestionCreate,
+  type NormalizedSuggestionResolve,
+} from "./suggestion-validation";
+export {
   validateCreateCatalogItem,
   validateUpdateCatalogItem,
   PROVIDER_COMPONENT_GROUPS,

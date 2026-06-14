@@ -38,3 +38,34 @@ export async function readJsonObject(request: Request): Promise<JsonObject> {
 
   return parsed as JsonObject;
 }
+
+/**
+ * Like {@link readJsonObject} but for routes whose body is OPTIONAL: an absent /
+ * empty body yields `{}` (the caller's field validators then see only defaults),
+ * while a present-but-malformed body or a non-object still throws `ValidationError`.
+ * Used by the suggestion accept/reject routes, where the owner's note is optional —
+ * a bare POST (no body) must succeed, not 400 on "body must be valid JSON".
+ */
+export async function readOptionalJsonObject(
+  request: Request,
+): Promise<JsonObject> {
+  const raw = await request.text();
+  if (raw.trim() === "") return {};
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new ValidationError("Request body must be valid JSON.", [
+      { field: "body", rule: "json" },
+    ]);
+  }
+
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new ValidationError("Request body must be a JSON object.", [
+      { field: "body", rule: "object" },
+    ]);
+  }
+
+  return parsed as JsonObject;
+}

@@ -228,6 +228,39 @@ describe("providerApiClient — menus & response", () => {
     );
   });
 
+  it("createSuggestion POSTs the text to the menu-day suggestions route", async () => {
+    mockApiRequest.mockResolvedValue({ suggestionId: "s1" });
+    const body = { suggestionText: "add millet roti" };
+
+    await providerApiClient.createSuggestion("md1", body);
+
+    expect(mockApiRequest).toHaveBeenCalledWith(
+      "/api/provider-menu-days/md1/suggestions",
+      { method: "POST", body },
+    );
+  });
+
+  it("accept/reject POST the suggestion resolution routes with the note body", async () => {
+    mockApiRequest.mockResolvedValue({ suggestionId: "s1" });
+
+    await providerApiClient.acceptSuggestionAsOption("s1", {
+      providerResponse: "yes",
+    });
+    await providerApiClient.rejectSuggestion("s1");
+
+    expect(mockApiRequest).toHaveBeenNthCalledWith(
+      1,
+      "/api/provider-suggestions/s1/accept-as-option",
+      { method: "POST", body: { providerResponse: "yes" } },
+    );
+    // A bare reject (no note) still sends an empty object so the route parses cleanly.
+    expect(mockApiRequest).toHaveBeenNthCalledWith(
+      2,
+      "/api/provider-suggestions/s1/reject",
+      { method: "POST", body: {} },
+    );
+  });
+
   it("overrideResponse POSTs the reason + corrected items to the override route", async () => {
     mockApiRequest.mockResolvedValue({ responseId: "r1" });
     const body = { reason: "swap to B", items: [] };

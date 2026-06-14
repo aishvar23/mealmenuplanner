@@ -34,9 +34,12 @@ import type {
   ProviderBatchRevisionDto,
   ProviderDto,
   ProviderInvitePreviewDto,
+  CreateProviderSuggestionRequest,
   ProviderOverrideResponseRequest,
   ProviderOverrideResultDto,
+  ProviderSuggestionDto,
   ProviderSummaryDto,
+  ResolveProviderSuggestionRequest,
   SaveProviderResponseRequest,
   UpdateCatalogItemRequest,
 } from "./dtos";
@@ -150,6 +153,26 @@ export interface ProviderApiClient {
   confirmResponse(responseId: string): Promise<MemberResponseDto>;
   /** `POST /api/provider-responses/{responseId}/cancel`. */
   cancelResponse(responseId: string): Promise<MemberResponseDto>;
+
+  // ── Suggestions ──
+  /** `POST /api/provider-menu-days/{menuDayId}/suggestions` — a member files a
+   * non-binding suggestion for the day (rate-limited; BR-012). */
+  createSuggestion(
+    menuDayId: string,
+    body: CreateProviderSuggestionRequest,
+  ): Promise<ProviderSuggestionDto>;
+  /** `POST /api/provider-suggestions/{suggestionId}/accept-as-option` — owner marks a
+   * pending suggestion accepted (optional note). */
+  acceptSuggestionAsOption(
+    suggestionId: string,
+    body?: ResolveProviderSuggestionRequest,
+  ): Promise<ProviderSuggestionDto>;
+  /** `POST /api/provider-suggestions/{suggestionId}/reject` — owner rejects a pending
+   * suggestion (optional note). */
+  rejectSuggestion(
+    suggestionId: string,
+    body?: ResolveProviderSuggestionRequest,
+  ): Promise<ProviderSuggestionDto>;
 
   // ── Preparation ──
   /** `GET /api/provider-menu-days/{menuDayId}/preparation-batch`. */

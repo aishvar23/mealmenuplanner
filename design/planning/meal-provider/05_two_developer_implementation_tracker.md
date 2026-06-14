@@ -226,14 +226,16 @@ report ambiguity with file/symbol/observed-behavior/why.
   Vitest (service + validation + route). Backend-only: the mobile API-client seam
   (`saveMyResponse`/`confirmResponse`/`cancelResponse`) is already green; the member
   response UI is MP-B-041 / MP-C-041 (a later #23 PR). **#23 stays in Doing** —
-  MP-A-131 (suggestions) + MP-B-041/MP-C-041 (response UI) remain.
+  MP-A-131 (suggestions) is DONE (PR AB#23, code-only); MP-B-041/MP-C-041 (response
+  UI) shipped in PR #44.
 
-### MP-A-131 — Suggestions service + APIs — `NOT_STARTED` (after MP-A-013)
+### MP-A-131 — Suggestions service + APIs — `DONE` (#23, code-only — schema/RLS from `pmp_5`)
 
 - **Track:** A · **Checkpoint:** 4 · **Branch:** provider-services-api · **Conflict risk:** Low.
 - **Objective:** create suggestion (rate-limited); accept-as-option/reject (owner).
 - **Use cases:** UC-SUGGEST-\*; BR-012. **Tests:** suggestion never alters response/batch; rate-limit; owner-only resolution.
 - **Rollback:** remove routes.
+- **Shipped (PR AB#23):** `lib/services/provider/suggestions.ts` (+ `suggestion-validation.ts`) and the 3 contracted routes — `POST /api/provider-menu-days/{id}/suggestions` (member self-INSERT through RLS `pms_insert`, rate-limited at the service: ≤10 per rolling hour → `429 RATE_LIMITED` with `Retry-After`), `POST /api/provider-suggestions/{id}/accept-as-option`, `POST /api/provider-suggestions/{id}/reject` (owner-only via an explicit `is_provider_owner` gate — the author-member can READ but not resolve, so a non-owner gets an existence-hiding 404; pending-only, else `409 { reason: "suggestion_not_pending" }`). No migration (the 4 tables + RLS landed in MP-A-013/`pmp_5`). New shared `ProviderSuggestionDto`/`CreateProviderSuggestionRequest`/`ResolveProviderSuggestionRequest`, the `suggestion_not_pending` reason, and 3 `ProviderApiClient` methods wired in the web mock + the mobile HTTP client (**backend-only DoD** — no RN screen; a suggestion UI lands with the owner dashboard, #26/#27). Added `readOptionalJsonObject` for the optional note body. **Tests:** Vitest service (happy/rate-limit/ownership/not-pending/concurrent-race/validation) + validation + `errors` map + http helper + both mock clients; mobile Jest contract (3 routes); Playwright `e2e/specs/provider-suggestions.spec.ts` (create 201, non-owner 404, accept 200, re-resolve 409, reject 200, rate-limit 429, unknown-day 404). Suggestions never write a response/batch (BR-012).
 
 ### MP-A-140 — Aggregation domain + persistence — `PARTIAL` (#25: pure fn done; persistence deferred with the cutoff tx)
 

@@ -6,6 +6,7 @@ import type {
   CreateCatalogItemRequest,
   CreateProviderInviteRequest,
   CreateProviderInviteResult,
+  CreateProviderSuggestionRequest,
   MemberDto,
   MemberResponseDto,
   MenuDayDto,
@@ -17,8 +18,10 @@ import type {
   ProviderInvitePreviewDto,
   ProviderOverrideResponseRequest,
   ProviderOverrideResultDto,
+  ProviderSuggestionDto,
   ProviderSummaryDto,
   ProviderUpdateInput,
+  ResolveProviderSuggestionRequest,
   SaveProviderResponseRequest,
   UpdateCatalogItemRequest,
 } from "@mmp/shared/provider";
@@ -205,6 +208,38 @@ export const providerApiClient: ProviderApiClient = {
     return apiRequest<MemberResponseDto>(
       `/api/provider-responses/${responseId}/cancel`,
       { method: "POST" },
+    );
+  },
+
+  // ── Suggestions ──
+  createSuggestion(
+    menuDayId: string,
+    body: CreateProviderSuggestionRequest,
+  ): Promise<ProviderSuggestionDto> {
+    return apiRequest<ProviderSuggestionDto>(
+      `${menuDay(menuDayId)}/suggestions`,
+      {
+        method: "POST",
+        body,
+      },
+    );
+  },
+  acceptSuggestionAsOption(
+    suggestionId: string,
+    body?: ResolveProviderSuggestionRequest,
+  ): Promise<ProviderSuggestionDto> {
+    return apiRequest<ProviderSuggestionDto>(
+      `/api/provider-suggestions/${suggestionId}/accept-as-option`,
+      { method: "POST", body: body ?? {} },
+    );
+  },
+  rejectSuggestion(
+    suggestionId: string,
+    body?: ResolveProviderSuggestionRequest,
+  ): Promise<ProviderSuggestionDto> {
+    return apiRequest<ProviderSuggestionDto>(
+      `/api/provider-suggestions/${suggestionId}/reject`,
+      { method: "POST", body: body ?? {} },
     );
   },
 
