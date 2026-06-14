@@ -15,6 +15,8 @@ interface SelectChipsProps<T extends string> {
   onChange: (next: T[]) => void;
   /** `single` keeps at most one selected (radio-like); `multi` toggles freely. */
   mode?: "single" | "multi";
+  /** Read-only: chips stay visible (selection still highlighted) but are inert. */
+  disabled?: boolean;
 }
 
 export function SelectChips<T extends string>({
@@ -22,6 +24,7 @@ export function SelectChips<T extends string>({
   selected,
   onChange,
   mode = "multi",
+  disabled = false,
 }: SelectChipsProps<T>) {
   function toggle(value: T) {
     if (mode === "single") {
@@ -43,9 +46,10 @@ export function SelectChips<T extends string>({
           <Pressable
             key={opt.value}
             accessibilityRole={mode === "single" ? "radio" : "checkbox"}
-            accessibilityState={{ selected: active }}
+            accessibilityState={{ selected: active, disabled }}
+            disabled={disabled}
             onPress={() => toggle(opt.value)}
-            className={`rounded-full border px-4 py-2 ${active ? "border-green-600 bg-green-50" : "border-gray-300 bg-white"}`}
+            className={`rounded-full border px-4 py-2 ${active ? "border-green-600 bg-green-50" : "border-gray-300 bg-white"} ${disabled ? "opacity-50" : ""}`}
           >
             <Text
               className={`text-base ${active ? "font-semibold text-green-700" : "text-gray-700"}`}

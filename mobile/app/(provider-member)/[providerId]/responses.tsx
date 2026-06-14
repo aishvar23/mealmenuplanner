@@ -1,19 +1,14 @@
 import { useLocalSearchParams } from "expo-router";
-import { ClipboardList } from "lucide-react-native";
 
 import { ActiveMemberGuard } from "@/provider/active-member-guard";
-import { ProviderComingSoon } from "@/provider/provider-coming-soon";
+import { ResponsesRecapScreen } from "@/provider/responses-recap-screen";
 
-/** Customer's response history/management — lands with MP-C-041 at CP4. */
+/** Customer's response recap (MP-C-041): today's order status + CTA to Today. */
 export default function MemberResponsesScreen() {
   const { providerId } = useLocalSearchParams<{ providerId: string }>();
   return (
     <ActiveMemberGuard providerId={providerId}>
-      <ProviderComingSoon
-        icon={ClipboardList}
-        title="Your responses coming soon"
-        description="Confirm, update, or cancel your meal choices before the cutoff here."
-      />
+      <ResponsesRecapScreen providerId={providerId} />
     </ActiveMemberGuard>
   );
 }

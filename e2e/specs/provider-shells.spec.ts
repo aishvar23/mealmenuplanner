@@ -57,7 +57,7 @@ test.describe("Provider member shell (MP-B-012)", () => {
       timeout: 30_000,
     });
 
-    await expect(page.getByText(/Today's menu coming soon/i)).toBeVisible();
+    await expect(page.getByText(/No menu published for today/i)).toBeVisible();
     const nav = page.getByRole("navigation", { name: "Provider" }).first();
     await expect(nav.getByRole("link", { name: /Today/ })).toBeVisible();
     await expect(nav.getByRole("link", { name: /Account/ })).toBeVisible();

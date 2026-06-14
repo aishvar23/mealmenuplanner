@@ -16,4 +16,5 @@ export * from "./errors";
 export * from "./client";
 export * from "./http";
 export * from "./onboarding-form";
+export * from "./response-form";
 export * as providerFixtures from "./fixtures";

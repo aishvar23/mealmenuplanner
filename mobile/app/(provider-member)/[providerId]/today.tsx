@@ -1,24 +1,19 @@
 import { useLocalSearchParams } from "expo-router";
-import { CalendarDays } from "lucide-react-native";
 
 import { ActiveMemberGuard } from "@/provider/active-member-guard";
-import { ProviderComingSoon } from "@/provider/provider-coming-soon";
+import { TodayResponseScreen } from "@/provider/today-response-screen";
 
 /**
- * Customer's Today's Menu landing (MP-C-012, spec §14.2). The read-only menu
- * itself (default package, alternatives, customizations, cutoff countdown) is
- * MP-C-040 and replaces this placeholder; the guard keeps awaiting customers on
- * the holding screen.
+ * Customer's Today's Menu + response (MP-C-040/041, spec §14.2/§14.3). The guard
+ * keeps awaiting/un-onboarded customers on the holding screen; the screen renders
+ * the published menu and the member's confirm / update / cancel flow against the
+ * same `/api/*` routes the web app uses.
  */
 export default function MemberTodayScreen() {
   const { providerId } = useLocalSearchParams<{ providerId: string }>();
   return (
     <ActiveMemberGuard providerId={providerId}>
-      <ProviderComingSoon
-        icon={CalendarDays}
-        title="Today's menu coming soon"
-        description="Your provider's menu for today — the default package, alternatives, and the cutoff countdown — will appear here."
-      />
+      <TodayResponseScreen providerId={providerId} />
     </ActiveMemberGuard>
   );
 }
