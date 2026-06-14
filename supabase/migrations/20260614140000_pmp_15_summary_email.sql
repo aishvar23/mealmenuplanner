@@ -36,9 +36,17 @@ begin
     raise exception 'invalid email status' using errcode = '22023';
   end if;
 
+  -- Lock the batch row up front (PR #48 review finding #8): two concurrent resends
+  -- must not race on email_status / emit contradictory sent+failed events — the
+  -- second waits for the first to commit. Existence is checked BEFORE the owner gate,
+  -- mirroring get_provider_batch exactly (review finding #7: a found-but-foreign batch
+  -- raises PROWN, a missing one P0002 — identical posture to the sibling read RPC, so
+  -- there is no new existence-disclosure here; and the service only ever reaches this
+  -- RPC after get_provider_batch already passed the same gate).
   select provider_id, menu_day_id into v_provider_id, v_menu_day_id
   from public.provider_preparation_batches
-  where id = p_batch_id;
+  where id = p_batch_id
+  for update;
   if not found then
     raise exception 'batch not found' using errcode = 'P0002'; -- → 404
   end if;

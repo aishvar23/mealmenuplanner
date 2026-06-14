@@ -95,14 +95,39 @@ begin
 end;
 $$;
 
+-- EXECUTE is granted to service_role ONLY (NOT authenticated) — PR #48 review
+-- finding #1. emit_provider_event takes the recipient set EXPLICITLY and only guards
+-- the ACTOR's membership, not that the recipients belong to the provider; if it were
+-- directly callable by `authenticated` an active member could fan arbitrary in-app
+-- notifications (any recipient_user_id, attacker-chosen title/message — pn_select is
+-- recipient-scoped, so the victim would see them) into provider_notifications. There
+-- is no request-path caller on the RLS client: every caller (approve/reject/remove,
+-- confirm/cancel, set_provider_batch_email_status, the cutoff sweep) is a SECURITY
+-- DEFINER function OWNED BY postgres, which owns this function and therefore retains
+-- EXECUTE regardless of role grants. So dropping the authenticated grant closes the
+-- abuse surface without touching any live path. (Diverges intentionally from
+-- emit_household_event, which IS called on the RLS client and derives most recipients
+-- from membership.)
 revoke execute on function public.emit_provider_event(
   uuid, text, text, uuid, jsonb, jsonb, text, text, uuid[]
-) from public, anon;
+) from public, anon, authenticated;
 grant execute on function public.emit_provider_event(
   uuid, text, text, uuid, jsonb, jsonb, text, text, uuid[]
-) to authenticated, service_role;
+) to service_role;
 
 -- ════════════════════════ wire into member lifecycle ════════════════════════
+-- WHY VERBATIM, NOT A TRIGGER (PR #48 review finding #9): approve/reject/remove and
+-- confirm/cancel are re-created in full from pmp_9 / pmp_10 to append one
+-- emit_provider_event call each, rather than moving emission into an AFTER UPDATE OF
+-- status trigger. A trigger sees only the row; it does NOT have the per-event
+-- recipient set or the pre-redacted title/message, which are exactly what § 19.4
+-- requires the CALLER to supply (approve notifies the one approved customer with a
+-- PII-free body; reject/remove/confirm/cancel are audit-only with no fan-out). A
+-- status trigger would also fire for the cutoff/override system paths that already
+-- emit their own events, double-counting. Keeping emission caller-side is the
+-- deliberate altitude here; the cost is that a future edit to a base RPC's locking or
+-- cutoff gate must be mirrored from pmp_9 / pmp_10.
+--
 -- approve/reject/remove are re-created verbatim from pmp_9 (20260612160000) with a
 -- single added emit_provider_event call after the status flip:
 --   • approve  → provider_member_approved + NOTIFY the approved customer (UC-NOTIFY-003).

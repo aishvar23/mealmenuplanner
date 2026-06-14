@@ -31,6 +31,20 @@ import { getProviderBatch } from "./batch-read";
  * Owner-gating is implicit: `getProviderBatch` calls the self-gating
  * `get_provider_batch` RPC (non-owner → 403, missing → 404, superseded → 409), so a
  * non-owner can never reach the send path.
+ *
+ * Two deliberate best-effort behaviours (ADR-12; named in PR #48 review, ADO #27):
+ *   • An UNCONFIGURED transport (`getEmailTransport()` → null, i.e. `RESEND_API_KEY`
+ *     unset) is reported as a SOFT `failed` — nothing was delivered, but the request
+ *     still returns 200 rather than throwing. This matches the documented
+ *     `getEmailTransport` contract ("a null transport makes the adapter a best-effort
+ *     no-op rather than a hard failure") and is honest observability: an operator who
+ *     forgot to configure mail SHOULD see summary emails reported as not-sent. In
+ *     production the transport is always configured, so this branch is non-prod only.
+ *   • A PARTIAL failure (some recipients delivered, one threw) reports `failed`; a
+ *     resend then re-sends to EVERY recipient (no per-recipient delivery ledger in the
+ *     MVP), so an already-delivered recipient may get a duplicate. Per-recipient
+ *     idempotency is deferred — the summary is a low-frequency, non-transactional
+ *     digest where a rare duplicate is acceptable.
  */
 
 type SupabaseClient = Awaited<ReturnType<typeof createServerSupabaseClient>>;
@@ -62,32 +76,40 @@ export async function sendProviderSummaryEmail(
 
   const supabase: SupabaseClient = await createServerSupabaseClient();
 
-  // Resolve the configured recipients via the batch's provider (owner can SELECT
-  // both rows under RLS). batchId already passed the owner gate above.
-  const { data: batchRow, error: batchErr } = await supabase
+  // Resolve the configured recipients via the batch's provider in ONE round-trip by
+  // embedding the parent org row (PostgREST follows the batch → org FK; the owner can
+  // SELECT both under RLS). batchId already passed the owner gate above.
+  const { data: row, error: rowErr } = await supabase
     .from("provider_preparation_batches")
-    .select("provider_id")
+    .select("provider_organizations(summary_email_recipients)")
     .eq("id", batchId)
     .single();
-  if (batchErr || !batchRow) {
-    throw new InternalError("Failed to resolve the batch provider.", {
-      cause: batchErr,
-    });
-  }
-  const { data: org, error: orgErr } = await supabase
-    .from("provider_organizations")
-    .select("summary_email_recipients")
-    .eq("id", batchRow.provider_id)
-    .single();
-  if (orgErr || !org) {
+  if (rowErr || !row) {
     throw new InternalError("Failed to resolve the summary recipients.", {
-      cause: orgErr,
+      cause: rowErr,
     });
   }
+  // A to-one embed; cast like the codebase's other embedded selects.
+  const org = (
+    row as unknown as {
+      provider_organizations: {
+        summary_email_recipients: string[] | null;
+      } | null;
+    }
+  ).provider_organizations;
 
-  const recipients = (org.summary_email_recipients ?? []).filter(
-    (email): email is string => Boolean(email && email.trim()),
-  );
+  // Trim blanks AND de-duplicate case-insensitively, preserving the first spelling —
+  // a duplicated address must not be emailed twice or inflate recipientCount.
+  const seen = new Set<string>();
+  const recipients: string[] = [];
+  for (const raw of org?.summary_email_recipients ?? []) {
+    const email = raw?.trim();
+    if (!email) continue;
+    const key = email.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    recipients.push(email);
+  }
 
   // No recipients configured: nothing to send, and email_status stays untouched
   // (the column has no 'no_recipient' state). The UI prompts the owner to add one.
@@ -100,19 +122,22 @@ export async function sendProviderSummaryEmail(
 
   let allSent = transport !== null;
   if (transport) {
+    // The rendered email is recipient-independent (the renderer never reads
+    // `toEmail`), so render ONCE and vary only the `to:` address per send — no point
+    // rebuilding the identical HTML/text body for every recipient.
+    const params: ProviderSummaryEmailParams = {
+      toEmail: recipients[0]!,
+      providerName: batch.providerName,
+      menuDate: batch.menuDate,
+      revision: batch.revision,
+      generatedAt: batch.generatedAt,
+      totals: batch.totals,
+      aggregateLines: batch.aggregateLines,
+      individuals: batch.individualLines,
+      ...urls,
+    };
+    const { subject, html, text } = renderProviderSummaryEmail(params);
     for (const toEmail of recipients) {
-      const params: ProviderSummaryEmailParams = {
-        toEmail,
-        providerName: batch.providerName,
-        menuDate: batch.menuDate,
-        revision: batch.revision,
-        generatedAt: batch.generatedAt,
-        totals: batch.totals,
-        aggregateLines: batch.aggregateLines,
-        individuals: batch.individualLines,
-        ...urls,
-      };
-      const { subject, html, text } = renderProviderSummaryEmail(params);
       try {
         await transport.send({ to: toEmail, subject, html, text });
       } catch (error) {

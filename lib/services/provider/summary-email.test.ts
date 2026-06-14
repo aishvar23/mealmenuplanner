@@ -15,7 +15,6 @@ import { getProviderBatch } from "./batch-read";
 import { sendProviderSummaryEmail } from "./summary-email";
 
 const BATCH = "66666666-6666-6666-6666-666666666666";
-const PROVIDER = "11111111-1111-1111-1111-111111111111";
 const APP = "https://app.test";
 
 const BATCH_READ = {
@@ -34,32 +33,29 @@ const BATCH_READ = {
 };
 
 /**
- * Stub the per-request client: `from(table)` resolves a `.select().eq().single()`
- * chain off a per-table fixture, and `rpc` is a spy. Returns the rpc spy.
+ * Stub the per-request client: `from()` resolves a `.select().eq().single()` chain
+ * returning the batch row with its parent org embedded (one round-trip), and `rpc` is
+ * a spy. Returns the rpc spy.
  */
 function stubClient(opts: {
   recipients?: string[] | null;
-  batchRowError?: unknown;
-  orgError?: unknown;
+  rowError?: unknown;
   rpcError?: unknown;
 }) {
   const rpc = vi.fn().mockResolvedValue({ error: opts.rpcError ?? null });
-  const single = (table: string) => {
-    if (table === "provider_preparation_batches") {
-      return Promise.resolve({
-        data: opts.batchRowError ? null : { provider_id: PROVIDER },
-        error: opts.batchRowError ?? null,
-      });
-    }
-    return Promise.resolve({
-      data: opts.orgError
+  const single = () =>
+    Promise.resolve({
+      data: opts.rowError
         ? null
-        : { summary_email_recipients: opts.recipients ?? [] },
-      error: opts.orgError ?? null,
+        : {
+            provider_organizations: {
+              summary_email_recipients: opts.recipients ?? [],
+            },
+          },
+      error: opts.rowError ?? null,
     });
-  };
-  const from = vi.fn((table: string) => ({
-    select: () => ({ eq: () => ({ single: () => single(table) }) }),
+  const from = vi.fn(() => ({
+    select: () => ({ eq: () => ({ single }) }),
   }));
   vi.mocked(createServerSupabaseClient).mockResolvedValue({
     from,
@@ -134,6 +130,28 @@ describe("sendProviderSummaryEmail", () => {
       p_status: "failed",
     });
     expect(result).toEqual({ emailStatus: "failed", recipientCount: 1 });
+  });
+
+  it("de-duplicates recipients (case-insensitive) and renders the email once", async () => {
+    const send = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(getEmailTransport).mockReturnValue({ send } as never);
+    const rpc = stubClient({
+      recipients: ["chef@x.com", " CHEF@x.com ", "owner@x.com"],
+    });
+
+    const result = await sendProviderSummaryEmail(BATCH, APP);
+
+    // Two distinct mailboxes — the case/whitespace duplicate is collapsed.
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(send.mock.calls.map((c) => (c[0] as { to: string }).to)).toEqual([
+      "chef@x.com",
+      "owner@x.com",
+    ]);
+    expect(rpc).toHaveBeenCalledWith("set_provider_batch_email_status", {
+      p_batch_id: BATCH,
+      p_status: "sent",
+    });
+    expect(result).toEqual({ emailStatus: "sent", recipientCount: 2 });
   });
 
   it("records 'failed' when a send throws (does not reject — best-effort)", async () => {
