@@ -2,7 +2,7 @@ import "server-only";
 
 import { requireAuthUser } from "@/lib/auth";
 import type { Json } from "@/lib/db/database.types";
-import { mapPgError, type RpcError } from "@/lib/db/rpc-error";
+import { type RpcError } from "@/lib/db/rpc-error";
 import { createServerSupabaseClient } from "@/lib/db/server";
 import {
   ConflictError,
@@ -15,6 +15,7 @@ import { isUuid } from "@/lib/validation/uuid";
 import { PROVIDER_ERROR_REASONS } from "@/packages/shared/provider";
 import type { MemberResponseDto } from "@/packages/shared/provider";
 
+import { mapProviderDerivationError } from "./response-errors";
 import { getMyResponse } from "./response-read";
 import { validateSaveProviderResponse } from "./response-validation";
 
@@ -81,50 +82,14 @@ function mapSaveError(error: RpcError): never {
           currentVersion: Number(error.hint ?? 0),
         },
       );
-    case "PRALT":
-      throw new ValidationError(
-        "That selection isn't available on this menu.",
-        [
-          {
-            field: "items",
-            rule: PROVIDER_ERROR_REASONS.invalid_menu_alternative,
-          },
-        ],
-      );
-    case "PRCUS":
-      throw new ValidationError("That customization isn't available.", [
-        { field: "items", rule: PROVIDER_ERROR_REASONS.invalid_customization },
-      ]);
-    case "PRLIM":
-      throw new ValidationError("That's more than this menu allows.", [
-        {
-          field: "items",
-          rule: PROVIDER_ERROR_REASONS.customization_limit_exceeded,
-        },
-      ]);
-    case "23505":
-      // A duplicate component / option in the payload (unique constraint).
-      throw new ValidationError("Your response has a duplicate selection.", [
-        { field: "items", rule: "duplicate" },
-      ]);
-    case "22P02":
-      // A malformed enum / uuid that slipped past validation.
-      throw new ValidationError("Some response details are invalid.", [
-        { field: "items", rule: "invalid" },
-      ]);
-    case "40P01": // deadlock_detected
-    case "40001": // serialization_failure
-      // A transient concurrency abort (the RPCs lock day→response in one order to
-      // avoid the AB/BA deadlock, but map it defensively): a clean retryable 409,
-      // never an opaque 500. The client can simply re-issue the request.
-      throw new ConflictError(
-        "A concurrent change interrupted your request. Please retry.",
-        undefined,
-        { cause: error },
-      );
     default:
-      // 28000 → 401, anything else → 500 (with the original kept as `cause`).
-      mapPgError(error, "Failed to save your response.");
+      // The §11.6 derivation / customization reasons + transient-concurrency +
+      // the generic tail are shared verbatim with provider_override_response, so
+      // they live in one mapper (mapProviderDerivationError).
+      mapProviderDerivationError(error, {
+        noun: "response",
+        fallback: "Failed to save your response.",
+      });
   }
 }
 

@@ -105,6 +105,32 @@ describe("overrideResponse", () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
+  it("rejects an empty items array (no override-to-empty) without an RPC call", async () => {
+    const rpc = stubRpc({ data: null, error: null });
+    const err = await overrideResponse(RESPONSE, {
+      reason: "remove the order",
+      items: [],
+    } as never).catch((e) => e);
+    expect(err).toBeInstanceOf(ValidationError);
+    expect((err as ValidationError).details).toContainEqual({
+      field: "items",
+      rule: "required",
+    });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("maps PREMP (RPC empty-order backstop) → VALIDATION_ERROR on items", async () => {
+    stubRpc({ data: null, error: { code: "PREMP" } });
+    const err = await overrideResponse(RESPONSE, OVERRIDE_BODY as never).catch(
+      (e) => e,
+    );
+    expect(err).toBeInstanceOf(ValidationError);
+    expect((err as ValidationError).details).toContainEqual({
+      field: "items",
+      rule: "required",
+    });
+  });
+
   it("maps PROWN → FORBIDDEN provider_owner_required", async () => {
     stubRpc({ data: null, error: { code: "PROWN" } });
     const err = await overrideResponse(RESPONSE, OVERRIDE_BODY as never).catch(

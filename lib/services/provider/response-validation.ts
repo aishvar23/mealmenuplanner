@@ -238,8 +238,11 @@ export interface NormalizedProviderOverride {
 /**
  * Validate + normalize a `ProviderOverrideResponseRequest` body (UC-OVERRIDE-001,
  * MP-A-150). `reason` is required (trimmed, non-empty, ≤ {@link REASON_MAX}); `items`
- * follow the same structural rules as a member save (an empty array is allowed — the
- * RPC + DB constraints stay the authoritative backstop). Throws `ValidationError`
+ * follow the same structural rules as a member save AND must be non-empty — an override
+ * corrects an order, it never empties it (mirrors confirm's no-empty-order rule). An
+ * empty override would still count as `confirmed` in the batch census yet add no roster
+ * lines, so to clear a member's order the owner cancels it instead. The RPC re-checks
+ * non-emptiness (PREMP) as a defense-in-depth backstop. Throws `ValidationError`
  * aggregating every field issue.
  */
 export function validateProviderOverride(
@@ -261,6 +264,9 @@ export function validateProviderOverride(
   const rawItems = body.items;
   if (!Array.isArray(rawItems)) {
     issues.push({ field: "items", rule: "array" });
+  } else if (rawItems.length === 0) {
+    // An override must leave a non-empty order — cancel to clear it instead.
+    issues.push({ field: "items", rule: "required" });
   } else if (rawItems.length > MAX_ITEMS) {
     issues.push({ field: "items", rule: "max", max: MAX_ITEMS });
   } else {

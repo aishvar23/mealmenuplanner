@@ -2,10 +2,14 @@ import "server-only";
 
 import { requireAuthUser } from "@/lib/auth";
 import type { Json } from "@/lib/db/database.types";
-import { mapPgError, type RpcError } from "@/lib/db/rpc-error";
+import { type RpcError } from "@/lib/db/rpc-error";
 import { createServerSupabaseClient } from "@/lib/db/server";
-import { ConflictError, ForbiddenError, NotFoundError } from "@/lib/errors";
-import { ValidationError } from "@/lib/errors";
+import {
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+} from "@/lib/errors";
 import type { JsonObject } from "@/lib/http";
 import { isUuid } from "@/lib/validation/uuid";
 import { PROVIDER_ERROR_REASONS } from "@/packages/shared/provider";
@@ -14,6 +18,7 @@ import type {
   ProviderOverrideResultDto,
 } from "@/packages/shared/provider";
 
+import { mapProviderDerivationError } from "./response-errors";
 import { validateProviderOverride } from "./response-validation";
 
 /**
@@ -54,47 +59,21 @@ function mapOverrideError(error: RpcError): never {
       throw new ConflictError("This menu isn't locked yet.", {
         reason: PROVIDER_ERROR_REASONS.menu_not_locked,
       });
-    case "PRALT":
+    case "PREMP":
+      // An override may not leave an empty order (mirrors confirm's PREMP): an
+      // empty override would still count as 'confirmed' in the census yet add no
+      // roster lines. To clear a member's order the owner cancels it instead.
       throw new ValidationError(
-        "That selection isn't available on this menu.",
-        [
-          {
-            field: "items",
-            rule: PROVIDER_ERROR_REASONS.invalid_menu_alternative,
-          },
-        ],
-      );
-    case "PRCUS":
-      throw new ValidationError("That customization isn't available.", [
-        { field: "items", rule: PROVIDER_ERROR_REASONS.invalid_customization },
-      ]);
-    case "PRLIM":
-      throw new ValidationError("That's more than this menu allows.", [
-        {
-          field: "items",
-          rule: PROVIDER_ERROR_REASONS.customization_limit_exceeded,
-        },
-      ]);
-    case "23505":
-      throw new ValidationError(
-        "The corrected order has a duplicate selection.",
-        [{ field: "items", rule: "duplicate" }],
-      );
-    case "22P02":
-      throw new ValidationError("Some override details are invalid.", [
-        { field: "items", rule: "invalid" },
-      ]);
-    case "40P01": // deadlock_detected
-    case "40001": // serialization_failure
-      // A transient concurrency abort — a clean retryable 409, never an opaque 500.
-      throw new ConflictError(
-        "A concurrent change interrupted your request. Please retry.",
-        undefined,
-        { cause: error },
+        "An override can't leave an empty order. Cancel the response instead.",
+        [{ field: "items", rule: "required" }],
       );
     default:
-      // 28000 → 401, anything else → 500 (original kept as `cause`).
-      mapPgError(error, "Failed to apply the override.");
+      // The §11.6 derivation / customization reasons + transient-concurrency +
+      // the generic tail are shared verbatim with save_provider_response.
+      mapProviderDerivationError(error, {
+        noun: "override",
+        fallback: "Failed to apply the override.",
+      });
   }
 }
 

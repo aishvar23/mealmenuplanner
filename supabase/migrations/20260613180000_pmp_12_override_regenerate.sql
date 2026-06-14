@@ -37,6 +37,7 @@
 -- discriminator (no new top-level code):
 --   PROWN provider_owner_required (403)   PRRSN reason required (400, field=reason)
 --   PRNLK menu_not_locked — override before the day is locked (409)
+--   PREMP empty-order — override left zero items (400; cancel to clear instead)
 --   PRALT invalid_menu_alternative   PRCUS invalid_customization
 --   PRLIM customization_limit_exceeded   (shared with save, §11.6 derivation)
 -- P0002 (unknown response / batch) → existence-hiding 404.
@@ -274,6 +275,11 @@ begin
   --    save_provider_response, §11.6 — quantity/unit are SERVER-DERIVED, never trusted
   --    from the owner's payload; only the catalog/customization SELECTION is the owner's
   --    choice, constrained to the published menu). ──
+  -- DUPLICATED LOGIC: this loop is a near-verbatim copy of save_provider_response's
+  -- derivation (pmp_10). Both must stay in sync until extracted into one shared
+  -- derivation routine the save + override paths call — a refactor that re-touches the
+  -- shipped save RPC, so it is deferred and tracked as tech debt in ADO #38. Any
+  -- §11.6 rule change here must be mirrored in pmp_10.
   for v_item in
     select e from jsonb_array_elements(coalesce(p_items, '[]'::jsonb)) e
   loop
@@ -365,6 +371,18 @@ begin
       raise exception 'customization limit exceeded' using errcode = 'PRLIM';
     end if;
   end loop;
+
+  -- An override must leave a NON-EMPTY order (mirrors confirm_provider_response's
+  -- PREMP, pmp_10): a provider_overridden response folds into the 'confirmed' census
+  -- bucket, so an empty override would inflate the confirmed count yet contribute no
+  -- roster lines. To clear a member's order the owner cancels it, not override-to-empty.
+  -- Checked after the rebuild as a defense-in-depth backstop to the service-layer
+  -- non-empty validation; raising here rolls back the status flip + item deletes.
+  perform 1 from public.provider_member_response_items
+  where response_id = p_response_id limit 1;
+  if not found then
+    raise exception 'override leaves an empty order' using errcode = 'PREMP';
+  end if;
 
   -- Mark the day's CURRENT batch stale (ADR-11): the roster no longer matches the
   -- responses; the owner regenerates explicitly. The revision row is kept (immutable).
@@ -459,6 +477,10 @@ begin
   -- the confirmed bucket (the DTO totals have no separate "overridden" count); this keeps
   -- numerators ⊆ the active-customer denominator. At revision 1 there are no overridden
   -- rows, so this matches the cutoff census — consistent across revisions.
+  -- DUPLICATED LOGIC: this census mirrors the cutoff's (pmp_11) inline census, extended
+  -- with the provider_overridden bucket. Consolidating both into one shared census helper
+  -- re-touches the shipped cutoff RPC, so it is deferred and tracked as tech debt in
+  -- ADO #38. Keep this and pmp_11's census in sync.
   select count(*) into v_active_customers
   from public.provider_memberships m
   where m.provider_id = v_provider_id and m.role = 'customer' and m.status = 'active';
