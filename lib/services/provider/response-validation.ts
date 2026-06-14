@@ -38,6 +38,7 @@ export { PROVIDER_SALT_LEVELS, PROVIDER_SPICE_LEVELS };
  */
 
 const NOTE_MAX = 1000;
+const REASON_MAX = 1000;
 const MAX_ITEMS = 30;
 const MAX_CUSTOMIZATIONS = 30;
 // A customization increment count is bounded here only as a sanity cap (the
@@ -224,4 +225,60 @@ export function validateSaveProviderResponse(
   }
 
   return { expectedVersion: version, memberNote: memberNote ?? null, items };
+}
+
+/** The normalized provider-override payload the override service hands to the RPC.
+ * `reason` is mandatory (BR-007); `items` reuse the member-save item rules — quantity/
+ * unit are dropped here and DERIVED by the RPC from the menu config (§ 11.6). */
+export interface NormalizedProviderOverride {
+  reason: string;
+  items: NormalizedResponseItem[];
+}
+
+/**
+ * Validate + normalize a `ProviderOverrideResponseRequest` body (UC-OVERRIDE-001,
+ * MP-A-150). `reason` is required (trimmed, non-empty, ≤ {@link REASON_MAX}); `items`
+ * follow the same structural rules as a member save AND must be non-empty — an override
+ * corrects an order, it never empties it (mirrors confirm's no-empty-order rule). An
+ * empty override would still count as `confirmed` in the batch census yet add no roster
+ * lines, so to clear a member's order the owner cancels it instead. The RPC re-checks
+ * non-emptiness (PREMP) as a defense-in-depth backstop. Throws `ValidationError`
+ * aggregating every field issue.
+ */
+export function validateProviderOverride(
+  body: JsonObject,
+): NormalizedProviderOverride {
+  const issues: ValidationIssue[] = [];
+
+  let reason = "";
+  if (typeof body.reason !== "string" || body.reason.trim() === "") {
+    issues.push({ field: "reason", rule: "required" });
+  } else {
+    reason = body.reason.trim();
+    if (reason.length > REASON_MAX) {
+      issues.push({ field: "reason", rule: "max", max: REASON_MAX });
+    }
+  }
+
+  const items: NormalizedResponseItem[] = [];
+  const rawItems = body.items;
+  if (!Array.isArray(rawItems)) {
+    issues.push({ field: "items", rule: "array" });
+  } else if (rawItems.length === 0) {
+    // An override must leave a non-empty order — cancel to clear it instead.
+    issues.push({ field: "items", rule: "required" });
+  } else if (rawItems.length > MAX_ITEMS) {
+    issues.push({ field: "items", rule: "max", max: MAX_ITEMS });
+  } else {
+    rawItems.forEach((raw, i) => {
+      const normalized = normalizeItem(raw, i, issues);
+      if (normalized !== null) items.push(normalized);
+    });
+  }
+
+  if (issues.length > 0) {
+    throw new ValidationError("Some override details are invalid.", issues);
+  }
+
+  return { reason, items };
 }

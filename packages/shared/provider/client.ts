@@ -31,8 +31,11 @@ import type {
   MemberResponseDto,
   MenuDayDto,
   MyProviderMembershipDto,
+  ProviderBatchRevisionDto,
   ProviderDto,
   ProviderInvitePreviewDto,
+  ProviderOverrideResponseRequest,
+  ProviderOverrideResultDto,
   ProviderSummaryDto,
   SaveProviderResponseRequest,
   UpdateCatalogItemRequest,
@@ -151,4 +154,15 @@ export interface ProviderApiClient {
   // ── Preparation ──
   /** `GET /api/provider-menu-days/{menuDayId}/preparation-batch`. */
   getPreparationBatch(menuDayId: string): Promise<BatchDto>;
+
+  // ── Provider override / batch regenerate (owner; MP-A-150) ──
+  /** `POST /api/provider-responses/{responseId}/provider-override` — owner corrects a
+   * locked response after cutoff (reason + corrected order); marks the batch stale. */
+  overrideResponse(
+    responseId: string,
+    body: ProviderOverrideResponseRequest,
+  ): Promise<ProviderOverrideResultDto>;
+  /** `POST /api/provider-preparation-batches/{batchId}/regenerate` — owner rebuilds the
+   * roster as a new immutable revision N+1 (email not auto-resent). */
+  regenerateBatch(batchId: string): Promise<ProviderBatchRevisionDto>;
 }
