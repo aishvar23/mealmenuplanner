@@ -3,13 +3,14 @@ import { ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import {
-  isResponseLocked,
+  isResponseReadOnly,
   PROVIDER_RESPONSE_STATUS_LABELS,
 } from "@mmp/shared/provider";
 
 import { Button } from "@/components/Button";
 import { ErrorBanner, LoadingState } from "@/components/Feedback";
 
+import { providerStatusTextClass } from "./status-style";
 import { useTodayResponse } from "./use-today-response";
 
 /**
@@ -41,7 +42,9 @@ export function ResponsesRecapScreen({ providerId }: { providerId: string }) {
     );
   }
 
-  const locked = isResponseLocked(menu, response);
+  // Read-only includes the cutoff (not just the lock sweep, which may lag), so the CTA
+  // never promises an edit the Today screen will then refuse.
+  const locked = isResponseReadOnly(menu, response, new Date());
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>
@@ -58,7 +61,9 @@ export function ResponsesRecapScreen({ providerId }: { providerId: string }) {
         <View className="gap-3 rounded-xl border border-gray-100 bg-white p-4">
           <View className="flex-row items-center justify-between">
             <Text className="text-sm text-gray-500">Status</Text>
-            <Text className="text-sm font-semibold text-green-700">
+            <Text
+              className={`text-sm font-semibold ${providerStatusTextClass(response.status)}`}
+            >
               {PROVIDER_RESPONSE_STATUS_LABELS[response.status]}
             </Text>
           </View>

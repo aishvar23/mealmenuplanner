@@ -105,6 +105,32 @@ export const PROVIDER_RESPONSE_STATUS_LABELS: Record<
 };
 
 /**
+ * The semantic badge variant for each response status — Forest & Ember tokens
+ * (`emerald` positive, `marigold` attention/pending, `ember` cancelled, `neutral`
+ * idle). One map for EVERY status so the web Badge and the mobile status label
+ * colour them identically and no status silently falls through to neutral. The web
+ * `Badge` consumes the variant name directly; mobile maps it to a text colour.
+ */
+export type ProviderResponseBadgeVariant =
+  | "neutral"
+  | "emerald"
+  | "marigold"
+  | "ember";
+
+export const PROVIDER_RESPONSE_STATUS_BADGE_VARIANT: Record<
+  ProviderResponseStatus,
+  ProviderResponseBadgeVariant
+> = {
+  no_response: "neutral",
+  draft: "marigold",
+  confirmed: "emerald",
+  cancelled: "ember",
+  auto_accepted: "emerald",
+  locked: "neutral",
+  provider_overridden: "marigold",
+};
+
+/**
  * The caller's standing with a provider as a short, lowercase noun phrase:
  * `owner`, `subscriber`, or `awaiting approval`. Every user-facing provider label
  * derives from this one mapping, so a wording change happens in exactly one place.

@@ -15,7 +15,13 @@ jest.mock("expo-router", () => ({
 
 const mockUseTodayResponse = jest.mocked(useTodayResponse);
 
-const menu: MenuDayDto = providerFixtures.publishedMenuDay;
+// A far-future cutoff so an unlocked response is genuinely still open (the recap CTA
+// now reflects the cutoff, not just the lock sweep). Lock-state tests use a locked
+// response, which is read-only regardless of the cutoff time.
+const menu: MenuDayDto = {
+  ...providerFixtures.publishedMenuDay,
+  cutoffAt: "2999-01-01T00:00:00Z",
+};
 
 function hookValue(
   response: MemberResponseDto | undefined,

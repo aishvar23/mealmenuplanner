@@ -22,6 +22,13 @@ import type {
   ProviderSpiceLevel,
 } from "./enums";
 
+/**
+ * Fallback cap for a `quantity_increment` option that declares no `maximumQuantity`.
+ * Shared by the web + mobile steppers so the unbounded cap can't drift between
+ * platforms (the server re-validates the authoritative bound regardless).
+ */
+export const DEFAULT_INCREMENT_MAX = 9;
+
 /** One selected customization option on a component (flat — its group is in the menu). */
 export interface CustomizationSelection {
   optionId: string;
@@ -355,6 +362,21 @@ export function isResponseLocked(
     response.lockedAt !== null ||
     LOCKED_RESPONSE_STATUSES.has(response.status)
   );
+}
+
+/**
+ * Whether the response is read-only right now: locked by state (server-authoritative,
+ * clock-free) OR past the cutoff time as of `now`. The single composition of "can the
+ * member still act?" so the Today screens and the recap pages agree — during the few
+ * minutes the lock sweep may lag the cutoff, the cutoff still closes the form, so the
+ * recap never invites an edit the Today page then refuses.
+ */
+export function isResponseReadOnly(
+  menu: MenuDayDto,
+  response: MemberResponseDto,
+  now: Date,
+): boolean {
+  return isResponseLocked(menu, response) || isCutoffPassed(menu, now);
 }
 
 /** Whether the menu's response cutoff has passed as of `now`. */

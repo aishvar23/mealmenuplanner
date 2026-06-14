@@ -1,7 +1,7 @@
 "use client";
 
 import { CheckCircle2, Clock, Lock } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,11 +9,13 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   componentChoices,
   cutoffRemainingMs,
+  DEFAULT_INCREMENT_MAX,
   formatCountdown,
   initialFormState,
-  isCutoffPassed,
   isResponseLocked,
+  isResponseReadOnly,
   providerComponentGroupLabel,
+  PROVIDER_RESPONSE_STATUS_BADGE_VARIANT,
   PROVIDER_RESPONSE_STATUS_LABELS,
   PROVIDER_SALT_OPTIONS,
   PROVIDER_SPICE_OPTIONS,
@@ -41,6 +43,9 @@ import {
   saveMyResponse,
   StaleResponseError,
 } from "./response-client";
+
+/** setTimeout's max 32-bit delay (~24.8 days); longer delays overflow and fire at once. */
+const MAX_TIMER_DELAY_MS = 2_147_483_647;
 
 /**
  * Member Today's Menu + response (MP-B-040 read-only display fused with MP-B-041
@@ -77,29 +82,45 @@ export function TodayResponseView({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  // Live clock for the cutoff countdown — null until mount so the server and the
-  // first client render agree (no hydration mismatch from a moving value).
-  const [now, setNow] = useState<Date | null>(null);
-  useEffect(() => {
-    // Set the clock from deferred callbacks (not synchronously in the effect body)
-    // so the first client render still matches SSR and the countdown starts ticking.
-    const tick = () => setNow(new Date());
-    const initial = setTimeout(tick, 0);
-    const id = setInterval(tick, 1000);
-    return () => {
-      clearTimeout(initial);
-      clearInterval(id);
-    };
-  }, []);
-
+  // Read-only flips once at the cutoff via a single timer (not a per-second clock), so
+  // the form subtree doesn't re-render every second — only the <Countdown/> does. Lock
+  // state is clock-free and matches SSR; `cutoffReached` starts false (same on server +
+  // first client render) and the timer flips it after mount, so no hydration mismatch.
   const lockedByState = isResponseLocked(menu, response);
-  const cutoffReached = now ? isCutoffPassed(menu, now) : false;
+  const [cutoffReached, setCutoffReached] = useState(false);
+  useEffect(() => {
+    if (lockedByState) return;
+    // One timer that fires at the cutoff (re-armed in ≤24.8d hops so a far-future
+    // cutoff doesn't overflow setTimeout's 32-bit delay and fire immediately). Starts
+    // false so SSR and the first client render agree; the timer flips it after mount.
+    let id: ReturnType<typeof setTimeout>;
+    const schedule = () => {
+      const remaining = cutoffRemainingMs(menu, new Date());
+      if (remaining <= 0) {
+        setCutoffReached(true);
+        return;
+      }
+      id = setTimeout(schedule, Math.min(remaining, MAX_TIMER_DELAY_MS));
+    };
+    schedule();
+    return () => clearTimeout(id);
+  }, [menu, lockedByState]);
+
   const readOnly = lockedByState || cutoffReached;
 
-  const remainingLabel = useMemo(
-    () => (now ? formatCountdown(cutoffRemainingMs(menu, now)) : null),
-    [menu, now],
-  );
+  /**
+   * Re-check read-only with a fresh clock before any mutation. In the window before the
+   * cutoff timer fires (e.g. SSR rendered the form open for a menu whose cutoff has just
+   * passed but hasn't locked yet), `readOnly` can lag the real cutoff, so guard the
+   * action itself — not just the disabled state of the buttons.
+   */
+  function ensureOpen(): boolean {
+    if (isResponseReadOnly(menu, response, new Date())) {
+      setError("Responses are closed for today.");
+      return false;
+    }
+    return true;
+  }
 
   function edit(next: ResponseFormState) {
     setForm(next);
@@ -115,7 +136,7 @@ export function TodayResponseView({
     setDirty(false);
   }
 
-  const noteDirty = (initialResponse.memberNote ?? "") !== memberNote;
+  const noteDirty = (response.memberNote ?? "") !== memberNote;
   const canSave = !readOnly && (dirty || noteDirty);
 
   /** Save the working form, returning the authoritative response (or null on error). */
@@ -144,6 +165,7 @@ export function TodayResponseView({
 
   async function onSaveDraft() {
     if (busy || !canSave) return;
+    if (!ensureOpen()) return;
     setBusy(true);
     setError(null);
     const updated = await save();
@@ -153,6 +175,7 @@ export function TodayResponseView({
 
   async function onConfirm() {
     if (busy) return;
+    if (!ensureOpen()) return;
     setBusy(true);
     setError(null);
     try {
@@ -181,6 +204,7 @@ export function TodayResponseView({
 
   async function onCancel() {
     if (busy || !response.responseId) return;
+    if (!ensureOpen()) return;
     setBusy(true);
     setError(null);
     try {
@@ -205,13 +229,7 @@ export function TodayResponseView({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h1 className="text-2xl font-semibold">Today&rsquo;s menu</h1>
           <Badge
-            variant={
-              response.status === "confirmed"
-                ? "emerald"
-                : response.status === "cancelled"
-                  ? "ember"
-                  : "neutral"
-            }
+            variant={PROVIDER_RESPONSE_STATUS_BADGE_VARIANT[response.status]}
           >
             {PROVIDER_RESPONSE_STATUS_LABELS[response.status]}
           </Badge>
@@ -226,10 +244,7 @@ export function TodayResponseView({
               Responses are closed for today.
             </span>
           ) : (
-            <span data-testid="cutoff-countdown">
-              Closes in{" "}
-              <span className="font-medium">{remainingLabel ?? "—"}</span>
-            </span>
+            <Countdown menu={menu} />
           )}
         </div>
         {menu.note ? (
@@ -369,6 +384,28 @@ export function TodayResponseView({
         </div>
       ) : null}
     </div>
+  );
+}
+
+/** The live cutoff countdown — its own 1s clock so only this text re-renders each tick. */
+function Countdown({ menu }: { menu: MenuDayDto }) {
+  const [now, setNow] = useState<Date | null>(null);
+  useEffect(() => {
+    // Deferred first tick (not synchronous) so the first client render still matches
+    // SSR's "—" before the countdown starts moving — no hydration mismatch.
+    const tick = () => setNow(new Date());
+    const initial = setTimeout(tick, 0);
+    const id = setInterval(tick, 1000);
+    return () => {
+      clearTimeout(initial);
+      clearInterval(id);
+    };
+  }, []);
+  const remaining = now ? formatCountdown(cutoffRemainingMs(menu, now)) : null;
+  return (
+    <span data-testid="cutoff-countdown">
+      Closes in <span className="font-medium">{remaining ?? "—"}</span>
+    </span>
   );
 }
 
@@ -560,7 +597,7 @@ function CustomizationGroup({
             const qty = selection.customizations.find(
               (c) => c.optionId === option.optionId,
             )?.quantity;
-            const max = option.maximumQuantity ?? 9;
+            const max = option.maximumQuantity ?? DEFAULT_INCREMENT_MAX;
             const current = qty ?? 0;
             return (
               <div

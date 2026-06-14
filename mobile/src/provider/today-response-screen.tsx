@@ -5,10 +5,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import {
   componentChoices,
   cutoffRemainingMs,
+  DEFAULT_INCREMENT_MAX,
   formatCountdown,
   initialFormState,
-  isCutoffPassed,
   isResponseLocked,
+  isResponseReadOnly,
   providerComponentGroupLabel,
   PROVIDER_RESPONSE_STATUS_LABELS,
   PROVIDER_SALT_OPTIONS,
@@ -36,7 +37,11 @@ import { ErrorBanner, LoadingState } from "@/components/Feedback";
 import { SelectChips } from "@/components/SelectChips";
 import { TextField } from "@/components/TextField";
 
+import { providerStatusTextClass } from "./status-style";
 import { useTodayResponse } from "./use-today-response";
+
+/** setTimeout's max 32-bit delay (~24.8 days); longer delays overflow and fire at once. */
+const MAX_TIMER_DELAY_MS = 2_147_483_647;
 
 /**
  * Member Today's Menu + response (MP-C-040/041, the mobile twin of the web
@@ -132,21 +137,43 @@ function ResponseForm({
     setDirty(false);
   }, [menu, response]);
 
-  const [now, setNow] = useState<Date | null>(null);
+  // Read-only flips once at the cutoff (a single timer), not every second — only the
+  // <Countdown/> below re-renders per tick. Locked-by-state is clock-free.
+  const lockedByState = isResponseLocked(menu, response);
+  const [cutoffReached, setCutoffReached] = useState(false);
   useEffect(() => {
-    const tick = () => setNow(new Date());
-    const initial = setTimeout(tick, 0);
-    const id = setInterval(tick, 1000);
-    return () => {
-      clearTimeout(initial);
-      clearInterval(id);
+    if (lockedByState) return;
+    // One timer that fires at the cutoff (re-armed in ≤24.8d hops so a far-future
+    // cutoff doesn't overflow setTimeout's 32-bit delay and fire immediately).
+    let id: ReturnType<typeof setTimeout>;
+    const schedule = () => {
+      const remaining = cutoffRemainingMs(menu, new Date());
+      if (remaining <= 0) {
+        setCutoffReached(true);
+        return;
+      }
+      id = setTimeout(schedule, Math.min(remaining, MAX_TIMER_DELAY_MS));
     };
-  }, []);
+    schedule();
+    return () => clearTimeout(id);
+  }, [menu, lockedByState]);
 
-  const cutoffReached = now ? isCutoffPassed(menu, now) : false;
-  const readOnly = isResponseLocked(menu, response) || cutoffReached;
+  const readOnly = lockedByState || cutoffReached;
   const noteDirty = (response.memberNote ?? "") !== memberNote;
   const canSave = !readOnly && (dirty || noteDirty);
+
+  /**
+   * Re-check read-only with a fresh clock before any mutation. `readOnly`/`cutoffReached`
+   * can lag the real cutoff in the window before the timer fires (e.g. a just-past-cutoff
+   * menu that hasn't locked yet), so guard the action itself, not just the disabled state.
+   */
+  function ensureOpen(): boolean {
+    if (isResponseReadOnly(menu, response, new Date())) {
+      setErrorMsg("Responses are closed for today.");
+      return false;
+    }
+    return true;
+  }
 
   function edit(next: ResponseFormState) {
     setForm(next);
@@ -181,12 +208,14 @@ function ResponseForm({
   async function onSaveDraft() {
     if (!canSave) return;
     setErrorMsg(null);
+    if (!ensureOpen()) return;
     const saved = await persist();
     if (saved) setMessage("Saved.");
   }
 
   async function onConfirm() {
     setErrorMsg(null);
+    if (!ensureOpen()) return;
     try {
       let current: MemberResponseDto | null = response;
       if (canSave || !response.responseId || response.status === "cancelled") {
@@ -205,6 +234,7 @@ function ResponseForm({
   async function onCancel() {
     if (!response.responseId) return;
     setErrorMsg(null);
+    if (!ensureOpen()) return;
     try {
       await cancelResponse(response.responseId);
       setMessage("Order cancelled.");
@@ -217,7 +247,6 @@ function ResponseForm({
     !readOnly &&
     response.responseId !== null &&
     (response.status === "draft" || response.status === "confirmed");
-  const remaining = now ? formatCountdown(cutoffRemainingMs(menu, now)) : "—";
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>
@@ -231,16 +260,18 @@ function ResponseForm({
           </Text>
           <Text className="text-sm text-gray-500">{menu.menuDate}</Text>
           <Text
-            className="text-sm font-medium text-green-700"
+            className={`text-sm font-medium ${providerStatusTextClass(response.status)}`}
             accessibilityRole="text"
           >
             {PROVIDER_RESPONSE_STATUS_LABELS[response.status]}
           </Text>
-          <Text className="text-sm text-gray-600">
-            {readOnly
-              ? "Responses are closed for today."
-              : `Closes in ${remaining}`}
-          </Text>
+          {readOnly ? (
+            <Text className="text-sm text-gray-600">
+              Responses are closed for today.
+            </Text>
+          ) : (
+            <Countdown menu={menu} />
+          )}
           {menu.note ? (
             <Text className="mt-1 rounded-lg bg-gray-100 px-3 py-2 text-sm text-gray-700">
               {menu.note}
@@ -326,6 +357,24 @@ function ResponseForm({
   );
 }
 
+/** The live cutoff countdown — its own 1s clock so only this text re-renders each tick. */
+function Countdown({ menu }: { menu: MenuDayDto }) {
+  const [now, setNow] = useState<Date | null>(null);
+  useEffect(() => {
+    const tick = () => setNow(new Date());
+    const initial = setTimeout(tick, 0);
+    const id = setInterval(tick, 1000);
+    return () => {
+      clearTimeout(initial);
+      clearInterval(id);
+    };
+  }, []);
+  const remaining = now ? formatCountdown(cutoffRemainingMs(menu, now)) : "—";
+  return (
+    <Text className="text-sm text-gray-600">{`Closes in ${remaining}`}</Text>
+  );
+}
+
 function ComponentCard({
   component,
   selection,
@@ -352,11 +401,12 @@ function ComponentCard({
       {choices.length > 1 ? (
         <SelectChips
           mode="single"
+          disabled={readOnly}
           options={choices.map((c, i) => ({
             value: c.catalogItemId,
             label: `${c.isDefault ? "Default" : `Option ${i}`} · ${c.quantity} ${c.canonicalUnit}`,
           }))}
-          selected={readOnly ? [] : [selection.selectedCatalogItemId]}
+          selected={[selection.selectedCatalogItemId]}
           onChange={(next) => {
             const picked = next[0] ?? component.defaultCatalogItemId;
             onForm(selectChoice(form, component, picked));
@@ -373,6 +423,7 @@ function ComponentCard({
           <Text className="text-xs font-medium text-gray-500">Spice</Text>
           <SelectChips
             mode="single"
+            disabled={readOnly}
             options={PROVIDER_SPICE_OPTIONS}
             selected={selection.spiceLevel ? [selection.spiceLevel] : []}
             onChange={(next) =>
@@ -388,6 +439,7 @@ function ComponentCard({
           <Text className="text-xs font-medium text-gray-500">Salt</Text>
           <SelectChips
             mode="single"
+            disabled={readOnly}
             options={PROVIDER_SALT_OPTIONS}
             selected={selection.saltLevel ? [selection.saltLevel] : []}
             onChange={(next) =>
@@ -451,7 +503,7 @@ function CustomizationGroup({
           const current =
             selection.customizations.find((c) => c.optionId === option.optionId)
               ?.quantity ?? 0;
-          const max = option.maximumQuantity ?? 9;
+          const max = option.maximumQuantity ?? DEFAULT_INCREMENT_MAX;
           return (
             <View
               key={option.optionId}

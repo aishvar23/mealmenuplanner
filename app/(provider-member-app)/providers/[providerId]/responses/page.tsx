@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { getMyResponse, getTodayMenu } from "@/lib/services/provider";
 import {
-  isResponseLocked,
+  isResponseReadOnly,
+  PROVIDER_RESPONSE_STATUS_BADGE_VARIANT,
   PROVIDER_RESPONSE_STATUS_LABELS,
 } from "@/packages/shared/provider";
 
@@ -41,7 +42,9 @@ export default async function ProviderMemberResponsesPage({
   }
 
   const response = await getMyResponse(menu.menuDayId);
-  const locked = isResponseLocked(menu, response);
+  // Read-only includes the cutoff (not just the lock sweep, which may lag a few minutes),
+  // so the CTA never promises an edit the Today page will then refuse.
+  const locked = isResponseReadOnly(menu, response, new Date());
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-6 px-4 py-8 lg:px-8">
@@ -56,13 +59,7 @@ export default async function ProviderMemberResponsesPage({
         <div className="flex items-center justify-between gap-2">
           <span className="text-sm text-muted-foreground">Status</span>
           <Badge
-            variant={
-              response.status === "confirmed"
-                ? "emerald"
-                : response.status === "cancelled"
-                  ? "ember"
-                  : "neutral"
-            }
+            variant={PROVIDER_RESPONSE_STATUS_BADGE_VARIANT[response.status]}
           >
             {PROVIDER_RESPONSE_STATUS_LABELS[response.status]}
           </Badge>

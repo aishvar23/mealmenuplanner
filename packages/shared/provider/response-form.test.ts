@@ -10,6 +10,7 @@ import {
   isCutoffPassed,
   isOptionSelected,
   isResponseLocked,
+  isResponseReadOnly,
   optionQuantity,
   selectChoice,
   selectSingle,
@@ -260,6 +261,24 @@ describe("lock state", () => {
 
   it("is locked for an auto-accepted response", () => {
     expect(isResponseLocked(menu, fx.autoAcceptedResponse)).toBe(true);
+  });
+});
+
+describe("isResponseReadOnly", () => {
+  const before = new Date("2026-06-11T10:00:00Z");
+  const after = new Date("2026-06-11T15:00:00Z");
+
+  it("is editable for an open draft before the cutoff", () => {
+    expect(isResponseReadOnly(menu, fx.draftResponse, before)).toBe(false);
+  });
+
+  it("is read-only once the cutoff has passed, even if not yet locked by state", () => {
+    expect(isResponseLocked(menu, fx.draftResponse)).toBe(false);
+    expect(isResponseReadOnly(menu, fx.draftResponse, after)).toBe(true);
+  });
+
+  it("is read-only for a locked response regardless of the clock", () => {
+    expect(isResponseReadOnly(menu, fx.lockedResponse, before)).toBe(true);
   });
 });
 
