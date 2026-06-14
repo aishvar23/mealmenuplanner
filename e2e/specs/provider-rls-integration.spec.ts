@@ -1,13 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-
 import { expect, test } from "../fixtures/provider";
-import type {
-  MenuDaySeed,
-  ProviderTeam,
-  ProviderUser,
-} from "../fixtures/provider";
-import { E2E_PASSWORD } from "../fixtures/constants";
-import { createAuthedClient } from "../helpers/authed-client";
 
 /**
  * Provider integration / RLS suite (MP-A-180; 07_test_strategy.md § 1.4–1.7;
@@ -16,11 +7,11 @@ import { createAuthedClient } from "../helpers/authed-client";
  * The other provider specs prove the **API-route** authorization layer (they sign
  * in via a browser and call `/api/*` with `page.request`). This suite proves the
  * layer underneath: the actual **Postgres RLS policies + SECURITY DEFINER RPCs**,
- * exercised with a real anon-key client signed in as each actor (`createAuthedClient`)
+ * exercised with a real anon-key client signed in as each actor (`providerTeam.signInAs`)
  * so every `.from()/.rpc()` runs under that user's row-level context — the
  * repeatable, CI-runnable form of the manual rolled-back MCP probes used while the
  * provider schema was built. It runs against cloud dev (no Docker); the `providerTeam`
- * fixture mints + tears down ephemeral users/orgs.
+ * fixture mints + tears down ephemeral users/orgs and signs out the authed clients.
  *
  * Coverage:
  *   • read isolation — owner full access; approved-customer own-response only;
@@ -34,111 +25,11 @@ import { createAuthedClient } from "../helpers/authed-client";
  *   • override → batch stale, regenerate → revision N+1, old revision retained
  *     (UC-OVERRIDE-001..003);
  *   • the one-live-membership partial-unique constraint.
+ *
+ * The confirmed-response / post-cutoff-batch seeding lives on the `providerTeam`
+ * fixture (`seedConfirmedResponse`, `seedBatch`, `currentBatchId`) so this suite and
+ * the events/CSV specs share one definition of those shapes.
  */
-
-/** Seed a confirmed response (with one dal line) for `customer` on `menuDayId`. */
-async function seedConfirmedResponse(
-  team: ProviderTeam,
-  providerId: string,
-  seed: MenuDaySeed,
-  customer: ProviderUser,
-): Promise<string> {
-  const resp = await team.admin
-    .from("provider_member_responses")
-    .insert({
-      provider_id: providerId,
-      menu_day_id: seed.menuDayId,
-      member_user_id: customer.id,
-      status: "confirmed",
-      version: 1,
-      confirmed_at: new Date().toISOString(),
-    })
-    .select("id")
-    .single();
-  if (resp.error || !resp.data) {
-    throw new Error(`E2E: seed response failed: ${resp.error?.message}`);
-  }
-  const responseId = resp.data.id as string;
-  const item = await team.admin.from("provider_member_response_items").insert({
-    response_id: responseId,
-    menu_component_id: seed.dalComponentId,
-    selected_catalog_item_id: seed.rajmaCatalogId,
-    quantity: 16,
-    canonical_unit: "oz",
-    spice_level: "spicy",
-    salt_level: "low_salt",
-  });
-  if (item.error) {
-    throw new Error(`E2E: seed response item failed: ${item.error.message}`);
-  }
-  return responseId;
-}
-
-/** The id of the current preparation batch for a menu day, or throws. */
-async function currentBatchId(
-  team: ProviderTeam,
-  menuDayId: string,
-): Promise<string> {
-  const batch = await team.admin
-    .from("provider_preparation_batches")
-    .select("id")
-    .eq("menu_day_id", menuDayId)
-    .eq("status", "current")
-    .single();
-  if (batch.error || !batch.data) {
-    throw new Error(`E2E: no current batch: ${batch.error?.message}`);
-  }
-  return batch.data.id as string;
-}
-
-/**
- * Build a real post-cutoff batch (revision 1, status current) for `providerId`:
- * a published past-cutoff day + one approved customer with a confirmed response,
- * then run the cutoff RPC. Returns the ids the override/idempotency tests need.
- */
-async function buildBatch(
-  team: ProviderTeam,
-  owner: ProviderUser,
-  providerId: string,
-): Promise<{ seed: MenuDaySeed; batchId: string; responseId: string }> {
-  const seed = await team.seedMenuDay(providerId, owner, {
-    status: "published",
-    cutoffHoursFromNow: -1,
-  });
-  const customer = await team.createUser("rls-batch-cust");
-  await team.addCustomer(providerId, customer, "approved");
-  await seedConfirmedResponse(team, providerId, seed, customer);
-
-  const cutoff = await team.admin.rpc("process_provider_cutoff", {
-    p_menu_day_id: seed.menuDayId,
-  });
-  if (cutoff.error) {
-    throw new Error(`E2E: cutoff failed: ${cutoff.error.message}`);
-  }
-  const batchId = await currentBatchId(team, seed.menuDayId);
-  // After the cutoff the confirmed response is locked — the override path's input.
-  const resp = await team.admin
-    .from("provider_member_responses")
-    .select("id")
-    .eq("menu_day_id", seed.menuDayId)
-    .eq("member_user_id", customer.id)
-    .single();
-  if (resp.error || !resp.data) {
-    throw new Error(
-      `E2E: locked response lookup failed: ${resp.error?.message}`,
-    );
-  }
-  return { seed, batchId, responseId: resp.data.id as string };
-}
-
-/** Sign out a per-test authed client (best-effort) once an assertion block is done. */
-async function signOut(client: SupabaseClient): Promise<void> {
-  try {
-    await client.auth.signOut();
-  } catch {
-    /* the fixture deletes the user in teardown regardless */
-  }
-}
 
 test.describe("Provider RLS — read isolation (UC-SECURITY-001..006)", () => {
   test("the owner has full read access to their org's data", async ({
@@ -153,10 +44,10 @@ test.describe("Provider RLS — read isolation (UC-SECURITY-001..006)", () => {
     const custB = await providerTeam.createUser("rls-owner-b");
     await providerTeam.addCustomer(providerId, custA, "approved");
     await providerTeam.addCustomer(providerId, custB, "approved");
-    await seedConfirmedResponse(providerTeam, providerId, seed, custA);
-    await seedConfirmedResponse(providerTeam, providerId, seed, custB);
+    await providerTeam.seedConfirmedResponse(providerId, seed, custA);
+    await providerTeam.seedConfirmedResponse(providerId, seed, custB);
 
-    const ownerClient = await createAuthedClient(owner.email, E2E_PASSWORD);
+    const ownerClient = await providerTeam.signInAs(owner);
 
     const days = await ownerClient
       .from("provider_menu_days")
@@ -183,8 +74,6 @@ test.describe("Provider RLS — read isolation (UC-SECURITY-001..006)", () => {
       .select("id")
       .eq("provider_id", providerId);
     expect(catalog.data?.length).toBe(3);
-
-    await signOut(ownerClient);
   });
 
   test("an approved customer reads only their own response, never another's", async ({
@@ -199,15 +88,18 @@ test.describe("Provider RLS — read isolation (UC-SECURITY-001..006)", () => {
     const custB = await providerTeam.createUser("rls-own-b");
     await providerTeam.addCustomer(providerId, custA, "approved");
     await providerTeam.addCustomer(providerId, custB, "approved");
-    await seedConfirmedResponse(providerTeam, providerId, seed, custA);
-    const respB = await seedConfirmedResponse(
-      providerTeam,
+    const respA = await providerTeam.seedConfirmedResponse(
+      providerId,
+      seed,
+      custA,
+    );
+    const respB = await providerTeam.seedConfirmedResponse(
       providerId,
       seed,
       custB,
     );
 
-    const a = await createAuthedClient(custA.email, E2E_PASSWORD);
+    const a = await providerTeam.signInAs(custA);
 
     const mine = await a
       .from("provider_member_responses")
@@ -217,14 +109,21 @@ test.describe("Provider RLS — read isolation (UC-SECURITY-001..006)", () => {
     expect(mine.data?.length).toBe(1);
     expect(mine.data?.[0]?.member_user_id).toBe(custA.id);
 
-    // Customer A cannot read customer B's response items either (chained RLS).
+    // Positive control: customer A CAN read their OWN response's items — so the deny
+    // below proves per-customer scoping, not a blanket deny of the items table.
+    const myItems = await a
+      .from("provider_member_response_items")
+      .select("id")
+      .eq("response_id", respA);
+    expect(myItems.error).toBeNull();
+    expect(myItems.data?.length).toBe(1);
+
+    // Customer A cannot read customer B's response items (chained RLS).
     const bItems = await a
       .from("provider_member_response_items")
       .select("id")
       .eq("response_id", respB);
     expect(bItems.data?.length).toBe(0);
-
-    await signOut(a);
   });
 
   test("an awaiting-approval customer sees no published menu", async ({
@@ -238,7 +137,7 @@ test.describe("Provider RLS — read isolation (UC-SECURITY-001..006)", () => {
     const awaiting = await providerTeam.createUser("rls-await-cust");
     await providerTeam.addCustomer(providerId, awaiting, "awaiting_approval");
 
-    const client = await createAuthedClient(awaiting.email, E2E_PASSWORD);
+    const client = await providerTeam.signInAs(awaiting);
 
     const days = await client
       .from("provider_menu_days")
@@ -252,8 +151,6 @@ test.describe("Provider RLS — read isolation (UC-SECURITY-001..006)", () => {
       .select("id")
       .eq("provider_id", providerId);
     expect(weeks.data?.length).toBe(0);
-
-    await signOut(client);
   });
 
   test("an active customer can read the published menu (positive control)", async ({
@@ -267,7 +164,7 @@ test.describe("Provider RLS — read isolation (UC-SECURITY-001..006)", () => {
     const active = await providerTeam.createUser("rls-active-cust");
     await providerTeam.addCustomer(providerId, active, "approved");
 
-    const client = await createAuthedClient(active.email, E2E_PASSWORD);
+    const client = await providerTeam.signInAs(active);
 
     const days = await client
       .from("provider_menu_days")
@@ -287,8 +184,6 @@ test.describe("Provider RLS — read isolation (UC-SECURITY-001..006)", () => {
       .select("id")
       .eq("menu_component_id", seed.dalComponentId);
     expect(alts.data?.length).toBe(1); // Chana
-
-    await signOut(client);
   });
 
   test("a customer cannot read preparation batches, their lines, the catalog, the audit log, or other members", async ({
@@ -298,14 +193,27 @@ test.describe("Provider RLS — read isolation (UC-SECURITY-001..006)", () => {
     const providerId = await providerTeam.createProvider(owner, {
       name: "Customer Deny Kitchen",
     });
-    const { batchId } = await buildBatch(providerTeam, owner, providerId);
+    const { batchId } = await providerTeam.seedBatch(owner, providerId);
+
+    // The cutoff path writes no audit row, so seed one real activity event — without
+    // it the customer-deny assertion below would pass trivially (empty table) and the
+    // owner-only `pae_select` policy would never actually be exercised.
+    const auditEvent = await providerTeam.admin
+      .from("provider_activity_events")
+      .insert({
+        provider_id: providerId,
+        actor_user_id: owner.id,
+        event_type: "provider_member_approved",
+        entity_type: "provider_membership",
+      });
+    expect(auditEvent.error).toBeNull();
 
     const custA = await providerTeam.createUser("rls-deny-a");
     const custB = await providerTeam.createUser("rls-deny-b");
     await providerTeam.addCustomer(providerId, custA, "approved");
     await providerTeam.addCustomer(providerId, custB, "approved");
 
-    const a = await createAuthedClient(custA.email, E2E_PASSWORD);
+    const a = await providerTeam.signInAs(custA);
 
     const batches = await a
       .from("provider_preparation_batches")
@@ -340,8 +248,9 @@ test.describe("Provider RLS — read isolation (UC-SECURITY-001..006)", () => {
     expect(members.data?.length).toBe(1);
     expect(members.data?.[0]?.user_id).toBe(custA.id);
 
-    // Sanity: the owner DOES see the batch + its lines (the policy isn't a blanket deny).
-    const ownerClient = await createAuthedClient(owner.email, E2E_PASSWORD);
+    // Sanity (positive control): the owner DOES see the batch, its lines, AND the
+    // audit row — so each policy above is per-actor scoping, not a blanket deny.
+    const ownerClient = await providerTeam.signInAs(owner);
     const ownerBatch = await ownerClient
       .from("provider_preparation_batches")
       .select("id")
@@ -352,9 +261,11 @@ test.describe("Provider RLS — read isolation (UC-SECURITY-001..006)", () => {
       .select("id")
       .eq("batch_id", batchId);
     expect(ownerLines.data?.length ?? 0).toBeGreaterThan(0);
-
-    await signOut(a);
-    await signOut(ownerClient);
+    const ownerEvents = await ownerClient
+      .from("provider_activity_events")
+      .select("id")
+      .eq("provider_id", providerId);
+    expect(ownerEvents.data?.length ?? 0).toBeGreaterThan(0);
   });
 });
 
@@ -366,12 +277,12 @@ test.describe("Provider RLS — cross-provider denial (UC-SECURITY-001/006)", ()
     const providerA = await providerTeam.createProvider(ownerA, {
       name: "Provider A Kitchen",
     });
-    const { seed, batchId } = await buildBatch(providerTeam, ownerA, providerA);
+    const { seed, batchId } = await providerTeam.seedBatch(ownerA, providerA);
 
     const ownerB = await providerTeam.createUser("rls-xprov-b-owner");
     await providerTeam.createProvider(ownerB, { name: "Provider B Kitchen" });
 
-    const b = await createAuthedClient(ownerB.email, E2E_PASSWORD);
+    const b = await providerTeam.signInAs(ownerB);
 
     const days = await b
       .from("provider_menu_days")
@@ -410,8 +321,6 @@ test.describe("Provider RLS — cross-provider denial (UC-SECURITY-001/006)", ()
       .select("id")
       .eq("menu_day_id", seed.menuDayId);
     expect(comps.data?.length).toBe(0);
-
-    await signOut(b);
   });
 });
 
@@ -430,7 +339,7 @@ test.describe("Provider RLS — response mutation gating (UC-RESPONSE-009)", () 
     const customer = await providerTeam.createUser("rls-mutate-cust");
     await providerTeam.addCustomer(providerId, customer, "approved");
 
-    const client = await createAuthedClient(customer.email, E2E_PASSWORD);
+    const client = await providerTeam.signInAs(customer);
 
     // Pre-cutoff: the RPC creates the response (server-derives quantities).
     const ok = await client.rpc("save_provider_response", {
@@ -465,8 +374,6 @@ test.describe("Provider RLS — response mutation gating (UC-RESPONSE-009)", () 
     });
     expect(denied.error).not.toBeNull();
     expect(denied.error?.code).toBe("PRLCK");
-
-    await signOut(client);
   });
 
   test("an awaiting-approval customer's save is rejected with PRAPP", async ({
@@ -483,7 +390,7 @@ test.describe("Provider RLS — response mutation gating (UC-RESPONSE-009)", () 
     const awaiting = await providerTeam.createUser("rls-apprv-cust");
     await providerTeam.addCustomer(providerId, awaiting, "awaiting_approval");
 
-    const client = await createAuthedClient(awaiting.email, E2E_PASSWORD);
+    const client = await providerTeam.signInAs(awaiting);
     const denied = await client.rpc("save_provider_response", {
       p_menu_day_id: seed.menuDayId,
       p_expected_version: null,
@@ -497,8 +404,6 @@ test.describe("Provider RLS — response mutation gating (UC-RESPONSE-009)", () 
     });
     expect(denied.error).not.toBeNull();
     expect(denied.error?.code).toBe("PRAPP");
-
-    await signOut(client);
   });
 });
 
@@ -516,7 +421,7 @@ test.describe("Provider integration — cutoff idempotency (UC-CUTOFF-002)", () 
     });
     const customer = await providerTeam.createUser("rls-idem-cust");
     await providerTeam.addCustomer(providerId, customer, "approved");
-    await seedConfirmedResponse(providerTeam, providerId, seed, customer);
+    await providerTeam.seedConfirmedResponse(providerId, seed, customer);
 
     const first = await providerTeam.admin.rpc("process_provider_cutoff", {
       p_menu_day_id: seed.menuDayId,
@@ -563,13 +468,12 @@ test.describe("Provider integration — override + regenerate (UC-OVERRIDE-001..
     const providerId = await providerTeam.createProvider(owner, {
       name: "Override Kitchen",
     });
-    const { seed, batchId, responseId } = await buildBatch(
-      providerTeam,
+    const { seed, batchId, responseId } = await providerTeam.seedBatch(
       owner,
       providerId,
     );
 
-    const ownerClient = await createAuthedClient(owner.email, E2E_PASSWORD);
+    const ownerClient = await providerTeam.signInAs(owner);
 
     // Owner overrides the locked response (re-deriving the same default line). The
     // override marks the day's current batch stale (ADR-11).
@@ -612,8 +516,6 @@ test.describe("Provider integration — override + regenerate (UC-OVERRIDE-001..
     const rev1 = (all.data ?? []).find((b) => b.id === batchId);
     expect(rev1?.revision).toBe(1);
     expect(rev1?.status).toBe("stale");
-
-    await signOut(ownerClient);
   });
 });
 
@@ -643,5 +545,3 @@ test.describe("Provider integration — membership invariant", () => {
     expect(dup.error?.code).toBe("23505");
   });
 });
-
-export {};
