@@ -221,6 +221,17 @@ describe("providerApiClient — menus & response", () => {
     );
   });
 
+  it("listBatches GETs the provider's preparation-batches index", async () => {
+    mockApiRequest.mockResolvedValue([{ batchId: "b1" }]);
+
+    const result = await providerApiClient.listBatches("prov-a");
+
+    expect(mockApiRequest).toHaveBeenCalledWith(
+      "/api/providers/prov-a/preparation-batches",
+    );
+    expect(result).toEqual([{ batchId: "b1" }]);
+  });
+
   it("getPreparationBatch GETs the batch route for the menu day", async () => {
     mockApiRequest.mockResolvedValue({ batchId: "b1" });
 

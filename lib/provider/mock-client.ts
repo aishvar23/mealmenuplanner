@@ -17,7 +17,6 @@ import {
   renderAggregateCsv,
   renderIndividualCsv,
   type AcceptProviderInviteResult,
-  type BatchDto,
   type CatalogItemDto,
   type CompleteMemberOnboardingRequest,
   type CreateCatalogItemRequest,
@@ -27,7 +26,9 @@ import {
   type MenuDayDto,
   type MyProviderMembershipDto,
   type ProviderApiClient,
+  type ProviderBatchDetailDto,
   type ProviderBatchRevisionDto,
+  type ProviderBatchSummaryDto,
   type ProviderCreateInput,
   type ProviderDto,
   type ProviderInvitePreviewDto,
@@ -215,7 +216,10 @@ export const mockProviderClient: ProviderApiClient = {
   },
 
   // ── Preparation ──
-  getPreparationBatch(): Promise<BatchDto> {
+  listBatches(): Promise<ProviderBatchSummaryDto[]> {
+    return Promise.resolve(f.batchSummaries);
+  },
+  getPreparationBatch(): Promise<ProviderBatchDetailDto> {
     return Promise.resolve(f.currentBatch);
   },
   getAggregateCsv(): Promise<string> {
