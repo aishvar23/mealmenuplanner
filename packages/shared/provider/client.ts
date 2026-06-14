@@ -32,6 +32,7 @@ import type {
   MenuDayDto,
   MyProviderMembershipDto,
   ProviderBatchRevisionDto,
+  ProviderSummaryEmailResultDto,
   ProviderDto,
   ProviderInvitePreviewDto,
   CreateProviderSuggestionRequest,
@@ -194,4 +195,11 @@ export interface ProviderApiClient {
   /** `POST /api/provider-preparation-batches/{batchId}/regenerate` — owner rebuilds the
    * roster as a new immutable revision N+1 (email not auto-resent). */
   regenerateBatch(batchId: string): Promise<ProviderBatchRevisionDto>;
+
+  // ── Summary email (owner; MP-A-161) ──
+  /** `POST /api/provider-preparation-batches/{batchId}/resend-email` — owner sends
+   * (or resends) the preparation-summary email built from this persisted batch
+   * revision to the provider's configured recipients. Best-effort (ADR-12): returns
+   * an honest `emailStatus` rather than failing the request. */
+  resendSummaryEmail(batchId: string): Promise<ProviderSummaryEmailResultDto>;
 }

@@ -2873,6 +2873,24 @@ export type Database = {
         };
         Returns: Json;
       };
+      emit_provider_event: {
+        // Nullable args (`| null`) are hand-adjusted (see emit_household_event):
+        // the generator omits function-arg nullability, but the provider emit path
+        // passes explicit nulls for entity / value / title / message (audit-only
+        // events) and recipient ids.
+        Args: {
+          p_entity_id: string | null;
+          p_entity_type: string;
+          p_event_type: string;
+          p_message: string | null;
+          p_new_value: Json | null;
+          p_old_value: Json | null;
+          p_provider_id: string;
+          p_recipient_user_ids: string[] | null;
+          p_title: string | null;
+        };
+        Returns: Json;
+      };
       expire_guests: { Args: never; Returns: number };
       expire_invites: { Args: never; Returns: number };
       get_event_email_recipients: {
@@ -2984,6 +3002,10 @@ export type Database = {
         Returns: undefined;
       };
       set_preferred_household: { Args: { h: string }; Returns: undefined };
+      set_provider_batch_email_status: {
+        Args: { p_batch_id: string; p_status: string };
+        Returns: undefined;
+      };
       transfer_ownership: {
         Args: { p_household_id: string; p_target_member_id: string };
         Returns: Json;

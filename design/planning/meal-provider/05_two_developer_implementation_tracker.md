@@ -302,19 +302,22 @@ report ambiguity with file/symbol/observed-behavior/why.
     read this RPC provides is reused by the later preparation UI (MP-B-050) + summary email
     (MP-A-161) + print (MP-B-051).
 
-### MP-A-161 — Summary email backend + resend — `NOT_STARTED` (after MP-A-141)
+### MP-A-161 — Summary email backend + resend — `DONE` (ADO #27, PR pending)
 
-- **Track:** A · **Checkpoint:** 5 · **Branch:** provider-exports-email.
+- **Track:** A · **Checkpoint:** 5 · **Branch:** feature/provider-events-email-mp-a-170.
 - **Objective:** pure `renderProviderSummaryEmail()`; `providerSummaryEmailService` building DTO from persisted batch; `email_status`; `resend-email` endpoint. Reuse `EmailTransport` (ADR-12).
 - **Use cases:** UC-CUTOFF-003, UC-OVERRIDE-003, UC-NOTIFY-004; `03`§13. **Tests:** email built from persisted revision; failure records status w/o rolling back batch; resend sends exact revision.
 - **Rollback:** remove service/route.
+- **Shipped:** pure `renderProviderSummaryEmail` in `@mmp/shared/provider/summary-email.ts` (subject `Preparation summary — {date} — {provider}`, totals + aggregate roster + CSV/print/batch links, spice/salt labels, HTML-escaped; 6 Vitest cases). `sendProviderSummaryEmail` (`lib/services/provider/summary-email.ts`) reads the persisted revision via `getProviderBatch` (owner self-gate), resolves `summary_email_recipients`, renders + sends via the shared `EmailTransport`, and records the outcome on the batch through the new owner-gated `set_provider_batch_email_status` RPC (pmp_15) — best-effort/post-commit (ADR-12: send failure never rolls back the batch); returns `{emailStatus: sent|failed|no_recipient, recipientCount}` (`ProviderSummaryEmailResultDto`). `POST /api/provider-preparation-batches/{batchId}/resend-email`. Backend-only DoD — no RN screen (preparation UI is MP-B-050/MP-C-050); mobile contract extended (`resendSummaryEmail` on `ProviderApiClient` + mobile client + both mocks, mobile Jest routing test). Web Playwright `e2e/specs/provider-events-email.spec.ts` (owner resend persists status + audit event; no_recipient; non-owner 403 / unknown 404).
 
-### MP-A-170 — Provider events + notification fan-out — `NOT_STARTED` (after MP-A-014)
+### MP-A-170 — Provider events + notification fan-out — `DONE` (ADO #27, PR pending)
 
-- **Track:** A · **Checkpoint:** 4/5 · **Branch:** provider-services-api.
+- **Track:** A · **Checkpoint:** 4/5 · **Branch:** feature/provider-events-email-mp-a-170.
 - **Objective:** `emit_provider_event` (audit + fan-out to `provider_notifications`); wire into publish/approve/cutoff/override flows; redaction rules.
 - **Use cases:** UC-NOTIFY-001..004; §19.4. **Tests:** no notify to removed/rejected; no token/allergy/full-note logging; audit always written.
 - **Rollback:** remove RPC + call sites.
+- **Shipped (pmp_14):** `emit_provider_event(provider, event_type, entity_type, entity_id, old, new, title, message, recipient_user_ids[])` SECURITY DEFINER — the provider analogue of `emit_household_event`: always writes one `provider_activity_events` audit row, fans out one `provider_notifications` row per explicit recipient (actor-excluded, deduped) **only when title+message are non-null**, request-path tenancy guard (owner or active member; system/cron path allowed with null actor). Recipients are passed by the caller (the single redaction point — the fn never reads allergy/notes/tokens). Wired into `approve_provider_member` (audit + **notify the approved customer**, UC-NOTIFY-003), `reject_provider_member` / `remove_provider_member` (audit only — **never notify** the rejected/removed customer), and `confirm/cancel_provider_response` (audit-only § 19.4 observability). Web Playwright (`provider-events-email.spec.ts`): approve audits AND notifies; reject audits but does NOT notify.
+- **Deferred (noted, not dropped):** `provider_menu_published` fan-out (UC-NOTIFY-001 → active customers) ships with the publish flow MP-A-121 (ADO #22, ADR-7-blocked). Centralising the existing inline audit writes in `process_provider_cutoff` / `provider_override_response` / `regenerate_provider_batch` through `emit_provider_event` is a pure refactor (those rows are already written) tracked under tech-debt ADO #38.
 
 ### MP-A-180 — Integration/RLS test suite (cloud dev) — `NOT_STARTED` (rolling, per schema task)
 

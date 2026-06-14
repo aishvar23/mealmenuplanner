@@ -438,3 +438,16 @@ export interface ProviderSummaryEmailParams {
   printUrl: string;
   batchUrl: string;
 }
+
+/**
+ * Outcome of a summary-email send/resend (MP-A-161, contract 03 § 13). The send is
+ * best-effort and post-commit (ADR-12: a failure never rolls back the batch), so the
+ * route always returns 200 with an honest status the UI can act on:
+ *   • `sent`         — delivered to every configured recipient;
+ *   • `failed`       — transport unconfigured or at least one send threw (offer resend);
+ *   • `no_recipient` — the provider has no `summary_email_recipients` configured.
+ */
+export interface ProviderSummaryEmailResultDto {
+  emailStatus: "sent" | "failed" | "no_recipient";
+  recipientCount: number;
+}

@@ -20,6 +20,7 @@ import type {
   ProviderOverrideResultDto,
   ProviderSuggestionDto,
   ProviderSummaryDto,
+  ProviderSummaryEmailResultDto,
   ProviderUpdateInput,
   ResolveProviderSuggestionRequest,
   SaveProviderResponseRequest,
@@ -271,6 +272,14 @@ export const providerApiClient: ProviderApiClient = {
   regenerateBatch(batchId: string): Promise<ProviderBatchRevisionDto> {
     return apiRequest<ProviderBatchRevisionDto>(
       `/api/provider-preparation-batches/${batchId}/regenerate`,
+      { method: "POST" },
+    );
+  },
+
+  // ── Summary email (owner; MP-A-161) ──
+  resendSummaryEmail(batchId: string): Promise<ProviderSummaryEmailResultDto> {
+    return apiRequest<ProviderSummaryEmailResultDto>(
+      `/api/provider-preparation-batches/${batchId}/resend-email`,
       { method: "POST" },
     );
   },

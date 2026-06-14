@@ -287,6 +287,21 @@ describe("providerApiClient — menus & response", () => {
     );
   });
 
+  it("resendSummaryEmail POSTs the resend-email route for the batch", async () => {
+    mockApiRequest.mockResolvedValue({
+      emailStatus: "sent",
+      recipientCount: 1,
+    });
+
+    const result = await providerApiClient.resendSummaryEmail("b1");
+
+    expect(mockApiRequest).toHaveBeenCalledWith(
+      "/api/provider-preparation-batches/b1/resend-email",
+      { method: "POST" },
+    );
+    expect(result).toEqual({ emailStatus: "sent", recipientCount: 1 });
+  });
+
   it("getAggregateCsv / getIndividualCsv fetch the CSV routes as raw text", async () => {
     mockRequestText.mockResolvedValue("component_group,item_name\r\n");
 
