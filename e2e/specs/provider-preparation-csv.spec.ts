@@ -136,13 +136,66 @@ async function seedBatch(
   return batch.data.id as string;
 }
 
-/** Parse a CSV body (BOM-stripped) into non-empty records split on the delimiter. */
+/**
+ * Parse a CSV body (BOM-stripped) into records of fields, RFC-4180 aware: a quoted
+ * field may contain commas, quotes (doubled), and CR/LF. A naive `split(",")` would
+ * mis-shift columns the moment a real item name or display name contained a comma and
+ * silently weaken every column assertion below, so parse properly instead.
+ */
 function rows(body: string): string[][] {
-  return body
-    .replace(/^\uFEFF/, "")
-    .split("\r\n")
-    .filter((line) => line.length > 0)
-    .map((line) => line.split(","));
+  const text = body.replace(/^\uFEFF/, "");
+  const records: string[][] = [];
+  let record: string[] = [];
+  let field = "";
+  let inQuotes = false;
+  let i = 0;
+  while (i < text.length) {
+    const ch = text[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') {
+          field += '"';
+          i += 2;
+        } else {
+          inQuotes = false;
+          i += 1;
+        }
+      } else {
+        field += ch;
+        i += 1;
+      }
+      continue;
+    }
+    if (ch === '"') {
+      inQuotes = true;
+      i += 1;
+    } else if (ch === ",") {
+      record.push(field);
+      field = "";
+      i += 1;
+    } else if (ch === "\r" && text[i + 1] === "\n") {
+      record.push(field);
+      records.push(record);
+      record = [];
+      field = "";
+      i += 2;
+    } else if (ch === "\n" || ch === "\r") {
+      record.push(field);
+      records.push(record);
+      record = [];
+      field = "";
+      i += 1;
+    } else {
+      field += ch;
+      i += 1;
+    }
+  }
+  if (field.length > 0 || record.length > 0) {
+    record.push(field);
+    records.push(record);
+  }
+  // Drop a trailing empty record (renderers end every record with CRLF).
+  return records.filter((r) => r.length > 1 || r[0]!.length > 0);
 }
 
 test.describe("Provider preparation CSV export (MP-A-160)", () => {

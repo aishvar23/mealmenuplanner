@@ -3,6 +3,7 @@ import "server-only";
 import { requireAuthUser } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/db/server";
 import {
+  ConflictError,
   ForbiddenError,
   InternalError,
   NotFoundError,
@@ -19,10 +20,13 @@ import type { BatchDto } from "@/packages/shared/provider";
  * SECURITY DEFINER RPC (design/04 § 9), which:
  *   • reads the aggregate roster from the PERSISTED, immutable batch lines;
  *   • rebuilds the per-member breakdown from the day's locked eligible responses
- *     with the same included/extra rules the cutoff persisted (so it reconciles);
+ *     with the same eligibility + included/extra rules the persisted aggregate used
+ *     (the shared `provider_member_breakdown_lines` helper — so it reconciles);
  *   • projects member display names across `users` (self-only RLS).
  * The RPC self-gates on owner: a non-owner gets `PROWN` → 403; a missing/foreign
- * batch is existence-hidden as `P0002` → 404 (mirrors override/regenerate).
+ * batch is existence-hidden as `P0002` → 404 (mirrors override/regenerate); a
+ * superseded (non-current) revision gets `PRSTL` → 409 `batch_stale`, since its
+ * persisted aggregate and the live responses no longer agree.
  */
 
 type SupabaseClient = Awaited<ReturnType<typeof createServerSupabaseClient>>;
@@ -58,6 +62,14 @@ export async function getProviderBatch(
         throw new ForbiddenError("Only the provider owner can do that.", {
           details: { reason: PROVIDER_ERROR_REASONS.provider_owner_required },
         });
+      case "PRSTL":
+        // The requested revision has been superseded (an override + regenerate
+        // moved 'current' on). Only the current revision reconciles, so refuse the
+        // stale one rather than export an inconsistent roster.
+        throw new ConflictError(
+          "This batch has been superseded by a newer revision.",
+          { reason: PROVIDER_ERROR_REASONS.batch_stale },
+        );
       case "28000":
         throw new UnauthenticatedError();
       default:

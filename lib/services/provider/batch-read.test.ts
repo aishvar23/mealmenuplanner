@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { requireAuthUser } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/db/server";
 import {
+  ConflictError,
   ForbiddenError,
   InternalError,
   NotFoundError,
@@ -83,6 +84,18 @@ describe("getProviderBatch", () => {
     expect(err).toBeInstanceOf(ForbiddenError);
     expect((err as ForbiddenError).details).toMatchObject({
       reason: PROVIDER_ERROR_REASONS.provider_owner_required,
+    });
+  });
+
+  it("maps PRSTL (superseded revision) to a 409 carrying the batch_stale reason", async () => {
+    stubRpc({
+      data: null,
+      error: { code: "PRSTL", message: "batch superseded" },
+    });
+    const err = await getProviderBatch(BATCH).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ConflictError);
+    expect((err as ConflictError).details).toMatchObject({
+      reason: PROVIDER_ERROR_REASONS.batch_stale,
     });
   });
 

@@ -58,6 +58,17 @@ describe("escapeCsvCell", () => {
     // Guarded ('=) then RFC-4180-quoted because of the comma.
     expect(escapeCsvCell("=cmd(),x")).toBe('"\'=cmd(),x"');
   });
+
+  it("guards a formula hidden behind leading whitespace (some apps trim then evaluate)", () => {
+    // A leading space before the trigger must still be neutralised; otherwise a
+    // user-controlled value (e.g. a member display name) slips a live formula
+    // past the guard.
+    expect(escapeCsvCell(" =1+1")).toBe("' =1+1");
+    expect(escapeCsvCell("   @SUM(A1)")).toBe("'   @SUM(A1)");
+    expect(escapeCsvCell(" -2+3")).toBe("' -2+3");
+    // A plain leading space (no trigger) is left untouched.
+    expect(escapeCsvCell(" Rajma")).toBe(" Rajma");
+  });
 });
 
 describe("formatQuantity", () => {

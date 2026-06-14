@@ -30,13 +30,25 @@ const CRLF = "\r\n";
 const FORMULA_LEAD = new Set(["=", "+", "-", "@", "\t", "\r"]);
 
 /**
+ * A formula lead-in (`= + - @`) preceded by optional leading whitespace. Some
+ * spreadsheet apps trim a leading space/tab/newline before deciding whether a
+ * cell is a formula, so `" =1+1"` would evaluate even though its first char is a
+ * space — the bare `FORMULA_LEAD.has(cell[0])` check alone misses that (review
+ * PR #47, finding #4). This catches a trigger after any run of leading whitespace.
+ */
+const WHITESPACE_THEN_FORMULA = /^\s*[=+\-@]/;
+
+/**
  * Make one cell safe: neutralise a formula lead-in, then RFC-4180-quote when the
  * value contains a delimiter, quote, or newline. Applied to every cell uniformly
  * (defence in depth) — a numeric or boolean cell simply never trips either rule.
  */
 export function escapeCsvCell(value: string): string {
   let cell = value;
-  if (cell.length > 0 && FORMULA_LEAD.has(cell[0]!)) {
+  if (
+    cell.length > 0 &&
+    (FORMULA_LEAD.has(cell[0]!) || WHITESPACE_THEN_FORMULA.test(cell))
+  ) {
     cell = `'${cell}`;
   }
   if (/[",\r\n]/.test(cell)) {

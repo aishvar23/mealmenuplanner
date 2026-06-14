@@ -269,26 +269,36 @@ report ambiguity with file/symbol/observed-behavior/why.
 - **Shipped (PR AB#26):** the pure CSV renderer lives in `@mmp/shared/provider/csv.ts`
   (shared so the web route service, web mock, and mobile mock all render byte-identical
   output): `renderAggregateCsv`/`renderIndividualCsv` with `escapeCsvCell` (RFC-4180
-  quoting + OWASP formula-injection guard on `= + - @ \t \r`), `formatQuantity`
-  (numeric(10,3) trim), a UTF-8 BOM, CRLF records, and deterministic order via the new
-  shared `preparation-order.ts` (`sortPreparationLines`, extracted from `aggregation.ts`
-  so ordering is single-sourced). The roster is read owner-gated through a new
-  `get_provider_batch(batch)` SECURITY DEFINER RPC (`pmp_13`): aggregate lines straight
-  from the persisted `provider_preparation_batch_lines` (named from the catalog) +
-  per-member lines rebuilt from the day's locked eligible responses with the SAME
-  included/extra rules the cutoff persisted (so they reconcile) + member-name projection
-  across `users` (mirrors `list_provider_members`); non-owner → `PROWN`/403, missing →
-  `P0002`/404. Service `lib/services/provider/batch-read.ts` maps the RPC errors;
-  owner-only routes `GET /api/provider-preparation-batches/{batchId}/aggregate.csv` +
-  `…/individual.csv` stream `text/csv` with a download filename. **Backend-only DoD**:
+  quoting + OWASP formula-injection guard on `= + - @ \t \r`, including a trigger hidden
+  behind leading whitespace), `formatQuantity` (numeric(10,3) trim), a UTF-8 BOM, CRLF
+  records, and deterministic order via the new shared `preparation-order.ts`
+  (`sortPreparationLines`, extracted from `aggregation.ts` so ordering is single-sourced).
+  The roster is read owner-gated through a new `get_provider_batch(batch)` SECURITY
+  DEFINER RPC (`pmp_13`): aggregate lines straight from the persisted
+  `provider_preparation_batch_lines` (named from the catalog) + per-member lines from the
+  new shared `provider_member_breakdown_lines(menu_day)` helper — the SINGLE source of the
+  active-customer eligibility + included/extra rule that the persist-side
+  `insert_provider_batch_lines` (recreated to aggregate over it) and this read both derive
+  from, so the aggregate and the per-member breakdown reconcile by construction (the
+  per-member set is no longer a hand-kept copy that could drop the active-customer filter —
+  review PR #47 finding #1/#3) + member-name projection across `users` (mirrors
+  `list_provider_members`); non-owner → `PROWN`/403, missing → `P0002`/404, a superseded
+  (non-current) revision → `PRSTL`/409 `batch_stale` (only the current revision reconciles
+  with the live responses the per-member breakdown rebuilds from — review PR #47 finding
+  #2). The batch header is read in one query (no double-read — finding #5). Service
+  `lib/services/provider/batch-read.ts` maps the RPC errors; owner-only routes
+  `GET /api/provider-preparation-batches/{batchId}/aggregate.csv` + `…/individual.csv`
+  share one `csvExportRoute` factory (finding #7) and stream `text/csv` with a download
+  filename. **Backend-only DoD**:
   `getAggregateCsv`/`getIndividualCsv` added to the `@mmp/shared` `ProviderApiClient` seam
   - web mock + mobile HTTP client (`requestText`) + mobile mock + fixtures (mobile API
     contract stays green, no RN screen — the preparation UI is MP-B-050/MP-C-050). Tests:
-    Vitest (`csv.test.ts` escaping/injection/determinism/reconciliation/included-vs-extra;
-    `batch-read.test.ts` owner-gate/404/401/500), mobile Jest (CSV client routing), and
-    Playwright `e2e/specs/provider-preparation-csv.spec.ts` (real post-cutoff batch: owner
-    downloads both CSVs + reconciles, non-owner 403, unknown batch 404). Applied to cloud
-    dev + types patched surgically (`get_provider_batch` returns `Json`). The `BatchDto`
+    Vitest (`csv.test.ts` escaping/injection/leading-whitespace/determinism/reconciliation/
+    included-vs-extra; `batch-read.test.ts` owner-gate/404/401/409-stale/500), mobile Jest
+    (CSV client routing), and Playwright `e2e/specs/provider-preparation-csv.spec.ts` (real
+    post-cutoff batch, RFC-4180-aware parse: owner downloads both CSVs + reconciles,
+    non-owner 403, unknown batch 404). Applied to cloud dev + types patched surgically
+    (`get_provider_batch` returns `Json`; `provider_member_breakdown_lines` added). The `BatchDto`
     read this RPC provides is reused by the later preparation UI (MP-B-050) + summary email
     (MP-A-161) + print (MP-B-051).
 
