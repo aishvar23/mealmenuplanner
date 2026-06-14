@@ -345,17 +345,19 @@ report ambiguity with file/symbol/observed-behavior/why.
 - **Objective:** structured builder (date, cutoff, required groups, default item, qty/unit, alternatives, spice/salt support, extras + max, optional price labels, publish validation). **No free-form JSON editor.**
 - **Use cases:** UC-MENU-001..003; §13.3. **Consumes:** MP-A-120/121 (or mock) + completeness contract. **Tests:** component validation (incomplete menu blocks publish); edit-after-response affordance per ADR-7. **Rollback:** remove UI.
 
-### MP-B-040 — Today's Menu (read-only) UI — `NOT_STARTED` (after MP-B-012)
+### MP-B-040 — Today's Menu (read-only) UI — `DONE` (#23)
 
 - **Track:** B · **Checkpoint:** 2 · **Branch:** provider-member-response-ui.
 - **Objective:** read-only Today's Menu (provider/date/cutoff/countdown/default package/alternatives/customizations/note). Countdown util (net-new small util).
 - **Use cases:** UC-VIEW-001/002. **Consumes:** MP-A-120 (or mock). **Tests:** no published menu → empty state; awaiting → no data. **Rollback:** remove page.
+- **Shipped (PR AB#23):** fused into the member Today page with MP-B-041 (the interactive response builds on the read-only display). Server-fetches `getTodayMenu` + `getMyResponse`; empty state ("No menu published for today") when none; cutoff countdown via the shared `formatCountdown`/`cutoffRemainingMs`. Component display is **component-group-anchored** — the menu read (MP-A-120) deliberately omits catalog item NAMES (catalog is owner-private), so dishes show as their group + quantity/unit; the name-denormalization that would surface dish names is logged as backlog (ADO, gated on MP-A-121 authoring which populates it). Paired mobile MP-C-040 in the same PR.
 
-### MP-B-041 — Member response UI (confirm/update/cancel + lock state) — `NOT_STARTED` (after MP-B-040)
+### MP-B-041 — Member response UI (confirm/update/cancel + lock state) — `DONE` (#23)
 
 - **Track:** B · **Checkpoint:** 4 · **Branch:** provider-member-response-ui.
 - **Objective:** select alternatives/spice/salt/extras (within max + price labels); confirm/update/cancel before cutoff; optimistic-concurrency reload-on-conflict; **locked state** (all read-only, badge, "contact provider outside app").
 - **Use cases:** UC-RESPONSE-001..009; §14.2/14.3. **Consumes:** MP-A-130 (or mock). **Tests:** Playwright confirm/update/cancel before cutoff; cannot edit after cutoff (UI + backend); conflict reload. **Rollback:** remove UI.
+- **Shipped (PR AB#23):** `components/provider-member-response/today-response-view.tsx` (alternatives radio, spice/salt chips, quantity-increment steppers + price labels, single/multi customizations, member note) + `response-client.ts` (typed fetch; `StaleResponseError` → reload on a 409 `stale_version`). Confirm = save-then-confirm (revives a cancelled response first); editing a confirmed response stays confirmed; locked/cutoff-passed ⇒ read-only with the "contact provider outside the app" badge. A read-only "Your response" recap page replaces the responses placeholder. Pure selection/lock/save-request logic lives in `@mmp/shared/provider` `response-form.ts` (21 Vitest cases) and is reused by mobile MP-C-041. Web Playwright `e2e/specs/provider-member-response.spec.ts` (review+swap+confirm / locked read-only / empty state) + the `seedMenuDay` provider fixture. Paired mobile MP-C-040/041 in the same PR.
 
 ### MP-B-050 — Provider preparation UI — `NOT_STARTED` (after MP-A-140/150 contracts)
 
@@ -412,20 +414,20 @@ screens under `mobile/app` + hooks under `mobile/src/provider`, against
 `mobile/src/api/provider.ts`). Status mirrors the paired B task (same blockers:
 ADR-1/6/7).
 
-| Task         | Pairs with | CP  | Mobile surface (new in `mobile/`)                                                                                                                                               |
-| ------------ | ---------- | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **MP-C-010** | MP-B-010   | 2   | **DONE (#17)** — live provider-client seam + provider entry from the More tab (`app/(settings)/providers`); route groups land with the shells (MP-C-011/012).                   |
-| **MP-C-011** | MP-B-011   | 2   | `app/(provider-owner)/_layout.tsx` + owner nav (dashboard/responses/menu/members/prep).                                                                                         |
-| **MP-C-012** | MP-B-012   | 2   | `app/(provider-member)/[providerId]/_layout.tsx` + workspace switcher; awaiting state.                                                                                          |
-| **MP-C-020** | MP-B-020   | 3   | Owner onboarding wizard (resumable per ADR-6); reuse mobile `TextField`/`SelectChips`.                                                                                          |
-| **MP-C-021** | MP-B-021   | 3   | Minimal member onboarding (no household fields); consent only when eligible.                                                                                                    |
-| **MP-C-022** | MP-B-022   | 3   | Members screen: invite, pending list, approve/reject/remove, copy/resend on failure.                                                                                            |
-| **MP-C-030** | MP-B-030   | 3   | Menu builder (structured; no free-form JSON); edit-after-response affordance per ADR-7.                                                                                         |
-| **MP-C-040** | MP-B-040   | 2   | Read-only Today's Menu (default package/alternatives/customizations/cutoff countdown).                                                                                          |
-| **MP-C-041** | MP-B-041   | 4   | Member response (alternatives/spice/salt/extras + max); confirm/update/cancel; locked.                                                                                          |
-| **MP-C-050** | MP-B-050   | 5   | Preparation screen (batch meta, aggregate + individual tables, email status + resend).                                                                                          |
-| **MP-C-051** | MP-B-051   | 5   | Mobile export/share of the persisted batch revision (native share sheet → CSV/PDF). The web `@media print` page stays web-only; mobile parity = share/export, not a print page. |
-| **MP-C-060** | MP-B-060   | 4/5 | Owner dashboard cards (menu state, cutoff, counts, batch + email status).                                                                                                       |
+| Task         | Pairs with | CP  | Mobile surface (new in `mobile/`)                                                                                                                                                                                                                                  |
+| ------------ | ---------- | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **MP-C-010** | MP-B-010   | 2   | **DONE (#17)** — live provider-client seam + provider entry from the More tab (`app/(settings)/providers`); route groups land with the shells (MP-C-011/012).                                                                                                      |
+| **MP-C-011** | MP-B-011   | 2   | `app/(provider-owner)/_layout.tsx` + owner nav (dashboard/responses/menu/members/prep).                                                                                                                                                                            |
+| **MP-C-012** | MP-B-012   | 2   | `app/(provider-member)/[providerId]/_layout.tsx` + workspace switcher; awaiting state.                                                                                                                                                                             |
+| **MP-C-020** | MP-B-020   | 3   | Owner onboarding wizard (resumable per ADR-6); reuse mobile `TextField`/`SelectChips`.                                                                                                                                                                             |
+| **MP-C-021** | MP-B-021   | 3   | Minimal member onboarding (no household fields); consent only when eligible.                                                                                                                                                                                       |
+| **MP-C-022** | MP-B-022   | 3   | Members screen: invite, pending list, approve/reject/remove, copy/resend on failure.                                                                                                                                                                               |
+| **MP-C-030** | MP-B-030   | 3   | Menu builder (structured; no free-form JSON); edit-after-response affordance per ADR-7.                                                                                                                                                                            |
+| **MP-C-040** | MP-B-040   | 2   | **DONE (#23)** — Read-only Today's Menu fused into the response screen (`today-response-screen.tsx`); default package/alternatives/customizations/cutoff countdown.                                                                                                |
+| **MP-C-041** | MP-B-041   | 4   | **DONE (#23)** — Member response (`today-response-screen.tsx` + `use-today-response.ts`): alternatives/spice/salt/extras + max, confirm/update/cancel, locked; recap on the responses tab (`responses-recap-screen.tsx`). Jest+RNTL (today screen + hook + recap). |
+| **MP-C-050** | MP-B-050   | 5   | Preparation screen (batch meta, aggregate + individual tables, email status + resend).                                                                                                                                                                             |
+| **MP-C-051** | MP-B-051   | 5   | Mobile export/share of the persisted batch revision (native share sheet → CSV/PDF). The web `@media print` page stays web-only; mobile parity = share/export, not a print page.                                                                                    |
+| **MP-C-060** | MP-B-060   | 4/5 | Owner dashboard cards (menu state, cutoff, counts, batch + email status).                                                                                                                                                                                          |
 
 **Per-task DoD (all screen-parity tasks):** RN screen matches the web acceptance
 criteria; Jest + RNTL unit/hook tests added; manual Expo smoke recorded in the PR; no

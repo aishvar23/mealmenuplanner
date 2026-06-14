@@ -82,6 +82,32 @@ export interface ProviderTeam {
   ): Promise<void>;
   /** Give `customer` an active, consented subscription to `providerId`. */
   addSubscription(providerId: string, customer: ProviderUser): Promise<void>;
+  /**
+   * Seed a single published (or locked) menu day for `providerId` "today" in the
+   * provider timezone, with a dal component (default Rajma, Chana alternative,
+   * spice/salt, an "extra portion" quantity-increment customization) and a bread
+   * component. `cutoffHoursFromNow` controls whether responses are open (positive)
+   * or already closed (negative). Returns the ids the member-response specs need.
+   */
+  seedMenuDay(
+    providerId: string,
+    owner: ProviderUser,
+    opts?: {
+      cutoffHoursFromNow?: number;
+      status?: "published" | "locked";
+      timezone?: string;
+    },
+  ): Promise<MenuDaySeed>;
+}
+
+/** The ids returned by `seedMenuDay`, for assertions + response building. */
+export interface MenuDaySeed {
+  menuDayId: string;
+  dalComponentId: string;
+  breadComponentId: string;
+  chanaAlternativeId: string;
+  rajmaCatalogId: string;
+  chanaCatalogId: string;
 }
 
 export const test = base.extend<{ providerTeam: ProviderTeam }>({
@@ -172,6 +198,192 @@ export const test = base.extend<{ providerTeam: ProviderTeam }>({
           );
         }
       },
+      async seedMenuDay(providerId, owner, opts) {
+        const tz = opts?.timezone ?? "Asia/Kolkata";
+        const status = opts?.status ?? "published";
+        const cutoffHours = opts?.cutoffHoursFromNow ?? 8;
+        const now = new Date();
+        // "Today" in the provider tz must match getTodayMenu's own computation.
+        const menuDate = new Intl.DateTimeFormat("en-CA", {
+          timeZone: tz,
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).format(now);
+        const cutoffAt = new Date(
+          now.getTime() + cutoffHours * 3_600_000,
+        ).toISOString();
+        const nowIso = now.toISOString();
+
+        const fail = (what: string, message?: string) => {
+          throw new Error(`E2E: seedMenuDay ${what} failed: ${message}`);
+        };
+
+        // ── Catalog items (Rajma default, Chana alternative, Roti bread) ──
+        const cat = await admin
+          .from("provider_catalog_items")
+          .insert([
+            {
+              provider_id: providerId,
+              name: "Rajma",
+              component_group: "dal_or_legume",
+              canonical_unit: "oz",
+              default_quantity: 16,
+              supports_spice_level: true,
+              supports_salt_level: true,
+            },
+            {
+              provider_id: providerId,
+              name: "Chana",
+              component_group: "dal_or_legume",
+              canonical_unit: "oz",
+              default_quantity: 16,
+              // A heterogeneous batch insert sends explicit NULLs for keys missing
+              // on any row (bypassing column defaults), so set the flags on every row.
+              supports_spice_level: false,
+              supports_salt_level: false,
+            },
+            {
+              provider_id: providerId,
+              name: "Roti",
+              component_group: "bread",
+              canonical_unit: "piece",
+              default_quantity: 2,
+              supports_spice_level: false,
+              supports_salt_level: false,
+            },
+          ])
+          .select("id, name");
+        if (cat.error || !cat.data) fail("catalog", cat.error?.message);
+        const byName = (n: string) => {
+          const row = cat.data!.find((r) => r.name === n);
+          if (!row) fail("catalog lookup", `missing ${n}`);
+          return row!.id as string;
+        };
+        const rajmaCatalogId = byName("Rajma");
+        const chanaCatalogId = byName("Chana");
+        const rotiCatalogId = byName("Roti");
+
+        // ── Weekly menu container ──
+        const week = await admin
+          .from("provider_weekly_menus")
+          .insert({
+            provider_id: providerId,
+            week_start_date: menuDate,
+            week_end_date: menuDate,
+            status,
+            published_at: nowIso,
+            created_by_user_id: owner.id,
+          })
+          .select("id")
+          .single();
+        if (week.error || !week.data) fail("weekly", week.error?.message);
+
+        // ── Menu day ──
+        const day = await admin
+          .from("provider_menu_days")
+          .insert({
+            weekly_menu_id: week.data!.id,
+            provider_id: providerId,
+            menu_date: menuDate,
+            cutoff_at: cutoffAt,
+            status,
+            published_at: nowIso,
+            locked_at: status === "locked" ? nowIso : null,
+          })
+          .select("id")
+          .single();
+        if (day.error || !day.data) fail("day", day.error?.message);
+        const menuDayId = day.data!.id as string;
+
+        // ── Components (dal + bread) ──
+        const comps = await admin
+          .from("provider_menu_components")
+          .insert([
+            {
+              menu_day_id: menuDayId,
+              component_group: "dal_or_legume",
+              default_catalog_item_id: rajmaCatalogId,
+              default_quantity: 16,
+              canonical_unit: "oz",
+              is_required: true,
+              supports_spice_level: true,
+              supports_salt_level: true,
+              sort_order: 0,
+            },
+            {
+              menu_day_id: menuDayId,
+              component_group: "bread",
+              default_catalog_item_id: rotiCatalogId,
+              default_quantity: 2,
+              canonical_unit: "piece",
+              is_required: true,
+              supports_spice_level: false,
+              supports_salt_level: false,
+              sort_order: 1,
+            },
+          ])
+          .select("id, component_group");
+        if (comps.error || !comps.data)
+          fail("components", comps.error?.message);
+        const dalComponentId = comps.data!.find(
+          (c) => c.component_group === "dal_or_legume",
+        )!.id as string;
+        const breadComponentId = comps.data!.find(
+          (c) => c.component_group === "bread",
+        )!.id as string;
+
+        // ── Chana alternative on the dal component ──
+        const alt = await admin
+          .from("provider_menu_alternatives")
+          .insert({
+            menu_component_id: dalComponentId,
+            catalog_item_id: chanaCatalogId,
+            quantity: 16,
+            canonical_unit: "oz",
+          })
+          .select("id")
+          .single();
+        if (alt.error || !alt.data) fail("alternative", alt.error?.message);
+
+        // ── A bounded quantity-increment customization on the dal component ──
+        const group = await admin
+          .from("provider_customization_groups")
+          .insert({
+            menu_component_id: dalComponentId,
+            name: "Extra dal portions",
+            customization_type: "quantity_increment",
+            included_in_price: false,
+            is_required: false,
+            minimum_selections: 0,
+            maximum_selections: 1,
+            sort_order: 0,
+          })
+          .select("id")
+          .single();
+        if (group.error || !group.data) fail("group", group.error?.message);
+        const opt = await admin.from("provider_customization_options").insert({
+          customization_group_id: group.data!.id,
+          code: "extra_portion",
+          label: "Extra portion (+8 oz)",
+          quantity_delta: 8,
+          canonical_unit: "oz",
+          external_price_label: "+$3",
+          minimum_quantity: 0,
+          maximum_quantity: 3,
+          sort_order: 0,
+        });
+        if (opt.error) fail("option", opt.error.message);
+
+        return {
+          menuDayId,
+          dalComponentId,
+          breadComponentId,
+          chanaAlternativeId: alt.data!.id as string,
+          rajmaCatalogId,
+          chanaCatalogId,
+        };
+      },
     };
 
     await provide(api);
@@ -186,6 +398,41 @@ export const test = base.extend<{ providerTeam: ProviderTeam }>({
     //     org NOT deleted here would otherwise block their user delete with an FK
     //     violation — so delete any invite they sent explicitly.
     for (const id of created) {
+      // Tear the menu tree down BEFORE the org. provider_menu_components reference
+      // provider_catalog_items with NO cascade, but BOTH cascade off the org, so an
+      // org delete can drop catalog rows while components still point at them (FK
+      // violation, nondeterministic cascade order). Deleting the weekly menus first
+      // cascades days → components → alternatives → customizations, leaving the
+      // catalog unreferenced so the org delete cascades it cleanly.
+      const ownedOrgs = await admin
+        .from("provider_organizations")
+        .select("id")
+        .eq("owner_user_id", id);
+      for (const org of ownedOrgs.data ?? []) {
+        const orgId = org.id as string;
+        // Member responses reference menu components (no cascade), so drop them
+        // first (this cascades their items + customizations off response_id).
+        const responses = await admin
+          .from("provider_member_responses")
+          .delete()
+          .eq("provider_id", orgId);
+        if (responses.error) {
+          console.warn(
+            `E2E cleanup: failed to delete provider responses for org ${orgId}: ${responses.error.message}`,
+          );
+        }
+        // Then the menu tree (cascades days → components → alternatives →
+        // customization groups/options), leaving the catalog unreferenced.
+        const menus = await admin
+          .from("provider_weekly_menus")
+          .delete()
+          .eq("provider_id", orgId);
+        if (menus.error) {
+          console.warn(
+            `E2E cleanup: failed to delete provider menus for org ${orgId}: ${menus.error.message}`,
+          );
+        }
+      }
       const orgs = await admin
         .from("provider_organizations")
         .delete()

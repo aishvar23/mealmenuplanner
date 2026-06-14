@@ -57,13 +57,13 @@ test.describe("Provider member onboarding (MP-B-021)", () => {
     await page.waitForURL(`**/providers/${providerId}/today`, {
       timeout: 30_000,
     });
-    await expect(page.getByText(/Today's menu coming soon/i)).toBeVisible();
+    await expect(page.getByText(/No menu published for today/i)).toBeVisible();
 
     // Revisiting Today now stays put — onboarding is complete, no re-gate.
     await page.goto(`/providers/${providerId}/today`);
     await page.waitForURL(`**/providers/${providerId}/today`, {
       timeout: 30_000,
     });
-    await expect(page.getByText(/Today's menu coming soon/i)).toBeVisible();
+    await expect(page.getByText(/No menu published for today/i)).toBeVisible();
   });
 });

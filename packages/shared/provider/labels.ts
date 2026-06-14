@@ -9,6 +9,7 @@ import type {
   ProviderComponentGroup,
   ProviderMembershipRole,
   ProviderMembershipStatus,
+  ProviderResponseStatus,
   ProviderSaltLevel,
   ProviderSpiceLevel,
 } from "./enums";
@@ -74,6 +75,34 @@ export const PROVIDER_COMPONENT_GROUP_OPTIONS: {
 /** Just the component-group values, in display order (server validation allow-list). */
 export const PROVIDER_COMPONENT_GROUPS: readonly ProviderComponentGroup[] =
   PROVIDER_COMPONENT_GROUP_OPTIONS.map((o) => o.value);
+
+/** Display label for a component group (single lookup; falls back to the raw value). */
+export function providerComponentGroupLabel(
+  group: ProviderComponentGroup,
+): string {
+  return (
+    PROVIDER_COMPONENT_GROUP_OPTIONS.find((o) => o.value === group)?.label ??
+    group
+  );
+}
+
+/**
+ * How a member's response status reads to them — the single source for the web +
+ * mobile response screens and the response recap, so the wording can't drift. The
+ * "no response yet" empty shape (`no_response`) reads as a call to action.
+ */
+export const PROVIDER_RESPONSE_STATUS_LABELS: Record<
+  ProviderResponseStatus,
+  string
+> = {
+  no_response: "Not responded yet",
+  draft: "Draft — not confirmed",
+  confirmed: "Confirmed",
+  cancelled: "Cancelled",
+  auto_accepted: "Auto-accepted",
+  locked: "Locked",
+  provider_overridden: "Adjusted by provider",
+};
 
 /**
  * The caller's standing with a provider as a short, lowercase noun phrase:
