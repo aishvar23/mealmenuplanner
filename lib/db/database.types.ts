@@ -2768,6 +2768,30 @@ export type Database = {
         Args: { p_response_id: string };
         Returns: string;
       };
+      census_provider_responses: {
+        // Internal SECURITY DEFINER helper (pmp_16, #38): the shared active-customer
+        // census for a menu day, called by process_provider_cutoff and
+        // regenerate_provider_batch. service_role-only; not invoked from app code.
+        Args: { p_provider_id: string; p_menu_day_id: string };
+        Returns: {
+          active_customers: number;
+          auto_accepted: number;
+          cancelled: number;
+          confirmed: number;
+          no_response: number;
+        }[];
+      };
+      derive_provider_response_items: {
+        // Internal SECURITY DEFINER helper (pmp_16, #38): the shared §11.6 response
+        // item/customization derivation loop, called by save_provider_response and
+        // provider_override_response. service_role-only; not invoked from app code.
+        Args: {
+          p_response_id: string;
+          p_menu_day_id: string;
+          p_items: Json | null;
+        };
+        Returns: undefined;
+      };
       process_provider_cutoff: {
         // Returns the menu day's current batch id, or null when the day is not a
         // cutoff candidate (not published / cutoff not yet reached) — a safe no-op.

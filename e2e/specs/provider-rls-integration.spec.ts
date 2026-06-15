@@ -517,6 +517,76 @@ test.describe("Provider integration — override + regenerate (UC-OVERRIDE-001..
     expect(rev1?.revision).toBe(1);
     expect(rev1?.status).toBe("stale");
   });
+
+  // Locks in the pmp_16 consolidation (ADO #38): override re-derives the response
+  // tree via the shared derive_provider_response_items routine, and regenerate's
+  // census via the shared census_provider_responses routine folds the
+  // provider_overridden response into the confirmed total. (The cutoff + regenerate
+  // census equivalence is exercised by every override/idempotency spec here; this
+  // test asserts the one census nuance the shared routine centralises.)
+  test("the consolidated routines re-derive the overridden line and fold it into the regenerated confirmed total", async ({
+    providerTeam,
+  }) => {
+    const owner = await providerTeam.createUser("rls-consol-owner");
+    const providerId = await providerTeam.createProvider(owner, {
+      name: "Consolidation Kitchen",
+    });
+    // seedBatch: one active customer with a confirmed response, cutoff run → rev 1.
+    const { seed, batchId, responseId } = await providerTeam.seedBatch(
+      owner,
+      providerId,
+    );
+    const ownerClient = await providerTeam.signInAs(owner);
+
+    // Override sends only the component selection; quantity/unit are SERVER-DERIVED by
+    // the shared derive_provider_response_items routine (the owner's payload carries
+    // no quantity). A correct derivation rebuilds exactly one default dal line.
+    const override = await ownerClient.rpc("provider_override_response", {
+      p_response_id: responseId,
+      p_reason: "Re-derive the default portion via the shared routine",
+      p_items: [
+        {
+          menuComponentId: seed.dalComponentId,
+          selectedCatalogItemId: seed.rajmaCatalogId,
+        },
+      ],
+    });
+    expect(override.error).toBeNull();
+
+    const items = await providerTeam.admin
+      .from("provider_member_response_items")
+      .select("selected_catalog_item_id, quantity, canonical_unit")
+      .eq("response_id", responseId);
+    expect(items.data?.length).toBe(1);
+    // The default dal quantity (16 oz) — derived from the menu component, not the
+    // empty client payload — proving the shared §11.6 derivation ran.
+    expect(Number(items.data?.[0]?.quantity)).toBe(16);
+    expect(items.data?.[0]?.canonical_unit).toBe("oz");
+    expect(items.data?.[0]?.selected_catalog_item_id).toBe(seed.rajmaCatalogId);
+
+    // Regenerate: the single active customer is now provider_overridden. The shared
+    // census folds it into confirmed, so the regenerated batch reports confirmed = 1
+    // (not 0) with no separate overridden bucket.
+    const regen = await ownerClient.rpc("regenerate_provider_batch", {
+      p_batch_id: batchId,
+    });
+    expect(regen.error).toBeNull();
+    const totals = (regen.data as { totals: Record<string, number> }).totals;
+    expect(totals.confirmed).toBe(1);
+    expect(totals.autoAccepted).toBe(0);
+    expect(totals.cancelled).toBe(0);
+    expect(totals.noResponse).toBe(0);
+
+    // The regenerated current batch's persisted total matches the folded census.
+    const current = await providerTeam.admin
+      .from("provider_preparation_batches")
+      .select("revision, total_confirmed")
+      .eq("menu_day_id", seed.menuDayId)
+      .eq("status", "current")
+      .single();
+    expect(current.data?.revision).toBe(2);
+    expect(current.data?.total_confirmed).toBe(1);
+  });
 });
 
 test.describe("Provider integration — membership invariant", () => {
