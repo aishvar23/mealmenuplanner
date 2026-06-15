@@ -32,10 +32,14 @@ const DRAFT_DAY: MenuDayDto = {
   cutoffAt: "2099-01-01T00:00:00Z",
 };
 
-const PUBLISHED_DAY: MenuDayDto = {
+const PUBLISHED_AT = "2026-06-15T12:00:00Z";
+
+/** An already-published day whose cutoff is now in the PAST (idempotent-replay case). */
+const PUBLISHED_PAST_CUTOFF_DAY: MenuDayDto = {
   ...DRAFT_DAY,
   status: "published",
-  publishedAt: "2099-01-01T00:00:00Z",
+  publishedAt: PUBLISHED_AT,
+  cutoffAt: "2000-01-01T00:00:00Z",
 };
 
 /** Stub the per-request client's single `.rpc()` call. */
@@ -61,19 +65,35 @@ describe("publishMenuDay", () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
-  it("publishes a complete draft via the RPC, then re-reads the published DTO", async () => {
-    vi.mocked(getMenuDay)
-      .mockResolvedValueOnce(DRAFT_DAY) // structural read
-      .mockResolvedValueOnce(PUBLISHED_DAY); // re-read after publish
-    const rpc = stubRpc({ data: MENU_DAY, error: null });
+  it("publishes a complete draft via the RPC and patches the DTO from one read", async () => {
+    vi.mocked(getMenuDay).mockResolvedValue(DRAFT_DAY);
+    const rpc = stubRpc({ data: PUBLISHED_AT, error: null });
 
     const result = await publishMenuDay(MENU_DAY);
 
     expect(rpc).toHaveBeenCalledWith("publish_provider_menu_day", {
       p_menu_day_id: MENU_DAY,
     });
-    expect(result).toBe(PUBLISHED_DAY);
-    expect(getMenuDay).toHaveBeenCalledTimes(2);
+    // Patched from the single read — no second full-tree round trip (finding #3).
+    expect(result).toEqual({
+      ...DRAFT_DAY,
+      status: "published",
+      publishedAt: PUBLISHED_AT,
+    });
+    expect(getMenuDay).toHaveBeenCalledTimes(1);
+  });
+
+  it("re-publishing an already-published day past its cutoff is an idempotent no-op, not a 400", async () => {
+    // Finding #1: structural validation (which fails a past cutoff) must be skipped
+    // for a non-draft day, so an idempotent replay never spuriously 400s.
+    vi.mocked(getMenuDay).mockResolvedValue(PUBLISHED_PAST_CUTOFF_DAY);
+    const rpc = stubRpc({ data: PUBLISHED_AT, error: null });
+
+    const result = await publishMenuDay(MENU_DAY);
+
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(result.status).toBe("published");
+    expect(result.publishedAt).toBe(PUBLISHED_AT);
   });
 
   it("blocks a structurally-incomplete menu with menu_incomplete BEFORE the RPC", async () => {

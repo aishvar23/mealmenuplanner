@@ -2806,10 +2806,11 @@ export type Database = {
       };
       publish_provider_menu_day: {
         // MP-A-121 fresh-publish writer (pmp_18): owner-gates + draft-gates, enforces
-        // DB-context menu completeness (active+owned catalog refs), flips the day +
-        // its weekly container to published, and fans out provider_menu_published.
-        // Returns the published menu day id (idempotent no-op on an already-published
-        // day). Custom SQLSTATEs PMOWN/PMNDR/PMINC are mapped in menu-publish.ts.
+        // DB-context menu completeness (active+owned catalog refs) AND the future-cutoff
+        // structural backstop, flips the day + its weekly container to published, and
+        // fans out provider_menu_published. Returns the day's published_at timestamp
+        // (the existing one on an idempotent no-op) so the service patches its already-
+        // read DTO. Custom SQLSTATEs PMOWN/PMNDR/PMINC are mapped in menu-publish.ts.
         Args: { p_menu_day_id: string };
         Returns: string;
       };

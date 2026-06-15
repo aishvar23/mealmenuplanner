@@ -26,21 +26,36 @@
 -- week published/locked for an active customer to read the day under it) and fans
 -- out a `provider_menu_published` event + in-app notification to active customers
 -- (UC-NOTIFY-001) via the existing emit_provider_event (MP-A-170).
+--
+-- DEFENCE-IN-DEPTH: the RPC is callable by `authenticated`, so it does NOT trust the
+-- service's structural gate. The cutoff-in-the-future rule — the one structural
+-- invariant with post-publish consequences (a past-cutoff menu would notify
+-- customers about an order they can never place) — is re-checked HERE under the day's
+-- FOR UPDATE lock, mirroring save_provider_response's in-RPC `cutoff_at <= now()`
+-- guard (pmp_10). It surfaces as PMINC (menu_incomplete), the same axis the service
+-- validator uses, so the mapping in menu-publish.ts is unchanged.
+--
+-- Returns the day's `published_at` timestamp (the authoritative server value, set on
+-- a fresh publish or the existing one on an idempotent replay) so the service can
+-- patch its already-read DTO instead of issuing a second full menu-tree read.
 
-create or replace function public.publish_provider_menu_day(p_menu_day_id uuid)
-returns uuid
+drop function if exists public.publish_provider_menu_day(uuid);
+create function public.publish_provider_menu_day(p_menu_day_id uuid)
+returns timestamptz
 language plpgsql
 security definer
 set search_path = ''
 as $$
 declare
-  v_actor       uuid := (select auth.uid());
-  v_provider_id uuid;
-  v_status      public.provider_menu_status;
-  v_menu_date   date;
-  v_weekly_id   uuid;
-  v_issues      jsonb;
-  v_recipients  uuid[];
+  v_actor        uuid := (select auth.uid());
+  v_provider_id  uuid;
+  v_status       public.provider_menu_status;
+  v_menu_date    date;
+  v_cutoff_at    timestamptz;
+  v_weekly_id    uuid;
+  v_published_at timestamptz;
+  v_issues       jsonb;
+  v_recipients   uuid[];
 begin
   if v_actor is null then
     raise exception 'authentication required' using errcode = '28000';
@@ -48,8 +63,10 @@ begin
 
   -- Lock the day so concurrent publishes serialize: one flips draft→published, the
   -- loser re-reads 'published' below and short-circuits (idempotent, no re-fan-out).
-  select md.provider_id, md.status, md.menu_date, md.weekly_menu_id
-    into v_provider_id, v_status, v_menu_date, v_weekly_id
+  select md.provider_id, md.status, md.menu_date, md.cutoff_at, md.weekly_menu_id,
+         md.published_at
+    into v_provider_id, v_status, v_menu_date, v_cutoff_at, v_weekly_id,
+         v_published_at
   from public.provider_menu_days md
   where md.id = p_menu_day_id
   for update;
@@ -64,9 +81,10 @@ begin
     raise exception 'owner required' using errcode = 'PMOWN';
   end if;
 
-  -- Idempotent replay: an already-published day is a no-op (no second fan-out).
+  -- Idempotent replay: an already-published day is a no-op (no second fan-out). Return
+  -- its existing published_at, so a retried publish yields the same DTO the first did.
   if v_status = 'published' then
-    return p_menu_day_id;
+    return v_published_at;
   end if;
   -- Only a draft is publishable; locked/archived/cancelled are terminal here.
   if v_status <> 'draft' then
@@ -82,6 +100,19 @@ begin
       errcode = 'PMINC',
       detail = jsonb_build_array(
         jsonb_build_object('field', 'components', 'rule', 'menu_empty')
+      )::text;
+  end if;
+
+  -- In-RPC cutoff guard (mirrors save_provider_response's `cutoff_at <= now()` check):
+  -- the future-cutoff rule is re-enforced under the day's lock so a direct RPC call or
+  -- a service-side TOCTOU window can never publish a menu past its own cutoff and then
+  -- notify customers about an order they can no longer place. Surfaced on the same
+  -- completeness axis the service validator uses (PMINC → menu_incomplete).
+  if v_cutoff_at <= pg_catalog.now() then
+    raise exception 'menu incomplete' using
+      errcode = 'PMINC',
+      detail = jsonb_build_array(
+        jsonb_build_object('field', 'cutoffAt', 'rule', 'cutoff_in_past')
       )::text;
   end if;
 
@@ -126,8 +157,9 @@ begin
   -- Flip the day published; publish the parent weekly container too (only if still a
   -- draft — never reopen a locked/archived week) so an active customer can read the
   -- week the day hangs under (pwm_select gate).
+  v_published_at := pg_catalog.now();
   update public.provider_menu_days
-  set status = 'published', published_at = pg_catalog.now()
+  set status = 'published', published_at = v_published_at
   where id = p_menu_day_id;
 
   update public.provider_weekly_menus
@@ -155,7 +187,7 @@ begin
     v_recipients
   );
 
-  return p_menu_day_id;
+  return v_published_at;
 end;
 $$;
 

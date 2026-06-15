@@ -619,9 +619,13 @@ test.describe("Provider integration — menu publish (MP-A-121)", () => {
       p_menu_day_id: seed.menuDayId,
     });
     expect(publish.error).toBeNull();
-    expect(publish.data as string).toBe(seed.menuDayId);
+    // The RPC returns the day's published_at timestamp (so the service patches its
+    // already-read DTO instead of a second full-tree read).
+    expect(typeof publish.data).toBe("string");
+    expect(Number.isNaN(Date.parse(publish.data as string))).toBe(false);
 
-    // The day AND its weekly container are now published.
+    // The day AND its weekly container are now published, and the RPC's returned
+    // timestamp matches the persisted published_at.
     const day = await providerTeam.admin
       .from("provider_menu_days")
       .select("status, published_at, weekly_menu_id")
@@ -629,6 +633,9 @@ test.describe("Provider integration — menu publish (MP-A-121)", () => {
       .single();
     expect(day.data?.status).toBe("published");
     expect(day.data?.published_at).not.toBeNull();
+    expect(Date.parse(day.data?.published_at as string)).toBe(
+      Date.parse(publish.data as string),
+    );
     const week = await providerTeam.admin
       .from("provider_weekly_menus")
       .select("status")
@@ -725,6 +732,36 @@ test.describe("Provider integration — menu publish (MP-A-121)", () => {
     expect(denied.error?.code).toBe("PMINC");
 
     // Still a draft — the failed publish is atomic.
+    const day = await providerTeam.admin
+      .from("provider_menu_days")
+      .select("status")
+      .eq("id", seed.menuDayId)
+      .single();
+    expect(day.data?.status).toBe("draft");
+  });
+
+  test("the RPC itself rejects a draft whose cutoff has already passed (PMINC backstop)", async ({
+    providerTeam,
+  }) => {
+    // Finding #2: a direct PostgREST RPC call bypasses the service's structural gate,
+    // so the future-cutoff rule is re-enforced in-RPC (mirroring save_provider_response).
+    const owner = await providerTeam.createUser("pub-cut-owner");
+    const providerId = await providerTeam.createProvider(owner, {
+      name: "Publish Past-Cutoff Kitchen",
+    });
+    const seed = await providerTeam.seedMenuDay(providerId, owner, {
+      status: "draft",
+      cutoffHoursFromNow: -1, // cutoff already in the past
+    });
+
+    const ownerClient = await providerTeam.signInAs(owner);
+    const denied = await ownerClient.rpc("publish_provider_menu_day", {
+      p_menu_day_id: seed.menuDayId,
+    });
+    expect(denied.error).not.toBeNull();
+    expect(denied.error?.code).toBe("PMINC");
+
+    // The draft is untouched — a past-cutoff menu cannot go live even via the RPC.
     const day = await providerTeam.admin
       .from("provider_menu_days")
       .select("status")
