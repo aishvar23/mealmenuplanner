@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { providerFixtures as f } from "./index";
+import { validateMenuCompleteness } from "./menu-completeness";
 
 /**
  * Fixtures are typed by the DTOs, so shape conformance is enforced at compile
@@ -73,17 +74,17 @@ describe("provider fixtures (contract 03 § 14)", () => {
     }
   });
 
-  it("every quantity_increment customization has a finite max (completeness rule § 5)", () => {
-    for (const component of f.publishedMenuDay.components) {
-      for (const group of component.customizationGroups) {
-        if (group.customizationType === "quantity_increment") {
-          expect(group.maximumSelections).not.toBeNull();
-          for (const option of group.options) {
-            expect(option.maximumQuantity).not.toBeNull();
-          }
-        }
-      }
-    }
+  it("the published fixture is structurally publishable (completeness rule § 5)", () => {
+    // Evaluate "as published" (before the fixture's cutoff) so the only axis under
+    // test is structural completeness, not the cutoff-in-the-future clock. This is
+    // the canonical menu every provider screen renders, so it must pass the shared
+    // validator the menu builder + publish RPC both gate on.
+    expect(
+      validateMenuCompleteness(
+        f.publishedMenuDay,
+        new Date("2026-06-11T00:00:00Z"),
+      ),
+    ).toEqual([]);
   });
 
   it("batch lines reconcile: included + extra === total, all non-negative", () => {
