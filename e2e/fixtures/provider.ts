@@ -95,7 +95,7 @@ export interface ProviderTeam {
     owner: ProviderUser,
     opts?: {
       cutoffHoursFromNow?: number;
-      status?: "published" | "locked";
+      status?: "draft" | "published" | "locked";
       timezone?: string;
     },
   ): Promise<MenuDaySeed>;
@@ -244,6 +244,9 @@ export const test = base.extend<{ providerTeam: ProviderTeam }>({
           now.getTime() + cutoffHours * 3_600_000,
         ).toISOString();
         const nowIso = now.toISOString();
+        // A draft has not been published yet, so it carries no published_at; the
+        // publish RPC (pmp_18) sets it. published/locked days are stamped as before.
+        const publishedAt = status === "draft" ? null : nowIso;
 
         const fail = (what: string, message?: string) => {
           throw new Error(`E2E: seedMenuDay ${what} failed: ${message}`);
@@ -302,7 +305,7 @@ export const test = base.extend<{ providerTeam: ProviderTeam }>({
             week_start_date: menuDate,
             week_end_date: menuDate,
             status,
-            published_at: nowIso,
+            published_at: publishedAt,
             created_by_user_id: owner.id,
           })
           .select("id")
@@ -318,7 +321,7 @@ export const test = base.extend<{ providerTeam: ProviderTeam }>({
             menu_date: menuDate,
             cutoff_at: cutoffAt,
             status,
-            published_at: nowIso,
+            published_at: publishedAt,
             locked_at: status === "locked" ? nowIso : null,
           })
           .select("id")

@@ -184,7 +184,7 @@ mirror household (server draft), but this can be deferred to a fast-follow.
 
 ---
 
-## ADR-7 — Menu versioning after member responses exist — PROVISIONAL (blocked)
+## ADR-7 — Menu versioning after member responses exist — ACCEPTED (revision)
 
 **Context.** Provider edits a published menu (UC-MENU-004/005).
 
@@ -195,21 +195,33 @@ repo to copy.
 exists; (2) explicit menu revision that invalidates affected responses; (3)
 cancel/recreate menu.
 
-**Decision.** **(1) block structural edits + (3) cancel/recreate** as the MVP
-policy — _PROVISIONAL, product-confirmable_. Non-structural edits (e.g. note text)
-allowed.
+**Decision (signed off — ADO #30, 2026-06-15).** **(2) explicit menu revision.**
+An owner edit on a menu that already has member responses (before cutoff) creates
+a **new menu revision (rev N+1)** rather than mutating in place or blocking.
+Existing responses are **carried forward and re-validated** against the new
+structure; a response referencing a removed/changed component or a now-invalid
+customization is **selectively invalidated** (only the affected component) and the
+member is notified to re-confirm. Revisions are allowed **before cutoff only**;
+census/prep always read the **latest** revision; the revision is recorded in the
+event fan-out (`household_activity_events` / provider events). Non-structural
+edits (e.g. note text) still apply in place.
 
-**Reasons.** Safest given no revalidation infra; "must not silently invalidate
-member responses" (UC-MENU-005). Spice/salt are included substitutions and don't
-restructure the menu.
+**Reasons.** Honours "must not silently invalidate member responses"
+(UC-MENU-005) without trapping the owner behind a hard block: a structural change
+is preserved as a new revision and only the genuinely-affected responses are asked
+to re-confirm. Block-only (option 1) over-restricts a legitimate same-day edit;
+cancel/recreate (option 3) discards all standing responses unnecessarily.
 
-**Rejected (for MVP).** (2) requires a response-invalidation workflow that
-doesn't exist — defer.
+**Rejected.** (1)/(3) — see above; kept only as the degenerate "no responses yet"
+case, where a structural edit needs no revision (the fresh-publish path).
 
-**Consequences.** Publish-then-edit limited; UI surfaces "cancel & recreate" when
-a response exists. **Migration/rollback.** Enforced in service + check. **Open
-questions.** E1 — must be confirmed before menu-builder edit tasks start
-(blocks MP-A menu-edit task + MP-B builder edit affordance).
+**Consequences.** Adds a revision dimension to the menu day + a response carry-
+forward / selective-invalidation routine + a re-confirm notification. The
+**fresh-publish path (draft → published, no responses)** is ADR-7-independent and
+ships first as the MP-A-121 writer (`publish_provider_menu_day`, pmp_18); the
+revision-on-edit path is MP-A-012E + the revision rebuild. **Migration/rollback.**
+Additive (revision column + routine). **Open questions.** Resolved — see Q-1 in
+`09_open_questions.md`.
 
 ---
 

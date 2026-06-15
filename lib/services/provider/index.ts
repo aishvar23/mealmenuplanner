@@ -18,6 +18,7 @@ export {
 export { requireOwnedProvider } from "./access";
 export { getProviderDashboard } from "./dashboard-read";
 export { getMenuDay, getTodayMenu, getWeeklyMenu } from "./menu-read";
+export { publishMenuDay } from "./menu-publish";
 export { getMyResponse } from "./response-read";
 export { processProviderCutoff, type ProviderCutoffResult } from "./cutoff";
 export {

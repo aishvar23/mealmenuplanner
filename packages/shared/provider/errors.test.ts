@@ -35,6 +35,7 @@ const EXPECTED: Record<
   customization_limit_exceeded: { code: "VALIDATION_ERROR", httpStatus: 400 },
   menu_not_published: { code: "CONFLICT", httpStatus: 409 },
   menu_already_locked: { code: "CONFLICT", httpStatus: 409 },
+  menu_not_draft: { code: "CONFLICT", httpStatus: 409 },
   cutoff_passed: { code: "CONFLICT", httpStatus: 409 },
   response_already_locked: { code: "CONFLICT", httpStatus: 409 },
   response_cancelled: { code: "CONFLICT", httpStatus: 409 },

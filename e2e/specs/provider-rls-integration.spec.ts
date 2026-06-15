@@ -589,6 +589,151 @@ test.describe("Provider integration — override + regenerate (UC-OVERRIDE-001..
   });
 });
 
+test.describe("Provider integration — menu publish (MP-A-121)", () => {
+  test("the owner publishes a complete draft: day + weekly go published and active customers are notified", async ({
+    providerTeam,
+  }) => {
+    const owner = await providerTeam.createUser("pub-owner");
+    const providerId = await providerTeam.createProvider(owner, {
+      name: "Publish Kitchen",
+    });
+    const seed = await providerTeam.seedMenuDay(providerId, owner, {
+      status: "draft",
+      cutoffHoursFromNow: 8,
+    });
+    const customer = await providerTeam.createUser("pub-cust");
+    await providerTeam.addCustomer(providerId, customer, "approved");
+    const awaiting = await providerTeam.createUser("pub-await");
+    await providerTeam.addCustomer(providerId, awaiting, "awaiting_approval");
+
+    // Before publish, the active customer cannot read the draft day (RLS).
+    const customerClient = await providerTeam.signInAs(customer);
+    const beforePublish = await customerClient
+      .from("provider_menu_days")
+      .select("id")
+      .eq("id", seed.menuDayId);
+    expect(beforePublish.data?.length).toBe(0);
+
+    const ownerClient = await providerTeam.signInAs(owner);
+    const publish = await ownerClient.rpc("publish_provider_menu_day", {
+      p_menu_day_id: seed.menuDayId,
+    });
+    expect(publish.error).toBeNull();
+    expect(publish.data as string).toBe(seed.menuDayId);
+
+    // The day AND its weekly container are now published.
+    const day = await providerTeam.admin
+      .from("provider_menu_days")
+      .select("status, published_at, weekly_menu_id")
+      .eq("id", seed.menuDayId)
+      .single();
+    expect(day.data?.status).toBe("published");
+    expect(day.data?.published_at).not.toBeNull();
+    const week = await providerTeam.admin
+      .from("provider_weekly_menus")
+      .select("status")
+      .eq("id", day.data?.weekly_menu_id as string)
+      .single();
+    expect(week.data?.status).toBe("published");
+
+    // The active customer can now read it.
+    const afterPublish = await customerClient
+      .from("provider_menu_days")
+      .select("id")
+      .eq("id", seed.menuDayId);
+    expect(afterPublish.data?.length).toBe(1);
+
+    // The active customer was notified; the awaiting one was NOT (UC-NOTIFY-001/002).
+    const notes = await providerTeam.admin
+      .from("provider_notifications")
+      .select("recipient_user_id")
+      .eq("provider_id", providerId)
+      .eq("event_type", "provider_menu_published");
+    const recipients = (notes.data ?? []).map((n) => n.recipient_user_id);
+    expect(recipients).toContain(customer.id);
+    expect(recipients).not.toContain(awaiting.id);
+    expect(recipients).not.toContain(owner.id);
+
+    // Re-publishing the now-published day is an idempotent no-op (no second fan-out).
+    const again = await ownerClient.rpc("publish_provider_menu_day", {
+      p_menu_day_id: seed.menuDayId,
+    });
+    expect(again.error).toBeNull();
+    const notesAfter = await providerTeam.admin
+      .from("provider_notifications")
+      .select("id")
+      .eq("provider_id", providerId)
+      .eq("event_type", "provider_menu_published");
+    expect(notesAfter.data?.length).toBe(recipients.length);
+  });
+
+  test("a customer cannot publish a draft (PMOWN owner-gate)", async ({
+    providerTeam,
+  }) => {
+    const owner = await providerTeam.createUser("pub-deny-owner");
+    const providerId = await providerTeam.createProvider(owner, {
+      name: "Publish Deny Kitchen",
+    });
+    const seed = await providerTeam.seedMenuDay(providerId, owner, {
+      status: "draft",
+      cutoffHoursFromNow: 8,
+    });
+    const customer = await providerTeam.createUser("pub-deny-cust");
+    await providerTeam.addCustomer(providerId, customer, "approved");
+
+    const customerClient = await providerTeam.signInAs(customer);
+    const denied = await customerClient.rpc("publish_provider_menu_day", {
+      p_menu_day_id: seed.menuDayId,
+    });
+    expect(denied.error).not.toBeNull();
+    expect(denied.error?.code).toBe("PMOWN");
+
+    // The draft is untouched.
+    const day = await providerTeam.admin
+      .from("provider_menu_days")
+      .select("status")
+      .eq("id", seed.menuDayId)
+      .single();
+    expect(day.data?.status).toBe("draft");
+  });
+
+  test("publishing a draft whose default item is archived is rejected with PMINC", async ({
+    providerTeam,
+  }) => {
+    const owner = await providerTeam.createUser("pub-inc-owner");
+    const providerId = await providerTeam.createProvider(owner, {
+      name: "Publish Incomplete Kitchen",
+    });
+    const seed = await providerTeam.seedMenuDay(providerId, owner, {
+      status: "draft",
+      cutoffHoursFromNow: 8,
+    });
+
+    // Archive the dal default's catalog item — a published menu may not reference an
+    // inactive item (contract § 5, DB-context axis).
+    const archive = await providerTeam.admin
+      .from("provider_catalog_items")
+      .update({ is_active: false })
+      .eq("id", seed.rajmaCatalogId);
+    expect(archive.error).toBeNull();
+
+    const ownerClient = await providerTeam.signInAs(owner);
+    const denied = await ownerClient.rpc("publish_provider_menu_day", {
+      p_menu_day_id: seed.menuDayId,
+    });
+    expect(denied.error).not.toBeNull();
+    expect(denied.error?.code).toBe("PMINC");
+
+    // Still a draft — the failed publish is atomic.
+    const day = await providerTeam.admin
+      .from("provider_menu_days")
+      .select("status")
+      .eq("id", seed.menuDayId)
+      .single();
+    expect(day.data?.status).toBe("draft");
+  });
+});
+
 test.describe("Provider integration — membership invariant", () => {
   test("the one-live-membership partial-unique constraint blocks a second live row", async ({
     providerTeam,

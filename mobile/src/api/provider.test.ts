@@ -187,6 +187,17 @@ describe("providerApiClient — menus & response", () => {
     );
   });
 
+  it("publishMenuDay POSTs the menu-day publish route", async () => {
+    mockApiRequest.mockResolvedValue({ menuDayId: "md1", status: "published" });
+
+    await providerApiClient.publishMenuDay("md1");
+
+    expect(mockApiRequest).toHaveBeenCalledWith(
+      "/api/provider-menu-days/md1/publish",
+      { method: "POST" },
+    );
+  });
+
   it("saveMyResponse PUTs the body to the menu-day response route", async () => {
     mockApiRequest.mockResolvedValue({ responseId: "r1" });
     const body = {
