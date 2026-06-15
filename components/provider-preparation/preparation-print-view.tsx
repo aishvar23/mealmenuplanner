@@ -4,70 +4,23 @@ import Link from "next/link";
 import type { ProviderBatchReadDto } from "@/lib/services/provider";
 import {
   buildPrintView,
-  formatQuantity,
-  providerComponentGroupLabel,
-  providerVariantSuffix,
+  formatPrintTimestamp,
 } from "@/packages/shared/provider";
-import type { PreparationLine } from "@/packages/shared/provider";
 
 import { PrintButton } from "./print-button";
+import { RosterTable } from "./roster-table";
 
 /**
  * Server-rendered preparation print view (MP-B-051, spec §17 / UC-BATCH-005 / ADR-14).
  * Renders a PERSISTED batch revision as a clean, paper-friendly document: the cutoff
  * census, the aggregate cooking roster, then the per-member breakdown — in the single
  * canonical order (buildPrintView routes through sortPreparationLines), so the printout
- * reconciles with the CSV exports and the summary email. No app chrome, no interactive
- * controls except a Print button that is hidden in print media.
+ * reconciles with the CSV exports and the summary email. The roster table is the shared
+ * `RosterTable` (./roster-table, `variant="print"`). No app chrome, no interactive
+ * controls except a Print button that is hidden in print media. Timestamps are
+ * formatted host-independently (formatPrintTimestamp, UTC) because this renders on the
+ * server — a bare toLocaleString() would print the deployment server's timezone.
  */
-
-function lineLabel(line: PreparationLine): string {
-  return `${line.itemName}${providerVariantSuffix(line.spiceLevel, line.saltLevel)}`;
-}
-
-/** A roster table whose column header repeats on every printed page (thead). */
-function PrintRosterTable({ lines }: { lines: PreparationLine[] }) {
-  if (lines.length === 0) {
-    return <p className="text-sm text-gray-500">No items in this batch.</p>;
-  }
-  return (
-    <table className="w-full border-collapse text-sm">
-      <thead>
-        <tr className="border-b border-gray-400 text-left text-xs tracking-wide text-gray-600 uppercase">
-          <th className="py-1.5 pr-3 font-semibold">Item</th>
-          <th className="py-1.5 pr-3 font-semibold">Group</th>
-          <th className="py-1.5 pr-3 text-right font-semibold">Included</th>
-          <th className="py-1.5 pr-3 text-right font-semibold">Extra</th>
-          <th className="py-1.5 pr-3 text-right font-semibold">Total</th>
-          <th className="py-1.5 font-semibold">Unit</th>
-        </tr>
-      </thead>
-      <tbody>
-        {lines.map((line, i) => (
-          <tr
-            key={`${line.catalogItemId}-${i}`}
-            className="break-inside-avoid border-b border-gray-200"
-          >
-            <td className="py-1.5 pr-3 font-medium">{lineLabel(line)}</td>
-            <td className="py-1.5 pr-3 text-gray-600">
-              {providerComponentGroupLabel(line.componentGroup)}
-            </td>
-            <td className="py-1.5 pr-3 text-right tabular-nums">
-              {formatQuantity(line.includedQuantity)}
-            </td>
-            <td className="py-1.5 pr-3 text-right tabular-nums">
-              {formatQuantity(line.extraQuantity)}
-            </td>
-            <td className="py-1.5 pr-3 text-right font-semibold tabular-nums">
-              {formatQuantity(line.totalQuantity)}
-            </td>
-            <td className="py-1.5 text-gray-600">{line.canonicalUnit}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
-}
 
 export function PreparationPrintView({
   batch,
@@ -109,8 +62,8 @@ export function PreparationPrintView({
             </p>
             <p className="text-xs text-gray-500">
               Revision {view.revision} · Generated{" "}
-              {new Date(view.generatedAt).toLocaleString()} · Cutoff{" "}
-              {new Date(view.cutoffAt).toLocaleString()}
+              {formatPrintTimestamp(view.generatedAt)} · Cutoff{" "}
+              {formatPrintTimestamp(view.cutoffAt)}
             </p>
           </div>
           <PrintButton />
@@ -155,7 +108,7 @@ export function PreparationPrintView({
           <h2 className="text-sm font-semibold tracking-wide text-gray-600 uppercase">
             Aggregate roster
           </h2>
-          <PrintRosterTable lines={view.aggregateLines} />
+          <RosterTable lines={view.aggregateLines} variant="print" />
         </section>
 
         <section className="space-y-4">
@@ -173,7 +126,7 @@ export function PreparationPrintView({
                 className="break-inside-avoid space-y-1.5"
               >
                 <p className="font-medium">{member.displayName ?? "Member"}</p>
-                <PrintRosterTable lines={member.lines} />
+                <RosterTable lines={member.lines} variant="print" />
               </div>
             ))
           )}

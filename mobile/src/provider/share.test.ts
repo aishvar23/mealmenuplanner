@@ -27,6 +27,19 @@ describe("shareProviderCsv", () => {
     );
   });
 
+  it("strips the leading UTF-8 BOM the CSV renderer prepends, so the message body has no stray glyph", async () => {
+    const spy = jest
+      .spyOn(Share, "share")
+      .mockResolvedValue({ action: Share.sharedAction });
+
+    await shareProviderCsv("\uFEFFa,b\r\n", "Aggregate roster");
+
+    expect(spy).toHaveBeenCalledWith(
+      { message: "a,b\r\n", title: "Aggregate roster" },
+      { subject: "Aggregate roster" },
+    );
+  });
+
   it("returns false when the user dismisses the sheet", async () => {
     jest
       .spyOn(Share, "share")

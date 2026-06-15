@@ -98,3 +98,21 @@ export function sortPreparationLines(
 ): PreparationLine[] {
   return [...lines].sort(comparePreparationLines);
 }
+
+/**
+ * Canonical member ordering for the per-member surfaces: by display name (a
+ * missing name sorts first, as `""`) under the same pinned locale + numeric
+ * collation, tie-broken by user id. The single authority both the per-member CSV
+ * (./csv `renderIndividualCsv`) and the print view (./print-view `buildPrintView`)
+ * route through, so the two list customers in the SAME order — change it here and
+ * both surfaces move together rather than silently diverging.
+ */
+export function compareBatchMembers(
+  a: { displayName: string | null; memberUserId: string },
+  b: { displayName: string | null; memberUserId: string },
+): number {
+  return (
+    compareText(a.displayName ?? "", b.displayName ?? "") ||
+    a.memberUserId.localeCompare(b.memberUserId)
+  );
+}

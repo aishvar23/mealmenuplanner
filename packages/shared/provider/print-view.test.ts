@@ -2,8 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import { providerFixtures } from "./index";
 import { comparePreparationLines } from "./preparation-order";
-import { buildPrintView } from "./print-view";
-import type { ProviderBatchDetailDto } from "./dtos";
+import { buildPrintView, formatPrintTimestamp } from "./print-view";
+import type { PreparationLine, ProviderBatchDetailDto } from "./dtos";
+
+// A line that contributes a row to the per-member CSV (included > 0), so the member
+// carrying it survives buildPrintView's empty-member filter.
+const preparableLine: PreparationLine =
+  providerFixtures.currentBatch.individualLines[0]!.lines[0]!;
 
 /**
  * `buildPrintView` (MP-B-051) — the pure projection of a persisted batch revision
@@ -45,9 +50,9 @@ describe("buildPrintView", () => {
     const view = buildPrintView({
       ...batch,
       individualLines: [
-        { memberUserId: "u-z", displayName: "Zara", lines: [] },
-        { memberUserId: "u-a", displayName: "Aanya", lines: [] },
-        { memberUserId: "u-n", displayName: null, lines: [] },
+        { memberUserId: "u-z", displayName: "Zara", lines: [preparableLine] },
+        { memberUserId: "u-a", displayName: "Aanya", lines: [preparableLine] },
+        { memberUserId: "u-n", displayName: null, lines: [preparableLine] },
       ],
     });
     expect(view.individuals.map((m) => m.displayName)).toEqual([
@@ -59,5 +64,43 @@ describe("buildPrintView", () => {
       const sorted = [...member.lines].sort(comparePreparationLines);
       expect(member.lines).toEqual(sorted);
     }
+  });
+
+  it("drops members with no preparable line, as the per-member CSV does", () => {
+    // The per-member CSV (renderIndividualCsv) emits no rows for a member whose lines
+    // are all zero, so the print breakdown must not list (or count) one either —
+    // otherwise the printout and the CSV show a different customer set.
+    const zeroLine: PreparationLine = {
+      ...preparableLine,
+      includedQuantity: 0,
+      extraQuantity: 0,
+      totalQuantity: 0,
+    };
+    const view = buildPrintView({
+      ...batch,
+      individualLines: [
+        {
+          memberUserId: "u-keep",
+          displayName: "Keep",
+          lines: [preparableLine],
+        },
+        { memberUserId: "u-drop", displayName: "Drop", lines: [zeroLine] },
+        { memberUserId: "u-empty", displayName: "Empty", lines: [] },
+      ],
+    });
+    expect(view.individuals.map((m) => m.displayName)).toEqual(["Keep"]);
+  });
+});
+
+describe("formatPrintTimestamp", () => {
+  it("formats in UTC, host-independently, with an explicit zone label", () => {
+    expect(formatPrintTimestamp("2026-06-11T12:00:00Z")).toBe(
+      "11 Jun 2026, 12:00 UTC",
+    );
+  });
+
+  it("echoes a non-parseable input instead of printing 'Invalid Date'", () => {
+    expect(formatPrintTimestamp("")).toBe("");
+    expect(formatPrintTimestamp("not-a-date")).toBe("not-a-date");
   });
 });

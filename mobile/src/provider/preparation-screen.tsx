@@ -140,10 +140,23 @@ function BatchDetail({
   const { shareAggregate, sharePerMember } = useBatchExport();
   const [notice, setNotice] = useState<string | null>(null);
 
-  async function onResend(batchId: string) {
-    // Clear the prior outcome (notice + a stale regenerate error banner) before acting.
+  // Each action clears every OTHER action's outcome (notice + the other mutations'
+  // error banners) before it runs, so a prior failure/success can never linger next
+  // to a new one and contradict it. The share mutations join the same discipline.
+  function clearOtherOutcomes(
+    ...keep: Array<"resend" | "regenerate" | "share">
+  ) {
     setNotice(null);
-    regenerate.reset();
+    if (!keep.includes("resend")) resendEmail.reset();
+    if (!keep.includes("regenerate")) regenerate.reset();
+    if (!keep.includes("share")) {
+      shareAggregate.reset();
+      sharePerMember.reset();
+    }
+  }
+
+  async function onResend(batchId: string) {
+    clearOtherOutcomes("resend");
     try {
       const result = await resendEmail.mutateAsync(batchId);
       setNotice(providerSummaryEmailNotice(result));
@@ -155,11 +168,20 @@ function BatchDetail({
 
   function onRegenerate(batchId: string) {
     // Regenerate supersedes this revision (emailStatus resets to null), so drop any
-    // stale "email sent" notice + resend error banner — otherwise they'd contradict the
-    // refetched revision (the web twin clears both at the top of its onRegenerate).
-    setNotice(null);
-    resendEmail.reset();
+    // stale "email sent" notice + resend/share error banners — otherwise they'd
+    // contradict the refetched revision (the web twin clears them at the top too).
+    clearOtherOutcomes("regenerate");
     regenerate.mutate(batchId);
+  }
+
+  function onShareAggregate(batchId: string, title: string) {
+    clearOtherOutcomes("share");
+    shareAggregate.mutate({ batchId, title });
+  }
+
+  function onSharePerMember(batchId: string, title: string) {
+    clearOtherOutcomes("share");
+    sharePerMember.mutate({ batchId, title });
   }
 
   return (
@@ -235,10 +257,10 @@ function BatchDetail({
                 variant="secondary"
                 loading={shareAggregate.isPending}
                 onPress={() =>
-                  shareAggregate.mutate({
-                    batchId: batch.batchId,
-                    title: `Aggregate roster — ${batch.menuDate} (rev ${batch.revision})`,
-                  })
+                  onShareAggregate(
+                    batch.batchId,
+                    `Aggregate roster — ${batch.menuDate} (rev ${batch.revision})`,
+                  )
                 }
               />
               <Button
@@ -246,10 +268,10 @@ function BatchDetail({
                 variant="secondary"
                 loading={sharePerMember.isPending}
                 onPress={() =>
-                  sharePerMember.mutate({
-                    batchId: batch.batchId,
-                    title: `Per-member breakdown — ${batch.menuDate} (rev ${batch.revision})`,
-                  })
+                  onSharePerMember(
+                    batch.batchId,
+                    `Per-member breakdown — ${batch.menuDate} (rev ${batch.revision})`,
+                  )
                 }
               />
             </View>
