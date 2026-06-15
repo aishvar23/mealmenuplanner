@@ -469,16 +469,25 @@ begin
     raise exception 'menu not editable' using errcode = 'MESTA';
   end if;
 
-  -- Detect whether any member has responded (responses only ever exist on a published
-  -- day; a draft never has one). This is the MP-A-012E routing decision.
+  -- Detect whether any LIVE member response (draft/confirmed) exists — a day whose
+  -- responses are all cancelled has no order to preserve, so it takes the in-place
+  -- branch (UC-MENU-004), not a needless revision. Responses only ever exist on a
+  -- published day; a draft never has one. This is the MP-A-012E routing decision.
   select exists (
-    select 1 from public.provider_member_responses r where r.menu_day_id = p_menu_day_id
+    select 1 from public.provider_member_responses r
+    where r.menu_day_id = p_menu_day_id and r.status in ('draft', 'confirmed')
   ) into v_has_responses;
 
-  -- ── IN-PLACE rebuild (UC-MENU-004 / draft authoring edit) ──
-  -- No responses to preserve, so the structural change applies on the same day; the
-  -- component tree is deleted (safe: nothing references it) and rebuilt from the payload.
+  -- ── IN-PLACE rebuild (UC-MENU-004 / draft authoring edit / cancelled-only day) ──
+  -- No LIVE order to preserve, so the structural change applies on the same day. Any
+  -- cancelled responses on the day keep their rows (roster consistency) but their lines
+  -- reference the old components via a RESTRICT FK (provider_member_response_items
+  -- .menu_component_id), so clear those lines first; then the component tree is deleted
+  -- and rebuilt from the payload.
   if not v_has_responses then
+    delete from public.provider_member_response_items ri
+    using public.provider_member_responses r
+    where ri.response_id = r.id and r.menu_day_id = p_menu_day_id;
     delete from public.provider_menu_components where menu_day_id = p_menu_day_id;
     update public.provider_menu_days
     set cutoff_at = v_new_cutoff, note = v_note
@@ -487,7 +496,7 @@ begin
       p_menu_day_id, v_provider_id, p_payload->'components'
     );
 
-    -- Audit only (no customer fan-out — nobody had responded).
+    -- Audit only (no customer fan-out — no live order existed).
     perform public.emit_provider_event(
       v_provider_id, 'provider_menu_revised', 'provider_menu_day', p_menu_day_id,
       jsonb_build_object('revision', v_revision, 'inPlace', true),
@@ -510,29 +519,55 @@ begin
     v_new_day, v_provider_id, p_payload->'components'
   );
 
-  -- Carry forward each draft/confirmed response onto the new revision, re-validated
-  -- against the new tree. Map each prior line to the new component sharing its
-  -- component_group; keep the line only when that component exists AND the prior catalog
-  -- selection is still the new default or an ACTIVE alternative (quantity/unit are then
-  -- server-re-derived by the shared §11.6 routine). A response is "touched" — reset to
-  -- draft + member notified to re-confirm — when any line was dropped, it carried a
-  -- customization (re-pick add-ons), or a now-required component is uncovered.
+  -- Carry forward each LIVE (draft/confirmed) response onto the new revision, re-validated
+  -- against the new tree. Each prior line is paired to the new component sharing BOTH its
+  -- component_group AND its ordinal-within-group (row_number over sort_order,id) — a STABLE
+  -- pairing, so two distinct old lines in a repeated group never collapse onto one new
+  -- component (which would violate unique(response_id, menu_component_id) and abort the
+  -- whole edit). A line is KEPT only when its paired new component exists AND the prior
+  -- catalog selection is still that component's new default or an ACTIVE alternative
+  -- (quantity/unit are then server-re-derived by the shared §11.6 routine). A response is
+  -- "touched" — reset to draft + member notified to re-confirm (ADR-7 "never silently
+  -- invalidate") — when ANY of: a line was dropped; a KEPT line's carried spice/salt is no
+  -- longer supported by its new component (re-derivation would silently drop it); it
+  -- carried a customization (re-pick add-ons); or a now-required new component has no kept
+  -- line covering it.
   for v_resp in
     select r.id            as old_resp_id,
            r.member_user_id as member_user_id,
            r.status         as old_status,
            r.member_note    as member_note,
+           r.confirmed_at   as confirmed_at,
            r.version        as version,
            remap.items      as items,
            remap.touched    as touched
     from public.provider_member_responses r
     cross join lateral (
+      -- Ordinal-within-group for the OLD and NEW component trees (deterministic order).
+      with old_ord as (
+        select c.id, c.component_group,
+               row_number() over (
+                 partition by c.component_group order by c.sort_order, c.id
+               ) as ord
+        from public.provider_menu_components c
+        where c.menu_day_id = p_menu_day_id
+      ),
+      new_ord as (
+        select c.id, c.component_group, c.default_catalog_item_id,
+               c.supports_spice_level, c.supports_salt_level, c.is_required,
+               row_number() over (
+                 partition by c.component_group order by c.sort_order, c.id
+               ) as ord
+        from public.provider_menu_components c
+        where c.menu_day_id = v_new_day
+      )
       select
         coalesce(
-          jsonb_agg(it.item_obj order by it.new_comp) filter (where it.keep),
+          jsonb_agg(l.item_obj order by l.new_comp) filter (where l.keep),
           '[]'::jsonb
         ) as items,
-        coalesce(bool_or(not it.keep), false)
+        coalesce(bool_or(not l.keep), false)
+          or coalesce(bool_or(l.drops_pref), false)
           or exists (
             select 1
             from public.provider_member_response_customizations rc
@@ -540,19 +575,21 @@ begin
             where ri2.response_id = r.id
           )
           or exists (
-            select 1
-            from public.provider_menu_components nc
-            where nc.menu_day_id = v_new_day and nc.is_required
+            -- A now-required new component with no KEPT carried line (same group+ordinal
+            -- pairing, selection still valid) is uncovered → the order is incomplete.
+            select 1 from new_ord ncr
+            where ncr.is_required
               and not exists (
                 select 1
                 from public.provider_member_response_items ri3
-                join public.provider_menu_components oc3 on oc3.id = ri3.menu_component_id
+                join old_ord oo3 on oo3.id = ri3.menu_component_id
                 where ri3.response_id = r.id
-                  and oc3.component_group = nc.component_group
-                  and (ri3.selected_catalog_item_id = nc.default_catalog_item_id
+                  and oo3.component_group = ncr.component_group
+                  and oo3.ord = ncr.ord
+                  and (ri3.selected_catalog_item_id = ncr.default_catalog_item_id
                        or exists (
                          select 1 from public.provider_menu_alternatives a3
-                         where a3.menu_component_id = nc.id
+                         where a3.menu_component_id = ncr.id
                            and a3.catalog_item_id = ri3.selected_catalog_item_id
                            and a3.is_active
                        ))
@@ -560,32 +597,33 @@ begin
           ) as touched
       from (
         select
-          (nc.new_comp is not null
-            and (ri.selected_catalog_item_id = nc.new_default
+          nc.id as new_comp,
+          (nc.id is not null
+            and (ri.selected_catalog_item_id = nc.default_catalog_item_id
                  or exists (
                    select 1 from public.provider_menu_alternatives a
-                   where a.menu_component_id = nc.new_comp
+                   where a.menu_component_id = nc.id
                      and a.catalog_item_id = ri.selected_catalog_item_id
                      and a.is_active
                  ))) as keep,
-          nc.new_comp,
+          -- A kept line whose carried spice/salt the new component no longer supports
+          -- would lose that choice on re-derivation → mark the response touched.
+          (nc.id is not null
+            and ((ri.spice_level is not null and not nc.supports_spice_level)
+                 or (ri.salt_level is not null and not nc.supports_salt_level))) as drops_pref,
           jsonb_build_object(
-            'menuComponentId', nc.new_comp,
+            'menuComponentId', nc.id,
             'selectedCatalogItemId', ri.selected_catalog_item_id,
             'spiceLevel', ri.spice_level,
             'saltLevel', ri.salt_level
           ) as item_obj
         from public.provider_member_response_items ri
-        join public.provider_menu_components oc on oc.id = ri.menu_component_id
-        left join lateral (
-          select c.id as new_comp, c.default_catalog_item_id as new_default
-          from public.provider_menu_components c
-          where c.menu_day_id = v_new_day and c.component_group = oc.component_group
-          order by c.sort_order, c.id
-          limit 1
-        ) nc on true
+        join old_ord oo on oo.id = ri.menu_component_id
+        -- STABLE pairing: same group AND same ordinal-within-group (never a collapse).
+        left join new_ord nc
+          on nc.component_group = oo.component_group and nc.ord = oo.ord
         where ri.response_id = r.id
-      ) it
+      ) l
     ) remap
     where r.menu_day_id = p_menu_day_id
       and r.status in ('draft', 'confirmed')
@@ -597,8 +635,10 @@ begin
       case when v_resp.touched then 'draft'::public.provider_response_status
            else v_resp.old_status end,
       v_resp.member_note,
+      -- Untouched confirmed responses keep their ORIGINAL confirmation time (do not
+      -- fabricate a new now()); a touched response resets to draft (no confirmed_at).
       case when (not v_resp.touched) and v_resp.old_status = 'confirmed'
-           then pg_catalog.now() else null end,
+           then v_resp.confirmed_at else null end,
       v_resp.version + 1
     )
     returning id into v_new_resp_id;

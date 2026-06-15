@@ -147,6 +147,20 @@ describe("reviseMenuDay", () => {
     );
   });
 
+  it("maps a deadlock (40P01) → CONFLICT (clean retryable, not a 500)", async () => {
+    stubRpc({ data: null, error: { code: "40P01", message: "deadlock" } });
+    await expect(reviseMenuDay(MENU_DAY, body())).rejects.toBeInstanceOf(
+      ConflictError,
+    );
+  });
+
+  it("maps a serialization failure (40001) → CONFLICT", async () => {
+    stubRpc({ data: null, error: { code: "40001", message: "serialize" } });
+    await expect(reviseMenuDay(MENU_DAY, body())).rejects.toBeInstanceOf(
+      ConflictError,
+    );
+  });
+
   it("maps an unexpected SQLSTATE → 500", async () => {
     stubRpc({ data: null, error: { code: "XX000", message: "boom" } });
     await expect(reviseMenuDay(MENU_DAY, body())).rejects.toBeInstanceOf(
@@ -196,5 +210,12 @@ describe("updateMenuDayNote", () => {
       (e: unknown) => e,
     );
     expect((error as ConflictError).details?.reason).toBe("menu_not_editable");
+  });
+
+  it("maps a deadlock (40P01) → CONFLICT (clean retryable)", async () => {
+    stubRpc({ data: null, error: { code: "40P01", message: "deadlock" } });
+    await expect(
+      updateMenuDayNote(MENU_DAY, { note: "x" }),
+    ).rejects.toBeInstanceOf(ConflictError);
   });
 });

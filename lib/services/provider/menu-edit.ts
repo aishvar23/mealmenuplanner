@@ -94,6 +94,17 @@ function mapEditError(error: RpcError): never {
       throw new ValidationError("Some menu details are invalid.", [
         { field: "components", rule: "invalid" },
       ]);
+    case "40P01": // deadlock_detected
+    case "40001": // serialization_failure
+      // A transient concurrency abort: the edit RPC locks the day row then derives every
+      // carried response, so a concurrent member save / cutoff sweep on the same day can
+      // abort it. A clean retryable 409 (mirroring response-errors.ts), never an opaque
+      // 500 — the owner can simply re-issue the edit.
+      throw new ConflictError(
+        "A concurrent change interrupted your request. Please retry.",
+        undefined,
+        { cause: error },
+      );
     default:
       // 28000 → 401; anything else → 500 (original kept as cause, never serialized).
       mapPgError(error, "Failed to edit the menu.");
@@ -113,6 +124,15 @@ function mapNoteError(error: RpcError): never {
       throw new ConflictError("This menu can no longer be edited.", {
         reason: PROVIDER_ERROR_REASONS.menu_not_editable,
       });
+    case "40P01": // deadlock_detected
+    case "40001": // serialization_failure
+      // The note RPC also locks the day row FOR UPDATE — a transient abort is a clean
+      // retryable 409, not a 500 (mirrors response-errors.ts + mapEditError).
+      throw new ConflictError(
+        "A concurrent change interrupted your request. Please retry.",
+        undefined,
+        { cause: error },
+      );
     default:
       mapPgError(error, "Failed to update the menu note.");
   }

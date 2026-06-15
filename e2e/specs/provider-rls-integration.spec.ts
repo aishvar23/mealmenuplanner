@@ -1044,6 +1044,505 @@ test.describe("Provider integration — menu authoring (MP-A-121)", () => {
   });
 });
 
+test.describe("Provider integration — menu edit/revision (MP-A-012E + MP-A-121, ADR-7)", () => {
+  type SupabaseAdmin = import("@supabase/supabase-js").SupabaseClient;
+
+  /** Insert active catalog items; returns name → id. */
+  async function seedItems(
+    admin: SupabaseAdmin,
+    providerId: string,
+    rows: Array<{ name: string; group: string; spice?: boolean }>,
+  ): Promise<Record<string, string>> {
+    const ins = await admin
+      .from("provider_catalog_items")
+      .insert(
+        rows.map((r) => ({
+          provider_id: providerId,
+          name: r.name,
+          component_group: r.group,
+          canonical_unit: "oz",
+          default_quantity: 16,
+          supports_spice_level: r.spice ?? false,
+          supports_salt_level: false,
+          is_active: true,
+        })),
+      )
+      .select("id, name");
+    if (ins.error || !ins.data) {
+      throw new Error(`edit-spec seedItems failed: ${ins.error?.message}`);
+    }
+    return Object.fromEntries(ins.data.map((r) => [r.name, r.id as string]));
+  }
+
+  /**
+   * Insert a published day for `providerId` with the given components (each
+   * denormalized like the authoring writer would). Returns the day id and the
+   * component ids in payload order. cutoff is far-future so the day is editable.
+   */
+  async function seedPublishedDay(
+    admin: SupabaseAdmin,
+    providerId: string,
+    owner: { id: string },
+    comps: Array<{
+      group: string;
+      defaultCatalogItemId: string;
+      defaultName: string;
+      spice?: boolean;
+      required?: boolean;
+      sortOrder: number;
+    }>,
+  ): Promise<{ menuDayId: string; componentIds: string[] }> {
+    const menuDate = "2030-04-01";
+    const cutoffAt = "2030-04-01T10:00:00.000Z";
+    const now = new Date().toISOString();
+    const week = await admin
+      .from("provider_weekly_menus")
+      .insert({
+        provider_id: providerId,
+        week_start_date: menuDate,
+        week_end_date: menuDate,
+        status: "published",
+        published_at: now,
+        created_by_user_id: owner.id,
+      })
+      .select("id")
+      .single();
+    if (week.error || !week.data) {
+      throw new Error(
+        `edit-spec seedDay weekly failed: ${week.error?.message}`,
+      );
+    }
+    const day = await admin
+      .from("provider_menu_days")
+      .insert({
+        weekly_menu_id: week.data.id,
+        provider_id: providerId,
+        menu_date: menuDate,
+        cutoff_at: cutoffAt,
+        status: "published",
+        published_at: now,
+      })
+      .select("id")
+      .single();
+    if (day.error || !day.data) {
+      throw new Error(`edit-spec seedDay day failed: ${day.error?.message}`);
+    }
+    const menuDayId = day.data.id as string;
+    const compRows = await admin
+      .from("provider_menu_components")
+      .insert(
+        comps.map((c) => ({
+          menu_day_id: menuDayId,
+          component_group: c.group,
+          default_catalog_item_id: c.defaultCatalogItemId,
+          default_item_name: c.defaultName,
+          default_quantity: 16,
+          canonical_unit: "oz",
+          is_required: c.required ?? true,
+          supports_spice_level: c.spice ?? false,
+          supports_salt_level: false,
+          sort_order: c.sortOrder,
+        })),
+      )
+      .select("id, sort_order");
+    if (compRows.error || !compRows.data) {
+      throw new Error(
+        `edit-spec seedDay comps failed: ${compRows.error?.message}`,
+      );
+    }
+    const componentIds = [...compRows.data]
+      .sort((a, b) => (a.sort_order as number) - (b.sort_order as number))
+      .map((r) => r.id as string);
+    return { menuDayId, componentIds };
+  }
+
+  /** Insert one response with the given lines; returns the response id. */
+  async function seedResponse(
+    admin: SupabaseAdmin,
+    providerId: string,
+    menuDayId: string,
+    userId: string,
+    opts: { status: "confirmed" | "cancelled"; confirmedAt?: string },
+    items: Array<{ componentId: string; catalogId: string; spice?: string }>,
+  ): Promise<string> {
+    const resp = await admin
+      .from("provider_member_responses")
+      .insert({
+        provider_id: providerId,
+        menu_day_id: menuDayId,
+        member_user_id: userId,
+        status: opts.status,
+        version: 1,
+        confirmed_at:
+          opts.status === "confirmed" ? (opts.confirmedAt ?? null) : null,
+        cancelled_at:
+          opts.status === "cancelled" ? new Date().toISOString() : null,
+      })
+      .select("id")
+      .single();
+    if (resp.error || !resp.data) {
+      throw new Error(`edit-spec seedResponse failed: ${resp.error?.message}`);
+    }
+    const responseId = resp.data.id as string;
+    if (items.length > 0) {
+      const itemRows = await admin
+        .from("provider_member_response_items")
+        .insert(
+          items.map((it) => ({
+            response_id: responseId,
+            menu_component_id: it.componentId,
+            selected_catalog_item_id: it.catalogId,
+            quantity: 16,
+            canonical_unit: "oz",
+            spice_level: it.spice ?? null,
+          })),
+        );
+      if (itemRows.error) {
+        throw new Error(
+          `edit-spec seedResponse items failed: ${itemRows.error.message}`,
+        );
+      }
+    }
+    return responseId;
+  }
+
+  const FUTURE_CUTOFF = "2030-05-01T10:00:00.000Z";
+
+  test("a repeated component_group carries BOTH lines onto distinct new components (no unique-violation collapse) and stays confirmed", async ({
+    providerTeam,
+  }) => {
+    // Finding #1 + #5: two 'side' components, a confirmed member with a line in each.
+    const owner = await providerTeam.createUser("edit-dup-owner");
+    const providerId = await providerTeam.createProvider(owner, {
+      name: "Repeated Group Kitchen",
+    });
+    const cat = await seedItems(providerTeam.admin, providerId, [
+      { name: "Side A", group: "side" },
+      { name: "Side B", group: "side" },
+    ]);
+    const { menuDayId, componentIds } = await seedPublishedDay(
+      providerTeam.admin,
+      providerId,
+      owner,
+      [
+        {
+          group: "side",
+          defaultCatalogItemId: cat["Side A"]!,
+          defaultName: "Side A",
+          sortOrder: 0,
+        },
+        {
+          group: "side",
+          defaultCatalogItemId: cat["Side B"]!,
+          defaultName: "Side B",
+          sortOrder: 1,
+        },
+      ],
+    );
+    const customer = await providerTeam.createUser("edit-dup-cust");
+    await providerTeam.addCustomer(providerId, customer, "approved");
+    const confirmedAt = "2030-03-01T09:00:00.000Z";
+    await seedResponse(
+      providerTeam.admin,
+      providerId,
+      menuDayId,
+      customer.id,
+      { status: "confirmed", confirmedAt },
+      [
+        { componentId: componentIds[0]!, catalogId: cat["Side A"]! },
+        { componentId: componentIds[1]!, catalogId: cat["Side B"]! },
+      ],
+    );
+
+    // The owner edits, keeping the same two same-group components.
+    const ownerClient = await providerTeam.signInAs(owner);
+    const edit = await ownerClient.rpc("edit_provider_menu_day", {
+      p_menu_day_id: menuDayId,
+      p_payload: {
+        cutoffAt: FUTURE_CUTOFF,
+        components: [
+          { componentGroup: "side", defaultCatalogItemId: cat["Side A"] },
+          { componentGroup: "side", defaultCatalogItemId: cat["Side B"] },
+        ],
+      },
+    });
+    // The collapse bug would surface here as a 23505 unique violation.
+    expect(edit.error).toBeNull();
+    const newDayId = edit.data as string;
+    expect(newDayId).not.toBe(menuDayId); // a revision was created (responses existed)
+
+    // The carried response has TWO items on DISTINCT new components.
+    const newResp = await providerTeam.admin
+      .from("provider_member_responses")
+      .select("id, status, confirmed_at")
+      .eq("menu_day_id", newDayId)
+      .single();
+    expect(newResp.data?.status).toBe("confirmed"); // untouched
+    // Finding #5: the ORIGINAL confirmation time is preserved (not re-stamped to now()).
+    expect(Date.parse(newResp.data?.confirmed_at as string)).toBe(
+      Date.parse(confirmedAt),
+    );
+    const items = await providerTeam.admin
+      .from("provider_member_response_items")
+      .select("menu_component_id")
+      .eq("response_id", newResp.data?.id as string);
+    expect(items.data?.length).toBe(2);
+    const distinct = new Set(
+      (items.data ?? []).map((r) => r.menu_component_id),
+    );
+    expect(distinct.size).toBe(2);
+
+    // The old day is archived + superseded.
+    const oldDay = await providerTeam.admin
+      .from("provider_menu_days")
+      .select("status, superseded_at")
+      .eq("id", menuDayId)
+      .single();
+    expect(oldDay.data?.status).toBe("archived");
+    expect(oldDay.data?.superseded_at).not.toBeNull();
+  });
+
+  test("a kept line whose new component no longer supports spice resets the response to draft + notifies (never silently dropped)", async ({
+    providerTeam,
+  }) => {
+    // Finding #3: the default flips to a non-spice item; the member's prior spicy pick
+    // stays valid as an alternative but its spice would be silently dropped.
+    const owner = await providerTeam.createUser("edit-spice-owner");
+    const providerId = await providerTeam.createProvider(owner, {
+      name: "Spice Drop Kitchen",
+    });
+    const cat = await seedItems(providerTeam.admin, providerId, [
+      { name: "Spicy Dal", group: "dal_or_legume", spice: true },
+      { name: "Plain Dal", group: "dal_or_legume", spice: false },
+    ]);
+    const { menuDayId, componentIds } = await seedPublishedDay(
+      providerTeam.admin,
+      providerId,
+      owner,
+      [
+        {
+          group: "dal_or_legume",
+          defaultCatalogItemId: cat["Spicy Dal"]!,
+          defaultName: "Spicy Dal",
+          spice: true,
+          sortOrder: 0,
+        },
+      ],
+    );
+    const customer = await providerTeam.createUser("edit-spice-cust");
+    await providerTeam.addCustomer(providerId, customer, "approved");
+    await seedResponse(
+      providerTeam.admin,
+      providerId,
+      menuDayId,
+      customer.id,
+      { status: "confirmed", confirmedAt: "2030-03-01T09:00:00.000Z" },
+      [
+        {
+          componentId: componentIds[0]!,
+          catalogId: cat["Spicy Dal"]!,
+          spice: "spicy",
+        },
+      ],
+    );
+
+    // Edit: the dal default becomes the NON-spice item; the spicy item stays valid as an
+    // alternative (so the prior selection is "kept" — but its spice can no longer carry).
+    const ownerClient = await providerTeam.signInAs(owner);
+    const edit = await ownerClient.rpc("edit_provider_menu_day", {
+      p_menu_day_id: menuDayId,
+      p_payload: {
+        cutoffAt: FUTURE_CUTOFF,
+        components: [
+          {
+            componentGroup: "dal_or_legume",
+            defaultCatalogItemId: cat["Plain Dal"],
+            alternativeCatalogItemIds: [cat["Spicy Dal"]],
+          },
+        ],
+      },
+    });
+    expect(edit.error).toBeNull();
+    const newDayId = edit.data as string;
+
+    const newResp = await providerTeam.admin
+      .from("provider_member_responses")
+      .select("id, status")
+      .eq("menu_day_id", newDayId)
+      .single();
+    // Touched → reset to draft (the member must re-confirm), NOT silently kept confirmed.
+    expect(newResp.data?.status).toBe("draft");
+    // The carried line dropped the now-unsupported spice (server-derived).
+    const items = await providerTeam.admin
+      .from("provider_member_response_items")
+      .select("spice_level")
+      .eq("response_id", newResp.data?.id as string);
+    expect(items.data?.length).toBe(1);
+    expect(items.data?.[0]?.spice_level).toBeNull();
+    // The member was notified to re-confirm.
+    const notes = await providerTeam.admin
+      .from("provider_notifications")
+      .select("recipient_user_id")
+      .eq("provider_id", providerId)
+      .eq("event_type", "provider_menu_revised");
+    expect((notes.data ?? []).map((n) => n.recipient_user_id)).toContain(
+      customer.id,
+    );
+  });
+
+  test("a newly-duplicated required component with no carried line resets the response to draft + notifies", async ({
+    providerTeam,
+  }) => {
+    // Finding #4: old day has one required 'side'; the edit adds a SECOND required 'side'
+    // the member never picked — the group-only check used to call this "covered".
+    const owner = await providerTeam.createUser("edit-req-owner");
+    const providerId = await providerTeam.createProvider(owner, {
+      name: "Duplicated Required Kitchen",
+    });
+    const cat = await seedItems(providerTeam.admin, providerId, [
+      { name: "Side A", group: "side" },
+      { name: "Side B", group: "side" },
+    ]);
+    const { menuDayId, componentIds } = await seedPublishedDay(
+      providerTeam.admin,
+      providerId,
+      owner,
+      [
+        {
+          group: "side",
+          defaultCatalogItemId: cat["Side A"]!,
+          defaultName: "Side A",
+          required: true,
+          sortOrder: 0,
+        },
+      ],
+    );
+    const customer = await providerTeam.createUser("edit-req-cust");
+    await providerTeam.addCustomer(providerId, customer, "approved");
+    await seedResponse(
+      providerTeam.admin,
+      providerId,
+      menuDayId,
+      customer.id,
+      { status: "confirmed", confirmedAt: "2030-03-01T09:00:00.000Z" },
+      [{ componentId: componentIds[0]!, catalogId: cat["Side A"]! }],
+    );
+
+    // Edit: TWO required 'side' components now; the member only covered the first.
+    const ownerClient = await providerTeam.signInAs(owner);
+    const edit = await ownerClient.rpc("edit_provider_menu_day", {
+      p_menu_day_id: menuDayId,
+      p_payload: {
+        cutoffAt: FUTURE_CUTOFF,
+        components: [
+          {
+            componentGroup: "side",
+            defaultCatalogItemId: cat["Side A"],
+            isRequired: true,
+          },
+          {
+            componentGroup: "side",
+            defaultCatalogItemId: cat["Side B"],
+            isRequired: true,
+          },
+        ],
+      },
+    });
+    expect(edit.error).toBeNull();
+    const newDayId = edit.data as string;
+
+    const newResp = await providerTeam.admin
+      .from("provider_member_responses")
+      .select("status")
+      .eq("menu_day_id", newDayId)
+      .single();
+    expect(newResp.data?.status).toBe("draft"); // uncovered required slot → touched
+    const notes = await providerTeam.admin
+      .from("provider_notifications")
+      .select("recipient_user_id")
+      .eq("provider_id", providerId)
+      .eq("event_type", "provider_menu_revised");
+    expect((notes.data ?? []).map((n) => n.recipient_user_id)).toContain(
+      customer.id,
+    );
+  });
+
+  test("a day whose only responses are cancelled edits IN PLACE (no needless revision)", async ({
+    providerTeam,
+  }) => {
+    // Finding #6: cancelled responses are not a live order, so the edit applies in place
+    // (same day id, no archived predecessor), clearing the cancelled lines first so the
+    // RESTRICT FK on response items doesn't block the component rebuild.
+    const owner = await providerTeam.createUser("edit-canc-owner");
+    const providerId = await providerTeam.createProvider(owner, {
+      name: "Cancelled Only Kitchen",
+    });
+    const cat = await seedItems(providerTeam.admin, providerId, [
+      { name: "Side A", group: "side" },
+    ]);
+    const { menuDayId, componentIds } = await seedPublishedDay(
+      providerTeam.admin,
+      providerId,
+      owner,
+      [
+        {
+          group: "side",
+          defaultCatalogItemId: cat["Side A"]!,
+          defaultName: "Side A",
+          sortOrder: 0,
+        },
+      ],
+    );
+    const customer = await providerTeam.createUser("edit-canc-cust");
+    await providerTeam.addCustomer(providerId, customer, "approved");
+    // A cancelled response that still has a line (references the old component, RESTRICT).
+    const cancelledId = await seedResponse(
+      providerTeam.admin,
+      providerId,
+      menuDayId,
+      customer.id,
+      { status: "cancelled" },
+      [{ componentId: componentIds[0]!, catalogId: cat["Side A"]! }],
+    );
+
+    const ownerClient = await providerTeam.signInAs(owner);
+    const edit = await ownerClient.rpc("edit_provider_menu_day", {
+      p_menu_day_id: menuDayId,
+      p_payload: {
+        cutoffAt: FUTURE_CUTOFF,
+        components: [
+          { componentGroup: "side", defaultCatalogItemId: cat["Side A"] },
+        ],
+      },
+    });
+    expect(edit.error).toBeNull();
+    // In place: the SAME day id is returned (no revision).
+    expect(edit.data as string).toBe(menuDayId);
+
+    // Exactly one day for the date, still published, not superseded.
+    const days = await providerTeam.admin
+      .from("provider_menu_days")
+      .select("id, status, superseded_at")
+      .eq("provider_id", providerId);
+    expect(days.data?.length).toBe(1);
+    expect(days.data?.[0]?.status).toBe("published");
+    expect(days.data?.[0]?.superseded_at).toBeNull();
+
+    // The cancelled response row survives (roster) but its lines were cleared.
+    const stillCancelled = await providerTeam.admin
+      .from("provider_member_responses")
+      .select("status")
+      .eq("id", cancelledId)
+      .single();
+    expect(stillCancelled.data?.status).toBe("cancelled");
+    const leftoverItems = await providerTeam.admin
+      .from("provider_member_response_items")
+      .select("id")
+      .eq("response_id", cancelledId);
+    expect(leftoverItems.data?.length).toBe(0);
+  });
+});
+
 test.describe("Provider integration — membership invariant", () => {
   test("the one-live-membership partial-unique constraint blocks a second live row", async ({
     providerTeam,
