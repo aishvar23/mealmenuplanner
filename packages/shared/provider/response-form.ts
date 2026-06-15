@@ -86,17 +86,10 @@ function choiceFor(
   component: MenuComponentDto,
   catalogItemId: string,
 ): ComponentChoice {
-  return (
-    componentChoices(component).find(
-      (c) => c.catalogItemId === catalogItemId,
-    ) ?? {
-      catalogItemId: component.defaultCatalogItemId,
-      itemName: component.defaultItemName,
-      quantity: component.defaultQuantity,
-      canonicalUnit: component.canonicalUnit,
-      isDefault: true,
-    }
-  );
+  const choices = componentChoices(component);
+  // The default is always element 0, so reuse it as the fallback rather than
+  // re-spelling the default-choice literal (keeps the two in lockstep).
+  return choices.find((c) => c.catalogItemId === catalogItemId) ?? choices[0]!;
 }
 
 /**
