@@ -2804,6 +2804,16 @@ export type Database = {
         Args: { p_menu_day_id: string };
         Returns: string | null;
       };
+      publish_provider_menu_day: {
+        // MP-A-121 fresh-publish writer (pmp_18): owner-gates + draft-gates, enforces
+        // DB-context menu completeness (active+owned catalog refs) AND the future-cutoff
+        // structural backstop, flips the day + its weekly container to published, and
+        // fans out provider_menu_published. Returns the day's published_at timestamp
+        // (the existing one on an idempotent no-op) so the service patches its already-
+        // read DTO. Custom SQLSTATEs PMOWN/PMNDR/PMINC are mapped in menu-publish.ts.
+        Args: { p_menu_day_id: string };
+        Returns: string;
+      };
       run_provider_cutoffs: { Args: never; Returns: number };
       provider_override_response: {
         // p_items is `| null` (hand-adjusted, like save_provider_response): the

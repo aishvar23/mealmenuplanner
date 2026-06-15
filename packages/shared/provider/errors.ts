@@ -36,6 +36,7 @@ export const PROVIDER_ERROR_REASONS = {
   // CONFLICT (409)
   menu_not_published: "menu_not_published",
   menu_already_locked: "menu_already_locked",
+  menu_not_draft: "menu_not_draft",
   cutoff_passed: "cutoff_passed",
   response_already_locked: "response_already_locked",
   response_cancelled: "response_cancelled",
@@ -96,6 +97,7 @@ export const PROVIDER_REASON_TO_CODE: Record<
   },
   menu_not_published: { code: ERROR_CODES.CONFLICT, httpStatus: 409 },
   menu_already_locked: { code: ERROR_CODES.CONFLICT, httpStatus: 409 },
+  menu_not_draft: { code: ERROR_CODES.CONFLICT, httpStatus: 409 },
   cutoff_passed: { code: ERROR_CODES.CONFLICT, httpStatus: 409 },
   response_already_locked: { code: ERROR_CODES.CONFLICT, httpStatus: 409 },
   response_cancelled: { code: ERROR_CODES.CONFLICT, httpStatus: 409 },

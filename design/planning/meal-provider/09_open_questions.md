@@ -10,7 +10,7 @@ omitted.
 
 ---
 
-### Q-1 — Menu structural-edit policy after a member response exists
+### Q-1 — Menu structural-edit policy after a member response exists — RESOLVED (ADO #30, 2026-06-15)
 
 - **Why it matters:** The use-case spec (UC-MENU-005) explicitly leaves this open and
   says "implementation blocked until a safe policy is selected." There is no
@@ -19,11 +19,15 @@ omitted.
 - **Affected tasks:** MP-A-012E (structural-edit guard), MP-A-121 (authoring/publish RPC),
   MP-B-030 (menu builder edit affordance). Risk R-05. **Not** MP-A-012 (menu schema) — its
   table shape is ADR-7-independent.
-- **Safe default:** **Block** structural edits once any response exists; require
-  cancel+recreate; allow non-structural edits (note text). Spice/salt are included
-  substitutions and don't restructure.
-- **Stay blocked?** **Yes** for MP-A-012E and the edit paths of MP-A-121 / MP-B-030 until
-  confirmed. MP-A-012 (schema) and the read/publish-fresh path can proceed under the default.
+- **Decision:** **REVISION** (ADR-7 option 2, see `02_architecture_decisions.md`). A
+  structural edit on a menu with existing responses (before cutoff) creates a new
+  revision (rev N+1); responses are carried forward and re-validated, with only the
+  affected component selectively invalidated and the member notified to re-confirm;
+  census/prep read the latest revision. Non-structural edits apply in place.
+- **Unblocked:** MP-A-012E + the edit/revision path of MP-A-121 / MP-B-030, plus the
+  decision-tagged siblings #31, #36 (MP-C-070), #37. The **fresh-publish** path
+  (draft → published, no responses) is ADR-7-independent and shipped first as the
+  MP-A-121 `publish_provider_menu_day` writer (pmp_18).
 
 ### Q-2 — Workspace-active persistence shape
 

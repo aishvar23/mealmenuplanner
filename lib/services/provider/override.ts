@@ -4,12 +4,7 @@ import { requireAuthUser } from "@/lib/auth";
 import type { Json } from "@/lib/db/database.types";
 import { type RpcError } from "@/lib/db/rpc-error";
 import { createServerSupabaseClient } from "@/lib/db/server";
-import {
-  ConflictError,
-  ForbiddenError,
-  NotFoundError,
-  ValidationError,
-} from "@/lib/errors";
+import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import type { JsonObject } from "@/lib/http";
 import { isUuid } from "@/lib/validation/uuid";
 import { PROVIDER_ERROR_REASONS } from "@/packages/shared/provider";
@@ -18,7 +13,10 @@ import type {
   ProviderOverrideResultDto,
 } from "@/packages/shared/provider";
 
-import { mapProviderDerivationError } from "./response-errors";
+import {
+  mapProviderDerivationError,
+  providerOwnerRequiredError,
+} from "./response-errors";
 import { validateProviderOverride } from "./response-validation";
 
 /**
@@ -46,9 +44,7 @@ function mapOverrideError(error: RpcError): never {
       // Unknown / not-visible response or batch — existence-hiding 404.
       throw new NotFoundError("Not found.");
     case "PROWN":
-      throw new ForbiddenError("Only the provider owner can do that.", {
-        details: { reason: PROVIDER_ERROR_REASONS.provider_owner_required },
-      });
+      throw providerOwnerRequiredError("Only the provider owner can do that.");
     case "PRRSN":
       // Mandatory override reason missing (BR-007) — a field-scoped 400.
       throw new ValidationError("An override reason is required.", [

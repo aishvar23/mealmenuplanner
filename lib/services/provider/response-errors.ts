@@ -1,6 +1,19 @@
 import { mapPgError, type RpcError } from "@/lib/db/rpc-error";
-import { ConflictError, ValidationError } from "@/lib/errors";
+import { ConflictError, ForbiddenError, ValidationError } from "@/lib/errors";
 import { PROVIDER_ERROR_REASONS } from "@/packages/shared/provider";
+
+/**
+ * The owner-gate 403 every owner-only provider RPC raises, with its
+ * `provider_owner_required` discriminator wired once. `mapOverrideError` and
+ * `mapPublishError` differ only in the user-facing message and the SQLSTATE they
+ * switch on (PROWN vs PMOWN), so each passes its own message and keeps its own
+ * `case`, but the `details.reason` boilerplate lives here.
+ */
+export function providerOwnerRequiredError(message: string): ForbiddenError {
+  return new ForbiddenError(message, {
+    details: { reason: PROVIDER_ERROR_REASONS.provider_owner_required },
+  });
+}
 
 /**
  * Map the menu-derivation / customization-validation `PR*` SQLSTATEs that
