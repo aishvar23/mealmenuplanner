@@ -8,20 +8,27 @@ import {
 import { providerFixtures } from "@mmp/shared/provider";
 
 import { PreparationScreen } from "./preparation-screen";
-import { useBatch, useBatchActions, useBatchList } from "./use-preparation";
+import {
+  useBatch,
+  useBatchActions,
+  useBatchExport,
+  useBatchList,
+} from "./use-preparation";
 
 // The screen is presentational over its data hooks; mock them so the test renders the
 // list + roster without a network or a QueryClient. Mobile UI E2E is deferred
-// (ADR-17/Q-8) — this is the unit/hook bar (MP-C-050).
+// (ADR-17/Q-8) — this is the unit/hook bar (MP-C-050/051).
 jest.mock("./use-preparation", () => ({
   useBatchList: jest.fn(),
   useBatch: jest.fn(),
   useBatchActions: jest.fn(),
+  useBatchExport: jest.fn(),
 }));
 
 const mockUseBatchList = jest.mocked(useBatchList);
 const mockUseBatch = jest.mocked(useBatch);
 const mockUseBatchActions = jest.mocked(useBatchActions);
+const mockUseBatchExport = jest.mocked(useBatchExport);
 
 function mutation(impl?: (arg: never) => Promise<unknown>) {
   return {
@@ -37,10 +44,15 @@ beforeEach(() => {
   mockUseBatchList.mockReset();
   mockUseBatch.mockReset();
   mockUseBatchActions.mockReset();
+  mockUseBatchExport.mockReset();
   mockUseBatchActions.mockReturnValue({
     resendEmail: mutation(),
     regenerate: mutation(),
   } as unknown as ReturnType<typeof useBatchActions>);
+  mockUseBatchExport.mockReturnValue({
+    shareAggregate: mutation(),
+    sharePerMember: mutation(),
+  } as unknown as ReturnType<typeof useBatchExport>);
   mockUseBatch.mockReturnValue({
     data: providerFixtures.currentBatch,
     isLoading: false,
@@ -143,6 +155,37 @@ describe("PreparationScreen", () => {
 
     expect(regenerate.mutate).toHaveBeenCalledWith(
       providerFixtures.currentBatch.batchId,
+    );
+  });
+
+  it("shares the aggregate and per-member CSV from the detail view", () => {
+    const shareAggregate = mutation();
+    const sharePerMember = mutation();
+    mockUseBatchExport.mockReturnValue({
+      shareAggregate,
+      sharePerMember,
+    } as unknown as ReturnType<typeof useBatchExport>);
+    mockUseBatchList.mockReturnValue(listValue());
+
+    render(<PreparationScreen providerId="p1" />);
+    fireEvent.press(
+      screen.getByText(providerFixtures.batchSummaries[0]!.menuDate),
+    );
+
+    fireEvent.press(screen.getByText("Share aggregate CSV"));
+    expect(shareAggregate.mutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        batchId: providerFixtures.currentBatch.batchId,
+        title: expect.stringContaining("Aggregate roster"),
+      }),
+    );
+
+    fireEvent.press(screen.getByText("Share per-member CSV"));
+    expect(sharePerMember.mutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        batchId: providerFixtures.currentBatch.batchId,
+        title: expect.stringContaining("Per-member breakdown"),
+      }),
     );
   });
 });

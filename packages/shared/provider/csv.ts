@@ -18,7 +18,7 @@
 //     so the same revision always exports the same bytes.
 
 import type { BatchDto, PreparationLine } from "./dtos";
-import { sortPreparationLines } from "./preparation-order";
+import { compareBatchMembers, sortPreparationLines } from "./preparation-order";
 
 /** Byte-order mark prefixing every export so Excel reads it as UTF-8. */
 export const CSV_BOM = String.fromCharCode(0xfeff);
@@ -131,12 +131,7 @@ const INDIVIDUAL_HEADER = [
 export function renderIndividualCsv(
   individuals: BatchDto["individualLines"],
 ): string {
-  const members = [...individuals].sort(
-    (a, b) =>
-      (a.displayName ?? "").localeCompare(b.displayName ?? "", "en", {
-        numeric: true,
-      }) || a.memberUserId.localeCompare(b.memberUserId),
-  );
+  const members = [...individuals].sort(compareBatchMembers);
 
   const rows: string[][] = [];
   for (const member of members) {

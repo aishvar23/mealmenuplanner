@@ -17,15 +17,21 @@ import type {
 import { Button } from "@/components/Button";
 import { EmptyState, ErrorBanner, LoadingState } from "@/components/Feedback";
 
-import { useBatch, useBatchActions, useBatchList } from "./use-preparation";
+import {
+  useBatch,
+  useBatchActions,
+  useBatchExport,
+  useBatchList,
+} from "./use-preparation";
 
 /**
  * Owner Preparation screen (MP-C-050, the mobile twin of the web Preparation page,
  * spec §13.5 / UC-BATCH-001). Lists the generated batches (one per day's current
  * revision); tapping one opens its persisted roster — the cutoff census, the aggregate
  * cooking quantities, the per-member breakdown, the summary-email status — with the
- * owner actions resend-email + regenerate. Shares no code with the web UI: same
- * `/api/*` routes, same `@mmp/shared/provider` contracts. CSV/PDF share is MP-C-051.
+ * owner actions resend-email + regenerate, plus CSV share via the native sheet
+ * (MP-C-051, the mobile twin of the web print page). Shares no code with the web UI:
+ * same `/api/*` routes, same `@mmp/shared/provider` contracts.
  */
 export function PreparationScreen({ providerId }: { providerId: string }) {
   const [selectedMenuDayId, setSelectedMenuDayId] = useState<string | null>(
@@ -131,12 +137,26 @@ function BatchDetail({
 }) {
   const { data: batch, isLoading, error, refetch } = useBatch(menuDayId);
   const { resendEmail, regenerate } = useBatchActions(providerId, menuDayId);
+  const { shareAggregate, sharePerMember } = useBatchExport();
   const [notice, setNotice] = useState<string | null>(null);
 
-  async function onResend(batchId: string) {
-    // Clear the prior outcome (notice + a stale regenerate error banner) before acting.
+  // Each action clears every OTHER action's outcome (notice + the other mutations'
+  // error banners) before it runs, so a prior failure/success can never linger next
+  // to a new one and contradict it. The share mutations join the same discipline.
+  function clearOtherOutcomes(
+    ...keep: Array<"resend" | "regenerate" | "share">
+  ) {
     setNotice(null);
-    regenerate.reset();
+    if (!keep.includes("resend")) resendEmail.reset();
+    if (!keep.includes("regenerate")) regenerate.reset();
+    if (!keep.includes("share")) {
+      shareAggregate.reset();
+      sharePerMember.reset();
+    }
+  }
+
+  async function onResend(batchId: string) {
+    clearOtherOutcomes("resend");
     try {
       const result = await resendEmail.mutateAsync(batchId);
       setNotice(providerSummaryEmailNotice(result));
@@ -148,11 +168,20 @@ function BatchDetail({
 
   function onRegenerate(batchId: string) {
     // Regenerate supersedes this revision (emailStatus resets to null), so drop any
-    // stale "email sent" notice + resend error banner — otherwise they'd contradict the
-    // refetched revision (the web twin clears both at the top of its onRegenerate).
-    setNotice(null);
-    resendEmail.reset();
+    // stale "email sent" notice + resend/share error banners — otherwise they'd
+    // contradict the refetched revision (the web twin clears them at the top too).
+    clearOtherOutcomes("regenerate");
     regenerate.mutate(batchId);
+  }
+
+  function onShareAggregate(batchId: string, title: string) {
+    clearOtherOutcomes("share");
+    shareAggregate.mutate({ batchId, title });
+  }
+
+  function onSharePerMember(batchId: string, title: string) {
+    clearOtherOutcomes("share");
+    sharePerMember.mutate({ batchId, title });
   }
 
   return (
@@ -206,6 +235,10 @@ function BatchDetail({
               <Text className="text-sm text-emerald-700">{notice}</Text>
             ) : null}
 
+            {(shareAggregate.error ?? sharePerMember.error) ? (
+              <ErrorBanner message="Couldn't share the roster. Try again." />
+            ) : null}
+
             <View className="gap-2">
               <Button
                 label="Resend summary email"
@@ -218,6 +251,28 @@ function BatchDetail({
                 variant="secondary"
                 loading={regenerate.isPending}
                 onPress={() => onRegenerate(batch.batchId)}
+              />
+              <Button
+                label="Share aggregate CSV"
+                variant="secondary"
+                loading={shareAggregate.isPending}
+                onPress={() =>
+                  onShareAggregate(
+                    batch.batchId,
+                    `Aggregate roster — ${batch.menuDate} (rev ${batch.revision})`,
+                  )
+                }
+              />
+              <Button
+                label="Share per-member CSV"
+                variant="secondary"
+                loading={sharePerMember.isPending}
+                onPress={() =>
+                  onSharePerMember(
+                    batch.batchId,
+                    `Per-member breakdown — ${batch.menuDate} (rev ${batch.revision})`,
+                  )
+                }
               />
             </View>
 

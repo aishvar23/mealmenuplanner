@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, Mail, RefreshCw } from "lucide-react";
+import { Download, Mail, Printer, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -15,15 +15,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { ProviderBatchReadDto } from "@/lib/services/provider";
-import {
-  formatQuantity,
-  providerComponentGroupLabel,
-  providerSummaryEmailNotice,
-  providerVariantSuffix,
-} from "@/packages/shared/provider";
-import type { PreparationLine } from "@/packages/shared/provider";
+import { providerSummaryEmailNotice } from "@/packages/shared/provider";
 
 import { regenerateBatch, resendSummaryEmail } from "./preparation-client";
+import { RosterTable } from "./roster-table";
 
 /**
  * Owner preparation/batch view (MP-B-050, spec §13.5 / UC-BATCH-001). Renders a
@@ -31,7 +26,8 @@ import { regenerateBatch, resendSummaryEmail } from "./preparation-client";
  * the cutoff census, the summary-email status, and the owner actions — CSV exports
  * (aggregate + per-member), resend the summary email, and regenerate the roster as a
  * new revision. Read straight from the immutable batch the server fetched; nothing is
- * recomputed at render time.
+ * recomputed at render time. The roster table itself is the shared `RosterTable`
+ * (./roster-table, `variant="screen"`) the print page also uses.
  */
 
 const EMAIL_STATUS_LABEL: Record<string, string> = {
@@ -39,57 +35,6 @@ const EMAIL_STATUS_LABEL: Record<string, string> = {
   sent: "Sent",
   failed: "Failed",
 };
-
-function lineLabel(line: PreparationLine): string {
-  return `${line.itemName}${providerVariantSuffix(line.spiceLevel, line.saltLevel)}`;
-}
-
-/** A roster table — used for the aggregate roster and each member's breakdown. */
-function RosterTable({ lines }: { lines: PreparationLine[] }) {
-  if (lines.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground">No items in this batch.</p>
-    );
-  }
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b text-left text-xs text-muted-foreground">
-            <th className="py-2 pr-3 font-medium">Item</th>
-            <th className="py-2 pr-3 font-medium">Group</th>
-            <th className="py-2 pr-3 text-right font-medium">Included</th>
-            <th className="py-2 pr-3 text-right font-medium">Extra</th>
-            <th className="py-2 pr-3 text-right font-medium">Total</th>
-            <th className="py-2 font-medium">Unit</th>
-          </tr>
-        </thead>
-        <tbody>
-          {lines.map((line, i) => (
-            <tr key={`${line.catalogItemId}-${i}`} className="border-b">
-              <td className="py-2 pr-3 font-medium">{lineLabel(line)}</td>
-              <td className="py-2 pr-3 text-muted-foreground">
-                {providerComponentGroupLabel(line.componentGroup)}
-              </td>
-              <td className="py-2 pr-3 text-right tabular-nums">
-                {formatQuantity(line.includedQuantity)}
-              </td>
-              <td className="py-2 pr-3 text-right tabular-nums">
-                {formatQuantity(line.extraQuantity)}
-              </td>
-              <td className="py-2 pr-3 text-right font-semibold tabular-nums">
-                {formatQuantity(line.totalQuantity)}
-              </td>
-              <td className="py-2 text-muted-foreground">
-                {line.canonicalUnit}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
 
 export function PreparationDetailView({
   batch,
@@ -205,6 +150,14 @@ export function PreparationDetailView({
           download
         >
           <Download className="size-4" /> Per-member CSV
+        </a>
+        <a
+          className={buttonVariants({ variant: "outline", size: "sm" })}
+          href={`/provider/preparation/${batch.batchId}/print`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Printer className="size-4" /> Print
         </a>
         <Button
           variant="outline"

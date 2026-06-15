@@ -19,5 +19,6 @@ export * from "./onboarding-form";
 export * from "./response-form";
 export * from "./preparation-order";
 export * from "./csv";
+export * from "./print-view";
 export * from "./summary-email";
 export * as providerFixtures from "./fixtures";
