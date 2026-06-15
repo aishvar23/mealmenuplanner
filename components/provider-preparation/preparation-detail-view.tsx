@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, Mail, RefreshCw } from "lucide-react";
+import { Download, Mail, Printer, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -205,6 +205,14 @@ export function PreparationDetailView({
           download
         >
           <Download className="size-4" /> Per-member CSV
+        </a>
+        <a
+          className={buttonVariants({ variant: "outline", size: "sm" })}
+          href={`/provider/preparation/${batch.batchId}/print`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Printer className="size-4" /> Print
         </a>
         <Button
           variant="outline"

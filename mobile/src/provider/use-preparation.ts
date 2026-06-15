@@ -6,6 +6,7 @@ import type {
 } from "@mmp/shared/provider";
 
 import { providerClient } from "./client";
+import { shareProviderCsv } from "./share";
 
 /**
  * Owner preparation hooks (MP-C-050, the mobile twin of the web Preparation page,
@@ -59,4 +60,25 @@ export function useBatchActions(providerId: string, menuDayId: string | null) {
   });
 
   return { resendEmail, regenerate };
+}
+
+type ExportVars = { batchId: string; title: string };
+
+/**
+ * Owner export/share actions (MP-C-051, the mobile twin of the web print page). Each
+ * mutation fetches a persisted batch revision's CSV through the shared client seam
+ * (the same owner-gated `/api/*` routes the web CSV links hit) and hands it to the
+ * native share sheet (shareProviderCsv). Read-only — no query invalidation.
+ */
+export function useBatchExport() {
+  const shareAggregate = useMutation({
+    mutationFn: async ({ batchId, title }: ExportVars) =>
+      shareProviderCsv(await providerClient.getAggregateCsv(batchId), title),
+  });
+  const sharePerMember = useMutation({
+    mutationFn: async ({ batchId, title }: ExportVars) =>
+      shareProviderCsv(await providerClient.getIndividualCsv(batchId), title),
+  });
+
+  return { shareAggregate, sharePerMember };
 }
