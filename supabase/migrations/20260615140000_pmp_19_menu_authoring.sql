@@ -75,9 +75,23 @@ begin
     raise exception 'owner required' using errcode = 'MAOWN';
   end if;
 
-  v_menu_date := (p_payload->>'menuDate')::date;
-  v_cutoff_at := (p_payload->>'cutoffAt')::timestamptz;
+  -- menuDate/cutoffAt are required; the service validator gates this with a clean 400,
+  -- but guard a null/missing value here so a DIRECT RPC call surfaces MAINC (400)
+  -- rather than a NOT-NULL/cast failure that would map to an opaque 500. (A present-
+  -- but-malformed string is a misuse the front-door validator already rejects.)
+  v_menu_date := nullif(pg_catalog.btrim(coalesce(p_payload->>'menuDate', '')), '')::date;
+  v_cutoff_at := nullif(pg_catalog.btrim(coalesce(p_payload->>'cutoffAt', '')), '')::timestamptz;
   v_note      := nullif(pg_catalog.btrim(coalesce(p_payload->>'note', '')), '');
+  if v_menu_date is null or v_cutoff_at is null then
+    raise exception 'menu date/cutoff required' using
+      errcode = 'MAINC',
+      detail = jsonb_build_array(
+        jsonb_build_object(
+          'field', case when v_menu_date is null then 'menuDate' else 'cutoffAt' end,
+          'rule', 'required'
+        )
+      )::text;
+  end if;
 
   -- A day must have at least one component (the service validator gates this with a
   -- clean 400; this is the defensive backstop — an empty menu is never authorable).
@@ -174,14 +188,21 @@ begin
     )
     returning id into v_component_id;
 
-    -- Alternatives (each id denormalized off the catalog the same way). De-duped
-    -- against the default by the (menu_component_id, catalog_item_id) unique index.
+    -- Alternatives (each id denormalized off the catalog the same way). Duplicates
+    -- among alternatives are caught by the (menu_component_id, catalog_item_id) unique
+    -- index; an alternative equal to the DEFAULT (which lives in
+    -- provider_menu_components, NOT this table, so the index can't see it) is rejected
+    -- explicitly below. The service validator catches both up front with field-scoped
+    -- paths; these are the DB backstop for a direct RPC call.
     for v_alt in
       select value as item_id
       from pg_catalog.jsonb_array_elements_text(
         coalesce(v_comp.elem->'alternativeCatalogItemIds', '[]'::jsonb)
       )
     loop
+      if v_alt.item_id::uuid = (v_comp.elem->>'defaultCatalogItemId')::uuid then
+        raise exception 'alternative equals default' using errcode = '23505';
+      end if;
       select ci.name, ci.default_quantity, ci.canonical_unit
         into v_ci_name, v_ci_qty, v_ci_unit
       from public.provider_catalog_items ci

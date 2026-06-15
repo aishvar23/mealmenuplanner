@@ -244,6 +244,7 @@ export interface MenuDayDto {
  * (single_select/boolean ⇒ max 1, `quantity_increment` ⇒ finite max, required ⇒
  * min ≥ 1) are the DB CHECKs (pmp_4) the writer relies on. Optional flags default
  * server-side (`includedInPrice` true, `isRequired` false, `minimumSelections` 0).
+ * Sort order is the array position — groups/options are stored in the order sent.
  */
 export interface CreateMenuCustomizationGroupInput {
   name: string;
@@ -252,7 +253,6 @@ export interface CreateMenuCustomizationGroupInput {
   isRequired?: boolean;
   minimumSelections?: number;
   maximumSelections?: number | null;
-  sortOrder?: number;
   options: Array<{
     code: string;
     label: string;
@@ -261,20 +261,21 @@ export interface CreateMenuCustomizationGroupInput {
     externalPriceLabel?: string | null;
     minimumQuantity?: number | null;
     maximumQuantity?: number | null;
-    sortOrder?: number;
   }>;
 }
 
-/** One component slot in a `CreateMenuDayInput` (MP-A-121 authoring, § 5/§ 8). */
+/** One component slot in a `CreateMenuDayInput` (MP-A-121 authoring, § 5/§ 8). The
+ * component's sort order is its array position — components are stored in the order
+ * the builder sends them. */
 export interface CreateMenuComponentInput {
   componentGroup: ProviderComponentGroup;
   /** The default catalog item id; its name/quantity/unit/spice-salt flags are
    * DENORMALIZED off the catalog by the server at authoring time (§ 4, ADO #39). */
   defaultCatalogItemId: string;
   isRequired?: boolean;
-  sortOrder?: number;
   /** Catalog item ids offered as swaps; each one's name/quantity/unit is likewise
-   * denormalized off the catalog server-side. */
+   * denormalized off the catalog server-side. Must be distinct from each other and
+   * from `defaultCatalogItemId`. */
   alternativeCatalogItemIds?: string[];
   customizationGroups?: CreateMenuCustomizationGroupInput[];
 }

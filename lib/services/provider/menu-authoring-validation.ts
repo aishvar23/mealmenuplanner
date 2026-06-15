@@ -235,6 +235,16 @@ function validateOption(
     `${path}.maximumQuantity`,
     issues,
   );
+  // Cross-field bound (mirrors the DB `provider_customization_option_qty_order` CHECK):
+  // catch a reversed min/max here so it surfaces as a field-scoped 400 rather than a
+  // generic 23514 the service can only label `invalid_customization`.
+  if (
+    minimumQuantity !== null &&
+    maximumQuantity !== null &&
+    minimumQuantity > maximumQuantity
+  ) {
+    issues.push({ field: `${path}.maximumQuantity`, rule: "range" });
+  }
   if (code === null || label === null) return null;
   return {
     code,
@@ -307,9 +317,19 @@ function validateGroup(
     return null;
   }
   const options: NormalizedMenuOption[] = [];
+  // `code` is unique per group (DB `unique (customization_group_id, code)`); catch a
+  // repeat here with the offending option's path rather than letting it trip 23505,
+  // which the service can only report as a generic component-level "duplicate".
+  const seenCodes = new Set<string>();
   optionsRaw.forEach((opt, i) => {
     const parsed = validateOption(opt, `${path}.options[${i}]`, issues, i);
-    if (parsed) options.push(parsed);
+    if (!parsed) return;
+    if (seenCodes.has(parsed.code)) {
+      issues.push({ field: `${path}.options[${i}].code`, rule: "duplicate" });
+      return;
+    }
+    seenCodes.add(parsed.code);
+    options.push(parsed);
   });
 
   if (name === null || customizationType === null) return null;
@@ -368,13 +388,35 @@ function validateComponent(
         max: MAX_ALTERNATIVES,
       });
     } else {
+      // De-dupe alternatives among themselves AND against the default. The DB
+      // `unique (menu_component_id, catalog_item_id)` index only catches repeats
+      // among alternatives — the default lives in provider_menu_components, so an
+      // alternative equal to the default would otherwise slip through and render the
+      // same dish as both the default and a swap. Reject both with field-scoped paths.
+      const seenAlts = new Set<string>();
       altsRaw.forEach((alt, i) => {
         const id = requiredUuid(
           alt,
           `${path}.alternativeCatalogItemIds[${i}]`,
           issues,
         );
-        if (id !== null) alternativeCatalogItemIds.push(id);
+        if (id === null) return;
+        if (defaultCatalogItemId !== null && id === defaultCatalogItemId) {
+          issues.push({
+            field: `${path}.alternativeCatalogItemIds[${i}]`,
+            rule: "duplicate_default",
+          });
+          return;
+        }
+        if (seenAlts.has(id)) {
+          issues.push({
+            field: `${path}.alternativeCatalogItemIds[${i}]`,
+            rule: "duplicate",
+          });
+          return;
+        }
+        seenAlts.add(id);
+        alternativeCatalogItemIds.push(id);
       });
     }
   }

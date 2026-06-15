@@ -2,12 +2,7 @@ import "server-only";
 
 import { mapPgError, type RpcError } from "@/lib/db/rpc-error";
 import { createServerSupabaseClient } from "@/lib/db/server";
-import {
-  ConflictError,
-  NotFoundError,
-  ValidationError,
-  type ValidationIssue,
-} from "@/lib/errors";
+import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import { isUuid } from "@/lib/validation/uuid";
 import {
   PROVIDER_ERROR_REASONS,
@@ -17,6 +12,7 @@ import type { MenuDayDto } from "@/packages/shared/provider";
 
 import { getMenuDay } from "./menu-read";
 import { providerOwnerRequiredError } from "./response-errors";
+import { parseRpcIssues } from "./rpc-issues";
 
 /**
  * Provider menu PUBLISH service (MP-A-121, contract 03 § 5/§ 8). The fresh-publish
@@ -45,33 +41,6 @@ import { providerOwnerRequiredError } from "./response-errors";
  * route still returns the same `MenuDayDto` shape the GET endpoint serves.
  */
 
-/** A parsed PMINC element is only an issue if it carries the required string keys. */
-function isValidationIssue(value: unknown): value is ValidationIssue {
-  if (typeof value !== "object" || value === null) return false;
-  const v = value as Record<string, unknown>;
-  return typeof v.field === "string" && typeof v.rule === "string";
-}
-
-/** Parse the JSON `ValidationIssue[]` the PMINC RPC carries on its error detail. */
-function parsePublishIssues(
-  detail: string | null | undefined,
-): ValidationIssue[] {
-  const generic: ValidationIssue[] = [
-    { field: "components", rule: "menu_incomplete" },
-  ];
-  if (!detail) return generic;
-  try {
-    const parsed: unknown = JSON.parse(detail);
-    if (Array.isArray(parsed)) {
-      const issues = parsed.filter(isValidationIssue);
-      if (issues.length > 0) return issues;
-    }
-  } catch {
-    /* fall through to the generic issue below */
-  }
-  return generic;
-}
-
 /** Map a `publish_provider_menu_day` RPC error to its domain error (contract § 3). */
 function mapPublishError(error: RpcError): never {
   switch (error.code) {
@@ -92,7 +61,9 @@ function mapPublishError(error: RpcError): never {
       // carrying the per-reference issues the RPC reported.
       throw new ValidationError(
         "This menu isn't ready to publish.",
-        parsePublishIssues(error.details),
+        parseRpcIssues(error.details, [
+          { field: "components", rule: PROVIDER_ERROR_REASONS.menu_incomplete },
+        ]),
       );
     default:
       // 28000 → 401; anything else → 500 (original kept as cause, never serialized).

@@ -185,6 +185,97 @@ describe("validateCreateMenuDay", () => {
     );
   });
 
+  it("rejects an alternative equal to the default with a field-scoped path", () => {
+    expect(
+      issuesOf(
+        validBody({
+          components: [
+            {
+              componentGroup: "main",
+              defaultCatalogItemId: ITEM_A,
+              alternativeCatalogItemIds: [ITEM_A],
+            },
+          ],
+        }),
+      ),
+    ).toContain("components[0].alternativeCatalogItemIds[0]:duplicate_default");
+  });
+
+  it("rejects a repeated alternative id with a field-scoped path", () => {
+    expect(
+      issuesOf(
+        validBody({
+          components: [
+            {
+              componentGroup: "main",
+              defaultCatalogItemId: ITEM_A,
+              alternativeCatalogItemIds: [ITEM_B, ITEM_B],
+            },
+          ],
+        }),
+      ),
+    ).toContain("components[0].alternativeCatalogItemIds[1]:duplicate");
+  });
+
+  it("rejects a repeated customization option code within a group", () => {
+    expect(
+      issuesOf(
+        validBody({
+          components: [
+            {
+              componentGroup: "main",
+              defaultCatalogItemId: ITEM_A,
+              customizationGroups: [
+                {
+                  name: "G",
+                  customizationType: "multi_select",
+                  options: [
+                    { code: "x", label: "X" },
+                    { code: "x", label: "Y" },
+                  ],
+                },
+              ],
+            },
+          ],
+        }),
+      ),
+    ).toContain(
+      "components[0].customizationGroups[0].options[1].code:duplicate",
+    );
+  });
+
+  it("rejects an option whose minimumQuantity exceeds its maximumQuantity", () => {
+    expect(
+      issuesOf(
+        validBody({
+          components: [
+            {
+              componentGroup: "main",
+              defaultCatalogItemId: ITEM_A,
+              customizationGroups: [
+                {
+                  name: "G",
+                  customizationType: "quantity_increment",
+                  maximumSelections: 1,
+                  options: [
+                    {
+                      code: "x",
+                      label: "X",
+                      minimumQuantity: 10,
+                      maximumQuantity: 5,
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        }),
+      ),
+    ).toContain(
+      "components[0].customizationGroups[0].options[0].maximumQuantity:range",
+    );
+  });
+
   it("throws a ValidationError aggregating every issue", () => {
     expect(() => validateCreateMenuDay({})).toThrow(ValidationError);
   });

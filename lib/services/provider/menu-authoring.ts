@@ -4,11 +4,7 @@ import { requireAuthUser } from "@/lib/auth";
 import type { Json } from "@/lib/db/database.types";
 import { mapPgError, type RpcError } from "@/lib/db/rpc-error";
 import { createServerSupabaseClient } from "@/lib/db/server";
-import {
-  ConflictError,
-  ValidationError,
-  type ValidationIssue,
-} from "@/lib/errors";
+import { ConflictError, ValidationError } from "@/lib/errors";
 import type { JsonObject } from "@/lib/http";
 import { PROVIDER_ERROR_REASONS } from "@/packages/shared/provider";
 import type { MenuDayDto } from "@/packages/shared/provider";
@@ -17,6 +13,7 @@ import { requireProviderOwner } from "./access";
 import { getMenuDay } from "./menu-read";
 import { validateCreateMenuDay } from "./menu-authoring-validation";
 import { providerOwnerRequiredError } from "./response-errors";
+import { parseRpcIssues } from "./rpc-issues";
 
 /**
  * Provider menu AUTHORING service (MP-A-121, contract 03 § 5/§ 8). The builder's
@@ -44,33 +41,6 @@ import { providerOwnerRequiredError } from "./response-errors";
  * the GET endpoint serves.
  */
 
-/** A parsed MAINC element is only an issue if it carries the required string keys. */
-function isValidationIssue(value: unknown): value is ValidationIssue {
-  if (typeof value !== "object" || value === null) return false;
-  const v = value as Record<string, unknown>;
-  return typeof v.field === "string" && typeof v.rule === "string";
-}
-
-/** Parse the JSON `ValidationIssue[]` the MAINC RPC carries on its error detail. */
-function parseAuthoringIssues(
-  detail: string | null | undefined,
-): ValidationIssue[] {
-  const generic: ValidationIssue[] = [
-    { field: "components", rule: PROVIDER_ERROR_REASONS.menu_incomplete },
-  ];
-  if (!detail) return generic;
-  try {
-    const parsed: unknown = JSON.parse(detail);
-    if (Array.isArray(parsed)) {
-      const issues = parsed.filter(isValidationIssue);
-      if (issues.length > 0) return issues;
-    }
-  } catch {
-    /* fall through to the generic issue below */
-  }
-  return generic;
-}
-
 /** Map a `create_provider_menu_day` RPC error to its domain error (contract § 3). */
 function mapCreateMenuDayError(error: RpcError): never {
   switch (error.code) {
@@ -88,7 +58,9 @@ function mapCreateMenuDayError(error: RpcError): never {
       // publish writer's PMINC uses, carrying the per-reference issues.
       throw new ValidationError(
         "This menu references items that aren't available.",
-        parseAuthoringIssues(error.details),
+        parseRpcIssues(error.details, [
+          { field: "components", rule: PROVIDER_ERROR_REASONS.menu_incomplete },
+        ]),
       );
     case "23514":
       // A DB CHECK on a customization group/option (single_choice max=1, bounded
@@ -100,9 +72,11 @@ function mapCreateMenuDayError(error: RpcError): never {
         },
       ]);
     case "23505":
-      // A duplicate alternative (same item twice on one component, or equal to the
-      // default) tripped the (menu_component_id, catalog_item_id) unique index.
-      throw new ValidationError("A menu component has a duplicate item.", [
+      // A duplicate selection that slipped past the validator (a repeated alternative,
+      // an alternative equal to the default, or a repeated customization option code)
+      // tripped a unique index. The service validator catches these up front with a
+      // field-scoped path; this is the DB backstop for a direct RPC call.
+      throw new ValidationError("This menu has a duplicate selection.", [
         { field: "components", rule: "duplicate" },
       ]);
     case "22P02":
