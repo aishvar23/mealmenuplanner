@@ -1,14 +1,9 @@
-import { CalendarRange } from "lucide-react-native";
+import { useLocalSearchParams } from "expo-router";
 
-import { ProviderComingSoon } from "@/provider/provider-coming-soon";
+import { MenuManagerScreen } from "@/provider/menu-manager-screen";
 
-/** Owner menu builder — lands with MP-C-030 at CP3 (gated on ADR-7). */
+/** Owner Menu manager/builder screen route (MP-C-030). */
 export default function OwnerMenuScreen() {
-  return (
-    <ProviderComingSoon
-      icon={CalendarRange}
-      title="Weekly menu coming soon"
-      description="Build and publish your weekly menu — components, alternatives, and cutoffs — here."
-    />
-  );
+  const { providerId } = useLocalSearchParams<{ providerId: string }>();
+  return <MenuManagerScreen providerId={providerId} />;
 }

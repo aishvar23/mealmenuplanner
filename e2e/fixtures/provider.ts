@@ -100,6 +100,12 @@ export interface ProviderTeam {
     },
   ): Promise<MenuDaySeed>;
   /**
+   * Seed the owner's catalog (Rajma + Chana in `dal_or_legume`, Roti in `bread`)
+   * WITHOUT any menu day — the precondition for the menu-builder specs, which author
+   * a day through the UI. All active. Returns the catalog ids.
+   */
+  seedCatalog(providerId: string): Promise<CatalogSeed>;
+  /**
    * Sign in as `user` with a real anon-key client whose every `.from()/.rpc()`
    * runs under that user's Postgres RLS context (the RLS-respecting counterpart to
    * the service-role `admin`). The client is tracked and signed out in teardown so
@@ -127,6 +133,13 @@ export interface ProviderTeam {
     owner: ProviderUser,
     providerId: string,
   ): Promise<{ seed: MenuDaySeed; batchId: string; responseId: string }>;
+}
+
+/** The catalog ids returned by `seedCatalog`. */
+export interface CatalogSeed {
+  rajmaCatalogId: string;
+  chanaCatalogId: string;
+  rotiCatalogId: string;
 }
 
 /** The ids returned by `seedMenuDay`, for assertions + response building. */
@@ -418,6 +431,53 @@ export const test = base.extend<{ providerTeam: ProviderTeam }>({
           chanaAlternativeId: alt.data!.id as string,
           rajmaCatalogId,
           chanaCatalogId,
+        };
+      },
+      async seedCatalog(providerId) {
+        const cat = await admin
+          .from("provider_catalog_items")
+          .insert([
+            {
+              provider_id: providerId,
+              name: "Rajma",
+              component_group: "dal_or_legume",
+              canonical_unit: "oz",
+              default_quantity: 16,
+              supports_spice_level: true,
+              supports_salt_level: true,
+            },
+            {
+              provider_id: providerId,
+              name: "Chana",
+              component_group: "dal_or_legume",
+              canonical_unit: "oz",
+              default_quantity: 16,
+              supports_spice_level: false,
+              supports_salt_level: false,
+            },
+            {
+              provider_id: providerId,
+              name: "Roti",
+              component_group: "bread",
+              canonical_unit: "piece",
+              default_quantity: 2,
+              supports_spice_level: false,
+              supports_salt_level: false,
+            },
+          ])
+          .select("id, name");
+        if (cat.error || !cat.data) {
+          throw new Error(`E2E: seedCatalog failed: ${cat.error?.message}`);
+        }
+        const idByName = (n: string) => {
+          const row = cat.data!.find((r) => r.name === n);
+          if (!row) throw new Error(`E2E: seedCatalog missing ${n}`);
+          return row.id as string;
+        };
+        return {
+          rajmaCatalogId: idByName("Rajma"),
+          chanaCatalogId: idByName("Chana"),
+          rotiCatalogId: idByName("Roti"),
         };
       },
       async signInAs(user) {
