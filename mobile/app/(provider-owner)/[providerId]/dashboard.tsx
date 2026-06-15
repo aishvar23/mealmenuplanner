@@ -1,14 +1,9 @@
-import { LayoutDashboard } from "lucide-react-native";
+import { useLocalSearchParams } from "expo-router";
 
-import { ProviderComingSoon } from "@/provider/provider-coming-soon";
+import { DashboardScreen } from "@/provider/dashboard-screen";
 
-/** Owner landing (MP-C-011); the dashboard cards land with MP-C-060 (CP4/5). */
+/** Owner Dashboard route (MP-C-060) — day at a glance (spec §13.2). */
 export default function OwnerDashboardScreen() {
-  return (
-    <ProviderComingSoon
-      icon={LayoutDashboard}
-      title="Dashboard coming soon"
-      description="Your day at a glance — today's menu, cutoff countdown, and response counts — will appear here."
-    />
-  );
+  const { providerId } = useLocalSearchParams<{ providerId: string }>();
+  return <DashboardScreen providerId={providerId} />;
 }

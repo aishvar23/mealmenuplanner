@@ -1,14 +1,13 @@
-import { Soup } from "lucide-react-native";
+import { useLocalSearchParams } from "expo-router";
 
-import { ProviderComingSoon } from "@/provider/provider-coming-soon";
+import { PreparationScreen } from "@/provider/preparation-screen";
 
-/** Owner preparation/batch view — lands with MP-C-050 at CP5. */
+/**
+ * Owner Preparation route (MP-C-050). Mounts the preparation screen that shipped with
+ * PR #50/#51 — the route had been left on the placeholder, so the dashboard's "View
+ * preparation" affordance (MP-C-060) and the tab now resolve to the real roster.
+ */
 export default function OwnerPreparationScreen() {
-  return (
-    <ProviderComingSoon
-      icon={Soup}
-      title="Preparation coming soon"
-      description="Aggregated cooking quantities, per-member breakdowns, and export will appear here after cutoff."
-    />
-  );
+  const { providerId } = useLocalSearchParams<{ providerId: string }>();
+  return <PreparationScreen providerId={providerId} />;
 }

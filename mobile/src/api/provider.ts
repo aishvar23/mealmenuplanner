@@ -15,6 +15,7 @@ import type {
   ProviderBatchRevisionDto,
   ProviderBatchSummaryDto,
   ProviderCreateInput,
+  ProviderDashboardDto,
   ProviderDto,
   ProviderInvitePreviewDto,
   ProviderOverrideResponseRequest,
@@ -64,6 +65,11 @@ export const providerApiClient: ProviderApiClient = {
   },
   getProvider(providerId: string): Promise<ProviderDto> {
     return apiRequest<ProviderDto>(`${providers}/${providerId}`);
+  },
+  getDashboard(providerId: string): Promise<ProviderDashboardDto> {
+    return apiRequest<ProviderDashboardDto>(
+      `${providers}/${providerId}/dashboard`,
+    );
   },
   createProvider(input: ProviderCreateInput): Promise<ProviderDto> {
     return apiRequest<ProviderDto>(providers, { method: "POST", body: input });

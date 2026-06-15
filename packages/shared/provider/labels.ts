@@ -10,6 +10,7 @@ import type {
   ProviderComponentGroup,
   ProviderMembershipRole,
   ProviderMembershipStatus,
+  ProviderMenuStatus,
   ProviderResponseStatus,
   ProviderSaltLevel,
   ProviderSpiceLevel,
@@ -175,6 +176,121 @@ export const PROVIDER_RESPONSE_STATUS_BADGE_VARIANT: Record<
   locked: "neutral",
   provider_overridden: "marigold",
 };
+
+/**
+ * How a menu day's status reads on the owner dashboard (MP-B-060) — the single source
+ * so the web + mobile dashboards label the day's state identically. `locked` reads as
+ * "Locked" (cutoff has passed; responses are closed), distinct from `published` (open).
+ */
+export const PROVIDER_MENU_STATUS_LABELS: Record<ProviderMenuStatus, string> = {
+  draft: "Draft",
+  published: "Published",
+  locked: "Locked",
+  archived: "Archived",
+  cancelled: "Cancelled",
+};
+
+/** Display label for a menu-day status (falls back to the raw value). */
+export function providerMenuStatusLabel(status: ProviderMenuStatus): string {
+  return PROVIDER_MENU_STATUS_LABELS[status] ?? status;
+}
+
+/**
+ * The semantic badge variant for each menu-day status — reuses the Forest & Ember
+ * token set (`emerald` live/published, `marigold` draft attention, `ember` cancelled,
+ * `neutral` idle) so the web Badge and the mobile status colour stay in lockstep and no
+ * status falls through to neutral silently.
+ */
+export const PROVIDER_MENU_STATUS_BADGE_VARIANT: Record<
+  ProviderMenuStatus,
+  ProviderResponseBadgeVariant
+> = {
+  draft: "marigold",
+  published: "emerald",
+  locked: "neutral",
+  archived: "neutral",
+  cancelled: "ember",
+};
+
+/**
+ * The owner dashboard's cutoff countdown (MP-B-060) — pure so the web and mobile
+ * dashboards render the same "time remaining" wording from the cutoff timestamp and a
+ * caller-supplied `now` (epoch ms; the screens pass `Date.now()` and re-tick). Returns
+ * whether cutoff has passed plus a short human label. At most two units (days+hours, or
+ * hours+minutes) so it reads at a glance; under a day always shows minutes so "0h" never
+ * stands alone, and the final sub-minute window reads "<1m" rather than a bare "0m". A
+ * malformed timestamp degrades to a neutral dash rather than throwing.
+ */
+export function formatCutoffCountdown(
+  cutoffAtIso: string,
+  nowMs: number,
+): { passed: boolean; label: string } {
+  const cutoffMs = new Date(cutoffAtIso).getTime();
+  if (!Number.isFinite(cutoffMs)) return { passed: false, label: "—" };
+  const diffMs = cutoffMs - nowMs;
+  if (diffMs <= 0) return { passed: true, label: "Cutoff passed" };
+
+  const totalMinutes = Math.floor(diffMs / 60_000);
+  // Under a minute remaining: don't render a bare "0m" (reads as if cutoff is now).
+  if (totalMinutes === 0) return { passed: false, label: "<1m until cutoff" };
+
+  const days = Math.floor(totalMinutes / (60 * 24));
+  const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+  const minutes = totalMinutes % 60;
+
+  const parts: string[] = [];
+  if (days > 0) parts.push(`${days}d`);
+  if (hours > 0) parts.push(`${hours}h`);
+  // Show minutes only when we're under a day (so the label stays to two units).
+  if (days === 0) parts.push(`${minutes}m`);
+  return { passed: false, label: `${parts.join(" ")} until cutoff` };
+}
+
+/** A preparation batch's summary-email delivery status (null = not yet sent). */
+export type ProviderBatchEmailStatus = "queued" | "sent" | "failed";
+
+/**
+ * How a preparation batch's summary-email status reads — the single source shared by the
+ * owner dashboard (MP-B-060) and the preparation detail view, so the two surfaces label
+ * `queued`/`sent`/`failed` identically. A `null` status (not yet sent) is rendered by the
+ * caller, not in this map.
+ */
+export const PROVIDER_BATCH_EMAIL_STATUS_LABELS: Record<
+  ProviderBatchEmailStatus,
+  string
+> = {
+  queued: "Queued",
+  sent: "Sent",
+  failed: "Failed",
+};
+
+/**
+ * A readable cutoff date+time in the provider's timezone (MP-B-060) — the single source
+ * shared by the web + mobile dashboards so both render the cutoff instant identically;
+ * falls back to the raw ISO if the timezone or timestamp can't be formatted.
+ */
+export function formatCutoffDateTime(
+  cutoffAtIso: string,
+  timeZone: string,
+): string {
+  try {
+    return new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(new Date(cutoffAtIso));
+  } catch {
+    return cutoffAtIso;
+  }
+}
+
+/** "1 dish" / "N dishes" — shared so web + mobile pluralize the dish count identically. */
+export function dishCountLabel(count: number): string {
+  return `${count} ${count === 1 ? "dish" : "dishes"}`;
+}
 
 /**
  * The caller's standing with a provider as a short, lowercase noun phrase:

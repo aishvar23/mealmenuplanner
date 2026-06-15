@@ -20,6 +20,7 @@ import type {
   ProviderBatchDetailDto,
   ProviderBatchRevisionDto,
   ProviderBatchSummaryDto,
+  ProviderDashboardDto,
   ProviderDto,
   ProviderInvitePreviewDto,
   ProviderOverrideResultDto,
@@ -597,6 +598,25 @@ export const batchSummaries: ProviderBatchSummaryDto[] = [
     totals: currentBatch.totals,
   },
 ];
+
+/**
+ * The owner dashboard's day-at-a-glance summary (MP-B-060, §13.2) — today's published
+ * menu day plus its post-cutoff batch, so a screen fed the mock renders the populated
+ * dashboard (today's menu state + census + email status).
+ */
+export const dashboard: ProviderDashboardDto = {
+  providerId: PROVIDER_A_ID,
+  providerName: providerA.name,
+  timezone: providerA.timezone,
+  today: {
+    menuDayId: publishedMenuDay.menuDayId,
+    menuDate: publishedMenuDay.menuDate,
+    cutoffAt: publishedMenuDay.cutoffAt,
+    status: publishedMenuDay.status,
+    componentCount: publishedMenuDay.components.length,
+  },
+  batch: batchSummaries[0]!,
+};
 
 /** Same day, superseded after a provider override (UC-OVERRIDE / § 7). */
 export const staleBatch: ProviderBatchDetailDto = {

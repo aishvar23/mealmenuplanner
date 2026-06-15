@@ -15,7 +15,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { ProviderBatchReadDto } from "@/lib/services/provider";
-import { providerSummaryEmailNotice } from "@/packages/shared/provider";
+import {
+  PROVIDER_BATCH_EMAIL_STATUS_LABELS,
+  providerSummaryEmailNotice,
+} from "@/packages/shared/provider";
 
 import { regenerateBatch, resendSummaryEmail } from "./preparation-client";
 import { RosterTable } from "./roster-table";
@@ -29,12 +32,6 @@ import { RosterTable } from "./roster-table";
  * recomputed at render time. The roster table itself is the shared `RosterTable`
  * (./roster-table, `variant="screen"`) the print page also uses.
  */
-
-const EMAIL_STATUS_LABEL: Record<string, string> = {
-  queued: "Queued",
-  sent: "Sent",
-  failed: "Failed",
-};
 
 export function PreparationDetailView({
   batch,
@@ -91,7 +88,7 @@ export function PreparationDetailView({
             <Badge
               variant={batch.emailStatus === "sent" ? "emerald" : "outline"}
             >
-              Email: {EMAIL_STATUS_LABEL[batch.emailStatus]}
+              Email: {PROVIDER_BATCH_EMAIL_STATUS_LABELS[batch.emailStatus]}
             </Badge>
           ) : (
             <Badge variant="outline">Email: not sent</Badge>

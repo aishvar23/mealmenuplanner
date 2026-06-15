@@ -46,7 +46,9 @@ test.describe("Provider owner onboarding (MP-B-020)", () => {
 
     // Completion promotes draft → active, records the pointer, enters the shell.
     await page.waitForURL("**/provider/dashboard", { timeout: 30_000 });
-    await expect(page.getByText(/Dashboard coming soon/i)).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Dashboard" }),
+    ).toBeVisible();
 
     // Resume: revisiting the wizard for an already-active provider bounces to the
     // dashboard rather than re-running setup.
