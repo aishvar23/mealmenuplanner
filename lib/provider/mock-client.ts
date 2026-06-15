@@ -20,6 +20,7 @@ import {
   type CatalogItemDto,
   type CompleteMemberOnboardingRequest,
   type CreateCatalogItemRequest,
+  type CreateMenuDayInput,
   type CreateProviderInviteResult,
   type MemberDto,
   type MemberResponseDto,
@@ -48,6 +49,9 @@ const f = providerFixtures;
 // (the real server assigns one) — reusing a fixture id would collide React keys
 // when the UI lists several just-created items.
 let mockCatalogSeq = 0;
+
+// A monotonic id source so each mock-authored menu day gets a distinct id.
+let mockMenuDaySeq = 0;
 
 /** Pick the fixture provider matching an id, defaulting to provider A. */
 function providerFor(providerId: string): ProviderDto {
@@ -168,6 +172,24 @@ export const mockProviderClient: ProviderApiClient = {
   },
 
   // ── Menus ──
+  createMenuDay(
+    _providerId: string,
+    input: CreateMenuDayInput,
+  ): Promise<MenuDayDto> {
+    // Echo a freshly-authored DRAFT day from the input's date/cutoff/note over the
+    // canonical menu-day fixture so the builder UI sees its own header; the real
+    // server assigns ids and denormalizes the component tree off the catalog.
+    return Promise.resolve({
+      ...f.publishedMenuDay,
+      menuDayId: `mock-menu-day-${++mockMenuDaySeq}`,
+      status: "draft",
+      publishedAt: null,
+      lockedAt: null,
+      menuDate: input.menuDate,
+      cutoffAt: input.cutoffAt,
+      note: input.note ?? null,
+    });
+  },
   getMenuDay(): Promise<MenuDayDto> {
     return Promise.resolve(f.publishedMenuDay);
   },

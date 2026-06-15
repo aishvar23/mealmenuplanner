@@ -771,6 +771,279 @@ test.describe("Provider integration — menu publish (MP-A-121)", () => {
   });
 });
 
+test.describe("Provider integration — menu authoring (MP-A-121)", () => {
+  /** Insert catalog items for a provider via the service-role client; returns ids by name. */
+  async function seedCatalog(
+    admin: import("@supabase/supabase-js").SupabaseClient,
+    providerId: string,
+    rows: Array<{
+      name: string;
+      group?: string;
+      unit?: string;
+      qty?: number;
+      spice?: boolean;
+      salt?: boolean;
+      active?: boolean;
+    }>,
+  ): Promise<Record<string, string>> {
+    const ins = await admin
+      .from("provider_catalog_items")
+      .insert(
+        rows.map((r) => ({
+          provider_id: providerId,
+          name: r.name,
+          component_group: r.group ?? "main",
+          canonical_unit: r.unit ?? "g",
+          default_quantity: r.qty ?? 200,
+          supports_spice_level: r.spice ?? false,
+          supports_salt_level: r.salt ?? false,
+          is_active: r.active ?? true,
+        })),
+      )
+      .select("id, name");
+    if (ins.error || !ins.data) {
+      throw new Error(`E2E: seedCatalog failed: ${ins.error?.message}`);
+    }
+    return Object.fromEntries(ins.data.map((r) => [r.name, r.id as string]));
+  }
+
+  test("the owner authors a draft day; the tree denormalizes display fields off the catalog", async ({
+    providerTeam,
+  }) => {
+    const owner = await providerTeam.createUser("auth-owner");
+    const providerId = await providerTeam.createProvider(owner, {
+      name: "Authoring Kitchen",
+    });
+    const cat = await seedCatalog(providerTeam.admin, providerId, [
+      { name: "Paneer Masala", spice: true, salt: true },
+      { name: "Tofu Bhurji", spice: false, salt: false },
+    ]);
+
+    const ownerClient = await providerTeam.signInAs(owner);
+    const created = await ownerClient.rpc("create_provider_menu_day", {
+      p_provider_id: providerId,
+      p_payload: {
+        menuDate: "2030-03-15",
+        cutoffAt: "2030-03-15T10:00:00.000Z",
+        note: "Chef special",
+        components: [
+          {
+            componentGroup: "main",
+            defaultCatalogItemId: cat["Paneer Masala"],
+            isRequired: true,
+            alternativeCatalogItemIds: [cat["Tofu Bhurji"]],
+            customizationGroups: [
+              {
+                name: "Extra gravy",
+                customizationType: "quantity_increment",
+                includedInPrice: false,
+                minimumSelections: 0,
+                maximumSelections: 2,
+                options: [
+                  {
+                    code: "gravy",
+                    label: "Extra gravy",
+                    quantityDelta: 50,
+                    canonicalUnit: "g",
+                    maximumQuantity: 2,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    });
+    expect(created.error).toBeNull();
+    const menuDayId = created.data as string;
+    expect(typeof menuDayId).toBe("string");
+
+    // The day is a DRAFT (publishing is a separate step) with the authored metadata.
+    const day = await providerTeam.admin
+      .from("provider_menu_days")
+      .select("status, menu_date, note, provider_id, weekly_menu_id")
+      .eq("id", menuDayId)
+      .single();
+    expect(day.data?.status).toBe("draft");
+    expect(day.data?.menu_date).toBe("2030-03-15");
+    expect(day.data?.note).toBe("Chef special");
+    expect(day.data?.provider_id).toBe(providerId);
+
+    // Its weekly container exists and is a draft too.
+    const week = await providerTeam.admin
+      .from("provider_weekly_menus")
+      .select("status")
+      .eq("id", day.data?.weekly_menu_id as string)
+      .single();
+    expect(week.data?.status).toBe("draft");
+
+    // The component copied name/quantity/unit/spice-salt off the OWNER-PRIVATE catalog.
+    const comp = await providerTeam.admin
+      .from("provider_menu_components")
+      .select(
+        "default_item_name, default_quantity, canonical_unit, supports_spice_level, supports_salt_level, is_required",
+      )
+      .eq("menu_day_id", menuDayId)
+      .single();
+    expect(comp.data?.default_item_name).toBe("Paneer Masala");
+    expect(Number(comp.data?.default_quantity)).toBe(200);
+    expect(comp.data?.canonical_unit).toBe("g");
+    expect(comp.data?.supports_spice_level).toBe(true);
+    expect(comp.data?.supports_salt_level).toBe(true);
+    expect(comp.data?.is_required).toBe(true);
+
+    // The alternative copied its display name/quantity/unit off the catalog too.
+    const compRow = await providerTeam.admin
+      .from("provider_menu_components")
+      .select("id")
+      .eq("menu_day_id", menuDayId)
+      .single();
+    const alts = await providerTeam.admin
+      .from("provider_menu_alternatives")
+      .select("item_name, quantity, canonical_unit")
+      .eq("menu_component_id", compRow.data?.id as string);
+    expect(alts.data?.length).toBe(1);
+    expect(alts.data?.[0]?.item_name).toBe("Tofu Bhurji");
+    expect(Number(alts.data?.[0]?.quantity)).toBe(200);
+
+    // The customization group + its option were created with the authored bounds.
+    const grp = await providerTeam.admin
+      .from("provider_customization_groups")
+      .select("id, name, customization_type, maximum_selections")
+      .eq("menu_component_id", compRow.data?.id as string)
+      .single();
+    expect(grp.data?.name).toBe("Extra gravy");
+    expect(grp.data?.customization_type).toBe("quantity_increment");
+    expect(grp.data?.maximum_selections).toBe(2);
+    const opts = await providerTeam.admin
+      .from("provider_customization_options")
+      .select("code, label, quantity_delta")
+      .eq("customization_group_id", grp.data?.id as string);
+    expect(opts.data?.length).toBe(1);
+    expect(opts.data?.[0]?.code).toBe("gravy");
+    expect(Number(opts.data?.[0]?.quantity_delta)).toBe(50);
+  });
+
+  test("a non-owner cannot author a menu (MAOWN owner-gate)", async ({
+    providerTeam,
+  }) => {
+    const owner = await providerTeam.createUser("auth-deny-owner");
+    const providerId = await providerTeam.createProvider(owner, {
+      name: "Authoring Deny Kitchen",
+    });
+    const cat = await seedCatalog(providerTeam.admin, providerId, [
+      { name: "Paneer" },
+    ]);
+    const customer = await providerTeam.createUser("auth-deny-cust");
+    await providerTeam.addCustomer(providerId, customer, "approved");
+
+    const customerClient = await providerTeam.signInAs(customer);
+    const denied = await customerClient.rpc("create_provider_menu_day", {
+      p_provider_id: providerId,
+      p_payload: {
+        menuDate: "2030-03-16",
+        cutoffAt: "2030-03-16T10:00:00.000Z",
+        components: [
+          { componentGroup: "main", defaultCatalogItemId: cat["Paneer"] },
+        ],
+      },
+    });
+    expect(denied.error).not.toBeNull();
+    expect(denied.error?.code).toBe("MAOWN");
+
+    // No day was created.
+    const days = await providerTeam.admin
+      .from("provider_menu_days")
+      .select("id")
+      .eq("provider_id", providerId);
+    expect(days.data?.length).toBe(0);
+  });
+
+  test("authoring a component that references another provider's item is rejected (MAINC, atomic)", async ({
+    providerTeam,
+  }) => {
+    const ownerA = await providerTeam.createUser("auth-xprov-a");
+    const providerA = await providerTeam.createProvider(ownerA, {
+      name: "Authoring X-Prov A",
+    });
+    const ownerB = await providerTeam.createUser("auth-xprov-b");
+    const providerB = await providerTeam.createProvider(ownerB, {
+      name: "Authoring X-Prov B",
+    });
+    const catB = await seedCatalog(providerTeam.admin, providerB, [
+      { name: "B's Paneer" },
+    ]);
+
+    const ownerAClient = await providerTeam.signInAs(ownerA);
+    const denied = await ownerAClient.rpc("create_provider_menu_day", {
+      p_provider_id: providerA,
+      p_payload: {
+        menuDate: "2030-03-17",
+        cutoffAt: "2030-03-17T10:00:00.000Z",
+        components: [
+          // A cross-provider item id is not active-and-owned by provider A.
+          { componentGroup: "main", defaultCatalogItemId: catB["B's Paneer"] },
+        ],
+      },
+    });
+    expect(denied.error).not.toBeNull();
+    expect(denied.error?.code).toBe("MAINC");
+
+    // Atomic: no day (and no orphan weekly container) was left behind for provider A.
+    const days = await providerTeam.admin
+      .from("provider_menu_days")
+      .select("id")
+      .eq("provider_id", providerA);
+    expect(days.data?.length).toBe(0);
+    const weeks = await providerTeam.admin
+      .from("provider_weekly_menus")
+      .select("id")
+      .eq("provider_id", providerA);
+    expect(weeks.data?.length).toBe(0);
+  });
+
+  test("authoring a second active day for the same date is rejected (MADUP)", async ({
+    providerTeam,
+  }) => {
+    const owner = await providerTeam.createUser("auth-dup-owner");
+    const providerId = await providerTeam.createProvider(owner, {
+      name: "Authoring Dup Kitchen",
+    });
+    const cat = await seedCatalog(providerTeam.admin, providerId, [
+      { name: "Paneer" },
+    ]);
+    const ownerClient = await providerTeam.signInAs(owner);
+    const payload = {
+      menuDate: "2030-03-18",
+      cutoffAt: "2030-03-18T10:00:00.000Z",
+      components: [
+        { componentGroup: "main", defaultCatalogItemId: cat["Paneer"] },
+      ],
+    };
+
+    const first = await ownerClient.rpc("create_provider_menu_day", {
+      p_provider_id: providerId,
+      p_payload: payload,
+    });
+    expect(first.error).toBeNull();
+
+    const second = await ownerClient.rpc("create_provider_menu_day", {
+      p_provider_id: providerId,
+      p_payload: payload,
+    });
+    expect(second.error).not.toBeNull();
+    expect(second.error?.code).toBe("MADUP");
+
+    // Exactly one day exists for the date.
+    const days = await providerTeam.admin
+      .from("provider_menu_days")
+      .select("id")
+      .eq("provider_id", providerId)
+      .eq("menu_date", "2030-03-18");
+    expect(days.data?.length).toBe(1);
+  });
+});
+
 test.describe("Provider integration — membership invariant", () => {
   test("the one-live-membership partial-unique constraint blocks a second live row", async ({
     providerTeam,
