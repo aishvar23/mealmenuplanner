@@ -2,14 +2,17 @@ import { useState } from "react";
 import { Text, View } from "react-native";
 
 import {
+  addComponentDraft,
+  changeComponentDefault,
   eligibleAlternatives,
   isMenuBuilderCreatable,
   isMenuBuilderPublishable,
   localDateTimeToIso,
-  makeComponentDraft,
   menuBuilderIssues,
   menuBuilderStateToCreateInput,
+  patchComponentDraft,
   providerComponentGroupLabel,
+  removeComponentDraft,
   summarizeMenuIssues,
   type CatalogItemDto,
   type CreateMenuDayInput,
@@ -50,7 +53,6 @@ export function MenuBuilderForm({
   onSubmit: (input: CreateMenuDayInput) => void;
   onCancel: () => void;
 }) {
-  const [keySeq, setKeySeq] = useState(0);
   const [cutoffLocal, setCutoffLocal] = useState(defaultCutoffLocal);
   const [state, setState] = useState<MenuBuilderState>({
     menuDate: defaultMenuDate,
@@ -63,41 +65,25 @@ export function MenuBuilderForm({
   const creatable = isMenuBuilderCreatable(state);
   const publishable = isMenuBuilderPublishable(state, catalog, new Date(now));
 
+  // All component transitions go through the shared pure reducers (see
+  // menu-builder.ts) so web + mobile stay in lockstep and the new key is derived from
+  // the prior state — a rapid double "Add" can never mint a duplicate key.
   function patchComponent(key: string, next: Partial<MenuComponentDraft>) {
-    setState((prev) => ({
-      ...prev,
-      components: prev.components.map((c) =>
-        c.key === key ? { ...c, ...next } : c,
-      ),
-    }));
+    setState((prev) => patchComponentDraft(prev, key, next));
   }
 
   function addComponent() {
-    const first = catalog[0];
-    if (!first) return;
-    const key = `c${keySeq + 1}`;
-    setKeySeq((n) => n + 1);
-    setState((prev) => ({
-      ...prev,
-      components: [...prev.components, makeComponentDraft(first, key)],
-    }));
+    setState((prev) => addComponentDraft(prev, catalog));
   }
 
   function removeComponent(key: string) {
-    setState((prev) => ({
-      ...prev,
-      components: prev.components.filter((c) => c.key !== key),
-    }));
+    setState((prev) => removeComponentDraft(prev, key));
   }
 
   function changeDefault(key: string, catalogItemId: string) {
-    const item = catalog.find((c) => c.catalogItemId === catalogItemId);
-    if (!item) return;
-    patchComponent(key, {
-      defaultCatalogItemId: item.catalogItemId,
-      componentGroup: item.componentGroup,
-      alternativeCatalogItemIds: [],
-    });
+    setState((prev) =>
+      changeComponentDefault(prev, key, catalogItemId, catalog),
+    );
   }
 
   return (

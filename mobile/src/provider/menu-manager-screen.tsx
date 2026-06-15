@@ -65,8 +65,15 @@ export function MenuManagerScreen({ providerId }: { providerId: string }) {
   );
 
   async function onCreate(input: CreateMenuDayInput) {
-    await create.mutateAsync(input);
-    setBuilding(false);
+    // Mirror the web form's submit: keep the builder open on failure (the error is
+    // surfaced via `create.error` in the builder) and never let the rejection escape
+    // unhandled. Only close the builder once the draft is actually authored.
+    try {
+      await create.mutateAsync(input);
+      setBuilding(false);
+    } catch {
+      // Error shown inline via create.error; leave the builder open to retry.
+    }
   }
 
   return (

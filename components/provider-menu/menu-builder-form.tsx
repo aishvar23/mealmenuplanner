@@ -1,7 +1,7 @@
 "use client";
 
 import { Plus, Trash2 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,16 +10,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  addComponentDraft,
+  changeComponentDefault,
   eligibleAlternatives,
   isMenuBuilderCreatable,
   isMenuBuilderPublishable,
   localDateTimeToIso,
-  makeComponentDraft,
   menuBuilderIssues,
   menuBuilderStateToCreateInput,
+  patchComponentDraft,
   PROVIDER_COMPONENT_GROUP_OPTIONS,
   providerComponentGroupLabel,
+  removeComponentDraft,
   summarizeMenuIssues,
+  toggleComponentAlternative,
   type CatalogItemDto,
   type MenuBuilderState,
   type MenuComponentDraft,
@@ -67,9 +71,6 @@ export function MenuBuilderForm({
   onCreated: () => void;
   onCancel: () => void;
 }) {
-  const keySeq = useRef(0);
-  const newKey = () => `c${(keySeq.current += 1)}`;
-
   const [state, setState] = useState<MenuBuilderState>({
     menuDate: defaultMenuDate,
     cutoffAt: localDateTimeToIso(defaultCutoffLocal),
@@ -90,56 +91,29 @@ export function MenuBuilderForm({
     setState((prev) => ({ ...prev, ...next }));
   }
 
+  // All component transitions go through the shared pure reducers (see
+  // menu-builder.ts) so web + mobile stay in lockstep and key generation is render-
+  // timing-safe.
   function patchComponent(key: string, next: Partial<MenuComponentDraft>) {
-    setState((prev) => ({
-      ...prev,
-      components: prev.components.map((c) =>
-        c.key === key ? { ...c, ...next } : c,
-      ),
-    }));
+    setState((prev) => patchComponentDraft(prev, key, next));
   }
 
   function addComponent() {
-    const first = catalog[0];
-    if (!first) return;
-    setState((prev) => ({
-      ...prev,
-      components: [...prev.components, makeComponentDraft(first, newKey())],
-    }));
+    setState((prev) => addComponentDraft(prev, catalog));
   }
 
   function removeComponent(key: string) {
-    setState((prev) => ({
-      ...prev,
-      components: prev.components.filter((c) => c.key !== key),
-    }));
+    setState((prev) => removeComponentDraft(prev, key));
   }
 
   function changeDefault(key: string, catalogItemId: string) {
-    const item = catalog.find((c) => c.catalogItemId === catalogItemId);
-    if (!item) return;
-    // Re-deriving the group drops swaps that no longer belong to the new group.
-    patchComponent(key, {
-      defaultCatalogItemId: item.catalogItemId,
-      componentGroup: item.componentGroup,
-      alternativeCatalogItemIds: [],
-    });
+    setState((prev) =>
+      changeComponentDefault(prev, key, catalogItemId, catalog),
+    );
   }
 
   function toggleAlternative(key: string, altId: string) {
-    setState((prev) => ({
-      ...prev,
-      components: prev.components.map((c) => {
-        if (c.key !== key) return c;
-        const has = c.alternativeCatalogItemIds.includes(altId);
-        return {
-          ...c,
-          alternativeCatalogItemIds: has
-            ? c.alternativeCatalogItemIds.filter((id) => id !== altId)
-            : [...c.alternativeCatalogItemIds, altId],
-        };
-      }),
-    }));
+    setState((prev) => toggleComponentAlternative(prev, key, altId));
   }
 
   async function submit() {

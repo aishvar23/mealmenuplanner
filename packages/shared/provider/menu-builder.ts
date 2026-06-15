@@ -83,6 +83,120 @@ export function makeComponentDraft(
   };
 }
 
+// ──────────────────── Component transitions (pure reducers) ────────────────────
+// The web (MP-B-030) and mobile (MP-C-030) builders share NO UI code, but the
+// state transitions over `MenuBuilderState` are identical model logic — so they
+// live here, pure, and both forms call them inside their `setState(prev => …)`
+// updater. Deriving the new key from `prev` (not a render-closure counter) makes a
+// rapid double-add mint distinct keys regardless of render timing (review #2/#3).
+
+/**
+ * The next unique component key for `components` — `c<n>` where `n` is one past the
+ * largest existing `c<digits>` suffix (0 when there are none). Pure in its argument,
+ * so calling it inside a functional `setState` updater guarantees uniqueness even
+ * across two adds that batch before a render flush, and never collides with a key
+ * left behind by an earlier remove.
+ */
+export function nextComponentKey(
+  components: readonly MenuComponentDraft[],
+): string {
+  let max = 0;
+  for (const component of components) {
+    const match = /^c(\d+)$/.exec(component.key);
+    if (match) {
+      const n = Number(match[1]);
+      if (n > max) max = n;
+    }
+  }
+  return `c${max + 1}`;
+}
+
+/**
+ * Append a fresh component draft built from the first catalog item, with a key unique
+ * within the current components. Returns the state unchanged when the catalog is empty
+ * (nothing to default the slot to).
+ */
+export function addComponentDraft(
+  state: MenuBuilderState,
+  catalog: readonly CatalogItemDto[],
+): MenuBuilderState {
+  const first = catalog[0];
+  if (!first) return state;
+  return {
+    ...state,
+    components: [
+      ...state.components,
+      makeComponentDraft(first, nextComponentKey(state.components)),
+    ],
+  };
+}
+
+/** Drop the component with `key` (no-op if it isn't present). */
+export function removeComponentDraft(
+  state: MenuBuilderState,
+  key: string,
+): MenuBuilderState {
+  return {
+    ...state,
+    components: state.components.filter((component) => component.key !== key),
+  };
+}
+
+/** Shallow-merge `patch` into the component with `key` (no-op if it isn't present). */
+export function patchComponentDraft(
+  state: MenuBuilderState,
+  key: string,
+  patch: Partial<MenuComponentDraft>,
+): MenuBuilderState {
+  return {
+    ...state,
+    components: state.components.map((component) =>
+      component.key === key ? { ...component, ...patch } : component,
+    ),
+  };
+}
+
+/**
+ * Re-point a component's default dish to `catalogItemId`. Re-derives the slot's group
+ * from the new item and clears the swaps (they no longer belong to the new group).
+ * Returns the state unchanged if the id isn't an item in `catalog`.
+ */
+export function changeComponentDefault(
+  state: MenuBuilderState,
+  key: string,
+  catalogItemId: string,
+  catalog: readonly CatalogItemDto[],
+): MenuBuilderState {
+  const item = catalog.find((c) => c.catalogItemId === catalogItemId);
+  if (!item) return state;
+  return patchComponentDraft(state, key, {
+    defaultCatalogItemId: item.catalogItemId,
+    componentGroup: item.componentGroup,
+    alternativeCatalogItemIds: [],
+  });
+}
+
+/** Toggle `altId` in a component's alternative set (add if absent, remove if present). */
+export function toggleComponentAlternative(
+  state: MenuBuilderState,
+  key: string,
+  altId: string,
+): MenuBuilderState {
+  return {
+    ...state,
+    components: state.components.map((component) => {
+      if (component.key !== key) return component;
+      const has = component.alternativeCatalogItemIds.includes(altId);
+      return {
+        ...component,
+        alternativeCatalogItemIds: has
+          ? component.alternativeCatalogItemIds.filter((id) => id !== altId)
+          : [...component.alternativeCatalogItemIds, altId],
+      };
+    }),
+  };
+}
+
 /** Index a catalog list by id for O(1) denormalization lookups. */
 export function catalogById(
   catalog: readonly CatalogItemDto[],

@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import type { CatalogItemDto } from "./dtos";
 import { providerFixtures as f } from "./index";
 import {
+  addComponentDraft,
+  changeComponentDefault,
   defaultCutoffIso,
   eligibleAlternatives,
   emptyMenuBuilderState,
@@ -13,9 +15,13 @@ import {
   makeComponentDraft,
   menuBuilderIssues,
   menuBuilderStateToCreateInput,
+  nextComponentKey,
+  patchComponentDraft,
   previewMenuDayFromBuilder,
   providerTodayDate,
+  removeComponentDraft,
   summarizeMenuIssues,
+  toggleComponentAlternative,
   type MenuBuilderState,
 } from "./menu-builder";
 
@@ -65,6 +71,133 @@ describe("makeComponentDraft", () => {
       isRequired: true,
       alternativeCatalogItemIds: [],
       customizationGroups: [],
+    });
+  });
+});
+
+describe("component transitions (pure reducers)", () => {
+  const catalog = [rajma, chana, roti];
+
+  describe("nextComponentKey", () => {
+    it("is c1 for an empty list and one past the largest c<n> suffix", () => {
+      expect(nextComponentKey([])).toBe("c1");
+      expect(
+        nextComponentKey([
+          makeComponentDraft(rajma, "c1"),
+          makeComponentDraft(chana, "c3"),
+        ]),
+      ).toBe("c4");
+    });
+
+    it("ignores non-`c<n>` keys and never reuses a removed key", () => {
+      // c2 was removed, leaving c1 + c5 — the next key is c6, NOT a reused c2/c3.
+      expect(
+        nextComponentKey([
+          makeComponentDraft(rajma, "c1"),
+          makeComponentDraft(chana, "k-dal"),
+          makeComponentDraft(roti, "c5"),
+        ]),
+      ).toBe("c6");
+    });
+  });
+
+  describe("addComponentDraft", () => {
+    it("appends a draft from the first catalog item with a c1 key", () => {
+      const s = addComponentDraft(
+        emptyMenuBuilderState("2026-06-15", FUTURE_CUTOFF),
+        catalog,
+      );
+      expect(s.components).toHaveLength(1);
+      expect(s.components[0]).toMatchObject({
+        key: "c1",
+        defaultCatalogItemId: rajma.catalogItemId,
+        componentGroup: "dal_or_legume",
+      });
+    });
+
+    it("returns the state unchanged when the catalog is empty", () => {
+      const empty = emptyMenuBuilderState("2026-06-15", FUTURE_CUTOFF);
+      expect(addComponentDraft(empty, [])).toBe(empty);
+    });
+
+    it("mints distinct keys when applied repeatedly to its own output (rapid add)", () => {
+      // Simulates two `setState(prev => addComponentDraft(prev, catalog))` updaters
+      // batching before a render flush: deriving the key from `prev` keeps them unique
+      // even though no render-closure counter advanced between the two calls.
+      let s = emptyMenuBuilderState("2026-06-15", FUTURE_CUTOFF);
+      s = addComponentDraft(s, catalog);
+      s = addComponentDraft(s, catalog);
+      s = addComponentDraft(s, catalog);
+      const keys = s.components.map((c) => c.key);
+      expect(keys).toEqual(["c1", "c2", "c3"]);
+      expect(new Set(keys).size).toBe(3);
+    });
+  });
+
+  describe("removeComponentDraft", () => {
+    it("drops the matching component and is a no-op for an unknown key", () => {
+      const s = publishableState();
+      const removed = removeComponentDraft(s, "k-dal");
+      expect(removed.components.map((c) => c.key)).toEqual(["k-bread"]);
+      expect(removeComponentDraft(s, "nope").components).toHaveLength(2);
+    });
+  });
+
+  describe("patchComponentDraft", () => {
+    it("shallow-merges into the matching component only", () => {
+      const s = publishableState();
+      const patched = patchComponentDraft(s, "k-dal", { isRequired: false });
+      expect(patched.components[0]!.isRequired).toBe(false);
+      expect(patched.components[1]!.isRequired).toBe(true);
+      // The other fields of the patched component survive the merge.
+      expect(patched.components[0]!.defaultCatalogItemId).toBe(
+        rajma.catalogItemId,
+      );
+    });
+  });
+
+  describe("changeComponentDefault", () => {
+    it("re-points the default, re-derives the group, and clears swaps", () => {
+      const s = publishableState();
+      // k-dal defaults to Rajma with a Chana swap; switch it to Roti (a bread).
+      const changed = changeComponentDefault(s, "k-dal", roti.catalogItemId, [
+        rajma,
+        chana,
+        roti,
+      ]);
+      expect(changed.components[0]!.defaultCatalogItemId).toBe(
+        roti.catalogItemId,
+      );
+      expect(changed.components[0]!.componentGroup).toBe("bread");
+      expect(changed.components[0]!.alternativeCatalogItemIds).toEqual([]);
+    });
+
+    it("returns the state unchanged for an id not in the catalog", () => {
+      const s = publishableState();
+      expect(changeComponentDefault(s, "k-dal", "ghost-id", catalog)).toBe(s);
+    });
+  });
+
+  describe("toggleComponentAlternative", () => {
+    it("adds an absent alternative and removes a present one", () => {
+      const base = {
+        ...emptyMenuBuilderState("2026-06-15", FUTURE_CUTOFF),
+        components: [makeComponentDraft(rajma, "k-dal")],
+      };
+      const added = toggleComponentAlternative(
+        base,
+        "k-dal",
+        chana.catalogItemId,
+      );
+      expect(added.components[0]!.alternativeCatalogItemIds).toEqual([
+        chana.catalogItemId,
+      ]);
+      const removed = toggleComponentAlternative(
+        added,
+        "k-dal",
+        chana.catalogItemId,
+      );
+      expect(removed.components[0]!.alternativeCatalogItemIds).toEqual([]);
     });
   });
 });
