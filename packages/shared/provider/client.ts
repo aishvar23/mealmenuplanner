@@ -24,6 +24,7 @@ import type {
   CatalogItemDto,
   CompleteMemberOnboardingRequest,
   CreateCatalogItemRequest,
+  CreateMenuDayInput,
   CreateProviderInviteRequest,
   CreateProviderInviteResult,
   MemberDto,
@@ -139,6 +140,13 @@ export interface ProviderApiClient {
   ): Promise<MyProviderMembershipDto>;
 
   // ── Menus ──
+  /** `POST /api/providers/{providerId}/menus` — author a new DRAFT menu day with its
+   * full component tree (owner). The server denormalizes display fields off the
+   * owner-private catalog; returns the created (draft) `MenuDayDto`. */
+  createMenuDay(
+    providerId: string,
+    input: CreateMenuDayInput,
+  ): Promise<MenuDayDto>;
   /** `GET /api/provider-menu-days/{menuDayId}`. */
   getMenuDay(menuDayId: string): Promise<MenuDayDto>;
   /** `GET /api/providers/{providerId}/today-menu` — null when none is published. */

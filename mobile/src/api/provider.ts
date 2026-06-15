@@ -3,6 +3,7 @@ import type {
   CatalogItemDto,
   CompleteMemberOnboardingRequest,
   CreateCatalogItemRequest,
+  CreateMenuDayInput,
   CreateProviderInviteRequest,
   CreateProviderInviteResult,
   CreateProviderSuggestionRequest,
@@ -176,6 +177,15 @@ export const providerApiClient: ProviderApiClient = {
   },
 
   // ── Menus ──
+  createMenuDay(
+    providerId: string,
+    input: CreateMenuDayInput,
+  ): Promise<MenuDayDto> {
+    return apiRequest<MenuDayDto>(`${providers}/${providerId}/menus`, {
+      method: "POST",
+      body: input,
+    });
+  },
   getMenuDay(menuDayId: string): Promise<MenuDayDto> {
     return apiRequest<MenuDayDto>(menuDay(menuDayId));
   },

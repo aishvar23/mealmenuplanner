@@ -8,6 +8,7 @@
 import type { ProviderSummaryEmailResultDto } from "./dtos";
 import type {
   ProviderComponentGroup,
+  ProviderCustomizationType,
   ProviderMembershipRole,
   ProviderMembershipStatus,
   ProviderMenuStatus,
@@ -77,6 +78,28 @@ export const PROVIDER_COMPONENT_GROUP_OPTIONS: {
 /** Just the component-group values, in display order (server validation allow-list). */
 export const PROVIDER_COMPONENT_GROUPS: readonly ProviderComponentGroup[] =
   PROVIDER_COMPONENT_GROUP_OPTIONS.map((o) => o.value);
+
+/**
+ * The customization-group types a menu component can offer, with display labels —
+ * the single source for the web + mobile menu-builder picker AND the server-side
+ * menu-authoring validation allow-list (MP-A-121), so the set never drifts. The
+ * cross-field bounds each type implies (single_select/boolean ⇒ exactly one
+ * selection; quantity_increment ⇒ a finite max) are the DB CHECKs (pmp_4).
+ */
+export const PROVIDER_CUSTOMIZATION_TYPE_OPTIONS: {
+  value: ProviderCustomizationType;
+  label: string;
+}[] = [
+  { value: "single_select", label: "Single select" },
+  { value: "multi_select", label: "Multi select" },
+  { value: "quantity_increment", label: "Quantity add-on" },
+  { value: "boolean", label: "Yes / no" },
+  { value: "text_note", label: "Free text" },
+];
+
+/** Just the customization-type values (server validation allow-list). */
+export const PROVIDER_CUSTOMIZATION_TYPES: readonly ProviderCustomizationType[] =
+  PROVIDER_CUSTOMIZATION_TYPE_OPTIONS.map((o) => o.value);
 
 /** Display label for a component group (single lookup; falls back to the raw value). */
 export function providerComponentGroupLabel(

@@ -238,6 +238,65 @@ export interface MenuDayDto {
   components: MenuComponentDto[];
 }
 
+/**
+ * One customization group in a `CreateMenuDayInput` component (MP-A-121 authoring,
+ * § 5/§ 8). The builder authors the group + its options; the cross-field bounds
+ * (single_select/boolean ⇒ max 1, `quantity_increment` ⇒ finite max, required ⇒
+ * min ≥ 1) are the DB CHECKs (pmp_4) the writer relies on. Optional flags default
+ * server-side (`includedInPrice` true, `isRequired` false, `minimumSelections` 0).
+ */
+export interface CreateMenuCustomizationGroupInput {
+  name: string;
+  customizationType: ProviderCustomizationType;
+  includedInPrice?: boolean;
+  isRequired?: boolean;
+  minimumSelections?: number;
+  maximumSelections?: number | null;
+  sortOrder?: number;
+  options: Array<{
+    code: string;
+    label: string;
+    quantityDelta?: number | null;
+    canonicalUnit?: string | null;
+    externalPriceLabel?: string | null;
+    minimumQuantity?: number | null;
+    maximumQuantity?: number | null;
+    sortOrder?: number;
+  }>;
+}
+
+/** One component slot in a `CreateMenuDayInput` (MP-A-121 authoring, § 5/§ 8). */
+export interface CreateMenuComponentInput {
+  componentGroup: ProviderComponentGroup;
+  /** The default catalog item id; its name/quantity/unit/spice-salt flags are
+   * DENORMALIZED off the catalog by the server at authoring time (§ 4, ADO #39). */
+  defaultCatalogItemId: string;
+  isRequired?: boolean;
+  sortOrder?: number;
+  /** Catalog item ids offered as swaps; each one's name/quantity/unit is likewise
+   * denormalized off the catalog server-side. */
+  alternativeCatalogItemIds?: string[];
+  customizationGroups?: CreateMenuCustomizationGroupInput[];
+}
+
+/**
+ * `POST /api/providers/{providerId}/menus` body — author a new DRAFT menu day with
+ * its full component tree (MP-A-121, contract 03 § 5/§ 8; UC-MENU-001/002). The
+ * builder sends only the catalog item IDS + structure; the server DERIVES every
+ * display field (name/quantity/unit/spice-salt) from the OWNER-PRIVATE catalog at
+ * authoring time, so the catalog stays owner-private while a customer later reads
+ * the published menu without catalog access. `providerId` comes from the route,
+ * never the client. The day is created `draft` — publishing is a later POST
+ * (`.../publish`). Creating a second active day for an existing date is a
+ * `409 { reason: "menu_day_exists" }` (edits route to the revision path).
+ */
+export interface CreateMenuDayInput {
+  menuDate: string;
+  cutoffAt: string;
+  note?: string | null;
+  components: CreateMenuComponentInput[];
+}
+
 // ─────────────────────────── Member / response ───────────────────────────
 
 /** The caller's response to a menu day (`responseId` null before first save; § 4). */

@@ -2804,6 +2804,15 @@ export type Database = {
         Args: { p_menu_day_id: string };
         Returns: string | null;
       };
+      create_provider_menu_day: {
+        // MP-A-121 authoring writer (pmp_19): owner-gates, then creates a DRAFT menu
+        // day + its full component tree from one structured builder payload,
+        // denormalizing name/quantity/unit/spice-salt off the owner-private catalog.
+        // Returns the new menu day's id; the service reads it back via getMenuDay.
+        // Custom SQLSTATEs MAOWN/MADUP/MAINC are mapped in menu-authoring.ts.
+        Args: { p_provider_id: string; p_payload: Json };
+        Returns: string;
+      };
       publish_provider_menu_day: {
         // MP-A-121 fresh-publish writer (pmp_18): owner-gates + draft-gates, enforces
         // DB-context menu completeness (active+owned catalog refs) AND the future-cutoff
