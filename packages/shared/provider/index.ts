@@ -16,6 +16,7 @@ export * from "./errors";
 export * from "./client";
 export * from "./http";
 export * from "./onboarding-form";
+export * from "./menu-completeness";
 export * from "./response-form";
 export * from "./preparation-order";
 export * from "./csv";
