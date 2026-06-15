@@ -92,6 +92,16 @@ describe("validateMenuCompleteness (contract 03 § 5)", () => {
     expect(rules(menu)).toContain("missing_unit");
   });
 
+  it("flags an alternative with a blank unit (missing AND inconsistent, not skipped)", () => {
+    const menu = clone(f.publishedMenuDay);
+    dalOf(menu).alternatives[0]!.canonicalUnit = "   "; // component is "oz"
+    const ruleSet = rules(menu);
+    // A blank denormalized alt unit is an unfilled slot...
+    expect(ruleSet).toContain("missing_unit");
+    // ...and the unit-consistency check is no longer skipped for blank alt units.
+    expect(ruleSet).toContain("inconsistent_unit");
+  });
+
   it("flags an unbounded quantity_increment group (null group max)", () => {
     const menu = clone(f.publishedMenuDay);
     incrementGroupOf(menu).maximumSelections = null;

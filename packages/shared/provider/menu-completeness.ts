@@ -163,11 +163,23 @@ function checkComponent(
         ...extras,
       });
     }
+    // Every alternative must declare a unit (§ 5) — a blank denormalized unit is an
+    // unfilled slot, mirroring the component-level missing_unit check above.
+    if (isBlank(alt.canonicalUnit)) {
+      issues.push({
+        field: `${path}.alternatives[${ai}].canonicalUnit`,
+        rule: "missing_unit",
+        message: "An alternative must declare a unit.",
+        alternativeId: alt.alternativeId,
+        ...extras,
+      });
+    }
     // Units must be consistent within a component (§ 5) so a swap never changes the
-    // unit the aggregate roster sums in.
+    // unit the aggregate roster sums in. A blank alt unit is still inconsistent with a
+    // concrete component unit, so the check is NOT skipped for blank units — such an
+    // alternative is reported on both axes (missing + inconsistent).
     if (
       !isBlank(component.canonicalUnit) &&
-      !isBlank(alt.canonicalUnit) &&
       alt.canonicalUnit !== component.canonicalUnit
     ) {
       issues.push({
