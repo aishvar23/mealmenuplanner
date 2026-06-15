@@ -44,10 +44,13 @@ describe("componentChoices", () => {
     expect(choices).toHaveLength(2);
     expect(choices[0]).toMatchObject({
       catalogItemId: dal.defaultCatalogItemId,
+      // Denormalized dish name carried onto each choice (ADO #39).
+      itemName: dal.defaultItemName,
       isDefault: true,
     });
     expect(choices[1]).toMatchObject({
       catalogItemId: dal.alternatives[0]!.catalogItemId,
+      itemName: dal.alternatives[0]!.itemName,
       isDefault: false,
     });
   });

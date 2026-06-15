@@ -49,12 +49,14 @@ test.describe("Provider member response (MP-B-041)", () => {
     await expect(page.getByText("Dal / legume")).toBeVisible();
     await expect(page.getByText("Bread")).toBeVisible();
     await expect(page.getByTestId("cutoff-countdown")).toBeVisible();
+    // Choices are labelled by dish NAME, not "Default"/"Option N" (ADO #39):
+    // the seeded dal slot offers Rajma (default) and Chana (alternative).
+    await expect(
+      page.getByRole("radio", { name: /Rajma/ }).first(),
+    ).toBeVisible();
 
-    // Swap the dal to its alternative (the second choice chip), then confirm.
-    await page
-      .getByRole("radio", { name: /Option 1/ })
-      .first()
-      .click();
+    // Swap the dal to its Chana alternative (named choice chip), then confirm.
+    await page.getByRole("radio", { name: /Chana/ }).first().click();
     await page.getByRole("button", { name: "Confirm order" }).click();
 
     // The status flips to confirmed (badge + notice), proving the save+confirm

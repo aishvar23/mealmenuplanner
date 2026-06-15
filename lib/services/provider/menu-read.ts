@@ -33,9 +33,10 @@ import { mapReadError, numOrNull, type SupabaseClient } from "./read-utils";
  * malformed id short-circuits to the same 404 before any round trip (avoids a
  * `22P02` cast error surfacing as a 500).
  *
- * The component tree carries spice/salt affordances DENORMALIZED onto the
- * component (migration header), so a customer reads a menu WITHOUT any access to
- * the owner-private catalog — this projection never embeds `provider_catalog_items`.
+ * The component tree carries the dish NAME and spice/salt affordances DENORMALIZED
+ * onto the component (migrations pmp_4 + pmp_17), so a customer reads a menu — dish
+ * names included — WITHOUT any access to the owner-private catalog: this projection
+ * never embeds `provider_catalog_items`.
  * Route handlers stay thin: parse, call one of these, serialize. `numeric` columns
  * arrive as strings via PostgREST and are coerced to numbers here at the boundary.
  */
@@ -44,9 +45,9 @@ import { mapReadError, numOrNull, type SupabaseClient } from "./read-utils";
 const MENU_DAY_SELECT: string = `
   id, provider_id, weekly_menu_id, menu_date, cutoff_at, status, note, published_at, locked_at,
   components:provider_menu_components(
-    id, component_group, default_catalog_item_id, default_quantity, canonical_unit,
+    id, component_group, default_catalog_item_id, default_item_name, default_quantity, canonical_unit,
     is_required, supports_spice_level, supports_salt_level, sort_order,
-    alternatives:provider_menu_alternatives(id, catalog_item_id, quantity, canonical_unit, is_active),
+    alternatives:provider_menu_alternatives(id, catalog_item_id, item_name, quantity, canonical_unit, is_active),
     customization_groups:provider_customization_groups(
       id, name, customization_type, included_in_price, is_required,
       minimum_selections, maximum_selections, sort_order,
@@ -85,6 +86,7 @@ interface RawGroup {
 interface RawAlternative {
   id: string;
   catalog_item_id: string;
+  item_name: string;
   quantity: number | string;
   canonical_unit: string;
   is_active: boolean;
@@ -93,6 +95,7 @@ interface RawComponent {
   id: string;
   component_group: Database["public"]["Enums"]["provider_component_group"];
   default_catalog_item_id: string;
+  default_item_name: string;
   default_quantity: number | string;
   canonical_unit: string;
   is_required: boolean;
@@ -152,6 +155,7 @@ function toMenuComponentDto(component: RawComponent): MenuComponentDto {
     menuComponentId: component.id,
     componentGroup: component.component_group,
     defaultCatalogItemId: component.default_catalog_item_id,
+    defaultItemName: component.default_item_name,
     defaultQuantity: Number(component.default_quantity),
     canonicalUnit: component.canonical_unit,
     isRequired: component.is_required,
@@ -164,6 +168,7 @@ function toMenuComponentDto(component: RawComponent): MenuComponentDto {
       .map((alternative) => ({
         alternativeId: alternative.id,
         catalogItemId: alternative.catalog_item_id,
+        itemName: alternative.item_name,
         quantity: Number(alternative.quantity),
         canonicalUnit: alternative.canonical_unit,
       })),

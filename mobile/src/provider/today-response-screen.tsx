@@ -398,13 +398,14 @@ function ComponentCard({
         ) : null}
       </Text>
 
+      {/* Choices labelled by dish name (ADO #39). */}
       {choices.length > 1 ? (
         <SelectChips
           mode="single"
           disabled={readOnly}
-          options={choices.map((c, i) => ({
+          options={choices.map((c) => ({
             value: c.catalogItemId,
-            label: `${c.isDefault ? "Default" : `Option ${i}`} · ${c.quantity} ${c.canonicalUnit}`,
+            label: `${c.itemName} · ${c.quantity} ${c.canonicalUnit}${c.isDefault ? " · Default" : ""}`,
           }))}
           selected={[selection.selectedCatalogItemId]}
           onChange={(next) => {
@@ -414,7 +415,8 @@ function ComponentCard({
         />
       ) : (
         <Text className="text-sm text-gray-500">
-          {choices[0]!.quantity} {choices[0]!.canonicalUnit}
+          {choices[0]!.itemName} · {choices[0]!.quantity}{" "}
+          {choices[0]!.canonicalUnit}
         </Text>
       )}
 

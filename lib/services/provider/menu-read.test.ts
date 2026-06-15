@@ -33,6 +33,7 @@ const FULL_ROW = {
       id: "c2",
       component_group: "rice",
       default_catalog_item_id: "item-rice",
+      default_item_name: "Jeera Rice",
       default_quantity: "8",
       canonical_unit: "oz",
       is_required: true,
@@ -46,6 +47,7 @@ const FULL_ROW = {
       id: "c1",
       component_group: "dal_or_legume",
       default_catalog_item_id: "item-dal",
+      default_item_name: "Rajma",
       default_quantity: "16",
       canonical_unit: "oz",
       is_required: true,
@@ -56,6 +58,7 @@ const FULL_ROW = {
         {
           id: "alt-active",
           catalog_item_id: "item-rajma",
+          item_name: "Rajma Alt",
           quantity: "16",
           canonical_unit: "oz",
           is_active: true,
@@ -63,6 +66,7 @@ const FULL_ROW = {
         {
           id: "alt-archived",
           catalog_item_id: "item-old",
+          item_name: "Old Item",
           quantity: "16",
           canonical_unit: "oz",
           is_active: false,
@@ -176,11 +180,14 @@ describe("getMenuDay", () => {
     const dal = dto.components[0]!;
     expect(dal.defaultQuantity).toBe(16); // numeric string coerced
     expect(dal.supportsSpiceLevel).toBe(true);
+    // Denormalized dish name surfaced on the component (ADO #39).
+    expect(dal.defaultItemName).toBe("Rajma");
     // Archived alternative dropped; active one mapped + numeric coerced.
     expect(dal.alternatives).toEqual([
       {
         alternativeId: "alt-active",
         catalogItemId: "item-rajma",
+        itemName: "Rajma Alt",
         quantity: 16,
         canonicalUnit: "oz",
       },
