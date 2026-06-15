@@ -30,6 +30,7 @@ import type {
   MemberResponseDto,
   MenuDayDto,
   MyProviderMembershipDto,
+  ProviderDashboardDto,
   ProviderBatchDetailDto,
   ProviderBatchRevisionDto,
   ProviderBatchSummaryDto,
@@ -76,6 +77,10 @@ export interface ProviderApiClient {
   // ── Discovery / provider ──
   /** `GET /api/providers` — providers the caller belongs to. */
   listProviders(): Promise<ProviderSummaryDto[]>;
+  /** `GET /api/providers/{providerId}/dashboard` — the owner's day-at-a-glance
+   * summary (today's menu state + cutoff, today's batch census + email status). Owner
+   * only; a non-owner is existence-hidden (MP-B-060, § 13.2). */
+  getDashboard(providerId: string): Promise<ProviderDashboardDto>;
   /** `GET /api/providers/{providerId}`. */
   getProvider(providerId: string): Promise<ProviderDto>;
   /** `POST /api/providers` — create a draft org (caller becomes owner). */

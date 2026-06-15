@@ -30,6 +30,7 @@ import {
   type ProviderBatchRevisionDto,
   type ProviderBatchSummaryDto,
   type ProviderCreateInput,
+  type ProviderDashboardDto,
   type ProviderDto,
   type ProviderInvitePreviewDto,
   type ProviderOverrideResultDto,
@@ -65,6 +66,9 @@ export const mockProviderClient: ProviderApiClient = {
   },
   getProvider(providerId: string): Promise<ProviderDto> {
     return Promise.resolve(providerFor(providerId));
+  },
+  getDashboard(): Promise<ProviderDashboardDto> {
+    return Promise.resolve(f.dashboard);
   },
   createProvider(input: ProviderCreateInput): Promise<ProviderDto> {
     return Promise.resolve({

@@ -10,6 +10,7 @@ import type {
   ProviderComponentGroup,
   ProviderMembershipRole,
   ProviderMembershipStatus,
+  ProviderMenuStatus,
   ProviderResponseStatus,
   ProviderSaltLevel,
   ProviderSpiceLevel,
@@ -175,6 +176,71 @@ export const PROVIDER_RESPONSE_STATUS_BADGE_VARIANT: Record<
   locked: "neutral",
   provider_overridden: "marigold",
 };
+
+/**
+ * How a menu day's status reads on the owner dashboard (MP-B-060) — the single source
+ * so the web + mobile dashboards label the day's state identically. `locked` reads as
+ * "Locked" (cutoff has passed; responses are closed), distinct from `published` (open).
+ */
+export const PROVIDER_MENU_STATUS_LABELS: Record<ProviderMenuStatus, string> = {
+  draft: "Draft",
+  published: "Published",
+  locked: "Locked",
+  archived: "Archived",
+  cancelled: "Cancelled",
+};
+
+/** Display label for a menu-day status (falls back to the raw value). */
+export function providerMenuStatusLabel(status: ProviderMenuStatus): string {
+  return PROVIDER_MENU_STATUS_LABELS[status] ?? status;
+}
+
+/**
+ * The semantic badge variant for each menu-day status — reuses the Forest & Ember
+ * token set (`emerald` live/published, `marigold` draft attention, `ember` cancelled,
+ * `neutral` idle) so the web Badge and the mobile status colour stay in lockstep and no
+ * status falls through to neutral silently.
+ */
+export const PROVIDER_MENU_STATUS_BADGE_VARIANT: Record<
+  ProviderMenuStatus,
+  ProviderResponseBadgeVariant
+> = {
+  draft: "marigold",
+  published: "emerald",
+  locked: "neutral",
+  archived: "neutral",
+  cancelled: "ember",
+};
+
+/**
+ * The owner dashboard's cutoff countdown (MP-B-060) — pure so the web and mobile
+ * dashboards render the same "time remaining" wording from the cutoff timestamp and a
+ * caller-supplied `now` (epoch ms; the screens pass `Date.now()` and re-tick). Returns
+ * whether cutoff has passed plus a short human label. At most two units (days+hours, or
+ * hours+minutes) so it reads at a glance; under a day always shows minutes so "0h" never
+ * stands alone. A malformed timestamp degrades to a neutral dash rather than throwing.
+ */
+export function formatCutoffCountdown(
+  cutoffAtIso: string,
+  nowMs: number,
+): { passed: boolean; label: string } {
+  const cutoffMs = new Date(cutoffAtIso).getTime();
+  if (!Number.isFinite(cutoffMs)) return { passed: false, label: "—" };
+  const diffMs = cutoffMs - nowMs;
+  if (diffMs <= 0) return { passed: true, label: "Cutoff passed" };
+
+  const totalMinutes = Math.floor(diffMs / 60_000);
+  const days = Math.floor(totalMinutes / (60 * 24));
+  const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+  const minutes = totalMinutes % 60;
+
+  const parts: string[] = [];
+  if (days > 0) parts.push(`${days}d`);
+  if (hours > 0) parts.push(`${hours}h`);
+  // Show minutes only when we're under a day (so the label stays to two units).
+  if (days === 0) parts.push(`${minutes}m`);
+  return { passed: false, label: `${parts.join(" ")} until cutoff` };
+}
 
 /**
  * The caller's standing with a provider as a short, lowercase noun phrase:

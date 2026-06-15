@@ -394,6 +394,28 @@ export interface ProviderBatchSummaryDto {
   totals: BatchDto["totals"];
 }
 
+/**
+ * `GET /api/providers/{providerId}/dashboard` response (MP-B-060, spec §13.2) — the
+ * owner's day-at-a-glance summary, composed server-side from one read so the web +
+ * mobile dashboards render identically. `today` is the menu day for today in the
+ * provider's timezone (state + cutoff), or `null` when none is published; `batch` is
+ * today's CURRENT preparation batch (the post-cutoff census + email status), or `null`
+ * before cutoff has processed. Owner-only — a non-owner is existence-hidden (404).
+ */
+export interface ProviderDashboardDto {
+  providerId: string;
+  providerName: string;
+  timezone: string;
+  today: {
+    menuDayId: string;
+    menuDate: string;
+    cutoffAt: string;
+    status: ProviderMenuStatus;
+    componentCount: number;
+  } | null;
+  batch: ProviderBatchSummaryDto | null;
+}
+
 /** One aggregated or per-member preparation line (§ 10). */
 export interface PreparationLine {
   catalogItemId: string;

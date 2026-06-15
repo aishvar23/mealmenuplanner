@@ -433,11 +433,30 @@ report ambiguity with file/symbol/observed-behavior/why.
 - **Use cases:** UC-BATCH-005; §17; ADR-14. **Consumes:** print-view DTO. **Tests:** print layout smoke. **Rollback:** remove page.
 - **Shipped:** the server-rendered print page lives in its own chrome-free `(provider-print)` route group (`app/(provider-print)/provider/preparation/[batchId]/print/page.tsx`) so it renders WITHOUT the owner-app nav shell. Owner-gated by the same `getProviderBatch` read RPC as the detail page (non-owner/missing → 404 existence-hidden via `notFound()`; superseded revision → 409 explanatory note); the `/provider` prefix is auth-protected by the edge proxy. A new pure `buildPrintView` (`@mmp/shared/provider/print-view.ts`) projects the persisted `ProviderBatchDetailDto` into the existing `PrintViewDto`, routing every roster through `sortPreparationLines` (and members in the same display-name order the per-member CSV uses) so the printout reconciles byte-for-byte with the CSV exports + summary email. `PreparationPrintView` renders the cutoff census, aggregate roster, then per-member breakdown with repeating table headers (`thead { display: table-header-group }`), `@page { margin: 14mm }` (works on A4 + Letter), `break-inside-avoid` rows, and a single `print:hidden` Print button (`window.print()`). A "Print" link (new tab) was added to the detail view's action row. Tests: Vitest `print-view.test.ts` (context carried, no-mutation, canonical aggregate order, member order + per-member line order); Playwright `provider-preparation-print.spec.ts` (owner reads the chrome-free roster + Print control + no owner nav; non-owner existence-hidden 404). Paired mobile MP-C-051.
 
-### MP-B-060 — Owner dashboard UI — `NOT_STARTED` (after MP-B-011 + read APIs)
+### MP-B-060 — Owner dashboard UI — `DONE` (ADO #26, PR pending)
 
-- **Track:** B · **Checkpoint:** 4/5 · **Branch:** provider-preparation-ui-e2e.
+- **Track:** B · **Checkpoint:** 4/5 · **Branch:** provider-owner-dashboard-mp-b-060.
 - **Objective:** dashboard cards (today's menu state, cutoff, time remaining, confirmed/no-response/cancelled/auto-accepted counts, batch state, email status).
 - **Use cases:** §13.2. **Tests:** card render from fixtures. **Rollback:** remove UI.
+- **Shipped:** the owner landing now renders the day at a glance instead of the
+  placeholder. A new composed read `getProviderDashboard(providerId)`
+  (`lib/services/provider/dashboard-read.ts`) folds the existing owner-scoped reads —
+  `getTodayMenu` (today's menu state + cutoff) and `listProviderBatches` (today's
+  current batch census + email status) — owner-gated via `requireOwnedProvider`
+  (a non-owner is existence-hidden 404), exposed at `GET /api/providers/{id}/dashboard`.
+  New shared `ProviderDashboardDto` + `getDashboard` on the `ProviderApiClient` seam
+  (web mock + mobile mock + mobile HTTP client) + a `dashboard` fixture. New pure shared
+  helpers `formatCutoffCountdown` (minute-granular "Xh Ym until cutoff" / "Cutoff
+  passed") + `providerMenuStatusLabel`/`PROVIDER_MENU_STATUS_BADGE_VARIANT`. The web
+  `DashboardView` (client component, re-ticks the countdown each minute) shows the
+  today's-menu card (state badge, dish count, cutoff + live countdown) and the response
+  census (census grid + batch/email status + link to the day's roster), or the
+  no-menu / pre-cutoff empty states. Tests: Vitest service (compose, no-menu skips the
+  index read, pre-cutoff null batch, owner-gate propagation) + labels (countdown +
+  status label/variant); Playwright `provider-dashboard.spec.ts` (post-cutoff census +
+  link, pre-cutoff countdown, no-menu, owner-only gate); paired mobile MP-C-060. The
+  two provider specs that asserted the old "Dashboard coming soon" placeholder now
+  assert the real dashboard heading.
 
 ### MP-B-070 — Playwright E2E suite — `NOT_STARTED` (rolling, per checkpoint)
 
@@ -489,7 +508,7 @@ ADR-1/6/7).
 | **MP-C-041** | MP-B-041   | 4   | **DONE (#23)** — Member response (`today-response-screen.tsx` + `use-today-response.ts`): alternatives/spice/salt/extras + max, confirm/update/cancel, locked; recap on the responses tab (`responses-recap-screen.tsx`). Jest+RNTL (today screen + hook + recap).                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | **MP-C-050** | MP-B-050   | 5   | **DONE (#26)** — Preparation screen (`preparation-screen.tsx` + `use-preparation.ts`): batch index → detail with cutoff census, aggregate + per-member rosters, email status + resend, regenerate. Consumes the shared `listBatches`/`getPreparationBatch` seam. Jest+RNTL (list, empty, open, resend, regenerate). Share/export of the persisted revision (CSV/PDF) is MP-C-051.                                                                                                                                                                                                                                                                                                                                        |
 | **MP-C-051** | MP-B-051   | 5   | **DONE (#26)** — Mobile export/share of the persisted batch revision via the native share sheet. `shareProviderCsv` (`src/provider/share.ts`) hands the rendered CSV (same owner-gated `/api/*` bytes) to React Native's built-in `Share` — no extra native module, runs in Expo Go. `useBatchExport` (two read-only mutations over the shared `getAggregateCsv`/`getIndividualCsv` seam) backs "Share aggregate CSV" / "Share per-member CSV" on the preparation detail screen. The web `@media print` page (MP-B-051) stays web-only; mobile parity = share/export. Jest: `share.test.ts` (Share called with content/subject; dismissed → false; error propagates) + screen test buttons trigger the export mutations. |
-| **MP-C-060** | MP-B-060   | 4/5 | Owner dashboard cards (menu state, cutoff, counts, batch + email status).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| **MP-C-060** | MP-B-060   | 4/5 | **DONE (#26)** — Owner Dashboard screen (`dashboard-screen.tsx` + `use-dashboard.ts`): today's menu card (state, dish count, cutoff + live countdown) + response census (counts, batch + email status) + "View preparation". Consumes the shared `getDashboard` seam. Also wired the `(provider-owner)/preparation` route to the existing `PreparationScreen` (the MP-C-050 screen had shipped but the route was still on the placeholder), so the dashboard's nav target + the Prep tab resolve. Jest+RNTL (loading, error+retry, today+census, navigate, no-menu, pre-cutoff empty).                                                                                                                                   |
 
 **Per-task DoD (all screen-parity tasks):** RN screen matches the web acceptance
 criteria; Jest + RNTL unit/hook tests added; manual Expo smoke recorded in the PR; no

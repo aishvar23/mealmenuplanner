@@ -23,7 +23,9 @@ test.describe("Provider owner shell (MP-B-011)", () => {
     await signInWithPassword(page, owner.email, owner.password);
     // Sole provider workspace → auto-enters the owner shell (spec §12.3.3).
     await page.waitForURL("**/provider/dashboard", { timeout: 30_000 });
-    await expect(page.getByText(/Dashboard coming soon/i)).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Dashboard" }),
+    ).toBeVisible();
 
     // Owner navigation is present…
     const nav = page.getByRole("navigation", { name: "Provider" }).first();
@@ -148,7 +150,9 @@ test.describe("Workspace switcher (MP-B-012)", () => {
     // Enter the second provider explicitly (records the active pointer).
     await page.getByRole("button", { name: /Kitchen Two/ }).click();
     await page.waitForURL("**/provider/dashboard", { timeout: 30_000 });
-    await expect(page.getByText(/Dashboard coming soon/i)).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Dashboard" }),
+    ).toBeVisible();
 
     // Re-signing in resolves the stored pointer → straight back to a provider
     // dashboard (no chooser), proving the switch persisted.

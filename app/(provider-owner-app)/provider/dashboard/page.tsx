@@ -1,20 +1,24 @@
-import { LayoutDashboard } from "lucide-react";
+import { redirect } from "next/navigation";
 
-import { ProviderComingSoon } from "@/components/provider/provider-coming-soon";
+import { DashboardView } from "@/components/provider-dashboard/dashboard-view";
+import { getProviderDashboard } from "@/lib/services/provider";
+import { resolveOwnerProvider } from "@/lib/services/workspace";
 
+export const dynamic = "force-dynamic";
 export const metadata = { title: "Provider dashboard" };
 
 /**
- * Owner landing (spec §12.4 / §13.2). The shell + nav land at CP2 (MP-B-011); the
- * dashboard cards (today's menu state, cutoff, response counts, batch + email
- * status) are MP-B-060 at CP4/5 and replace this placeholder.
+ * Owner landing — day at a glance (MP-B-060, spec §12.4 / §13.2). Resolves the owner's
+ * active provider (id-less `/provider/*` convention), reads the composed dashboard
+ * summary under RLS, and renders it. A user who owns no provider is bounced to the
+ * workspace chooser (defense-in-depth on the shell).
  */
-export default function ProviderDashboardPage() {
-  return (
-    <ProviderComingSoon
-      icon={LayoutDashboard}
-      title="Dashboard coming soon"
-      description="Your day at a glance — today's menu, cutoff countdown, and response counts — will appear here."
-    />
-  );
+export default async function ProviderDashboardPage() {
+  const provider = await resolveOwnerProvider();
+  if (!provider) {
+    redirect("/workspace");
+  }
+
+  const dashboard = await getProviderDashboard(provider.providerId);
+  return <DashboardView dashboard={dashboard} />;
 }
