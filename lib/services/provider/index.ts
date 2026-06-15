@@ -20,6 +20,7 @@ export { getProviderDashboard } from "./dashboard-read";
 export { getMenuDay, getTodayMenu, getWeeklyMenu } from "./menu-read";
 export { publishMenuDay } from "./menu-publish";
 export { createMenuDay } from "./menu-authoring";
+export { reviseMenuDay, updateMenuDayNote } from "./menu-edit";
 export {
   validateCreateMenuDay,
   type NormalizedMenuDayCreate,

@@ -7,9 +7,11 @@ import type {
   CreateProviderInviteRequest,
   CreateProviderInviteResult,
   CreateProviderSuggestionRequest,
+  EditMenuDayInput,
   MemberDto,
   MemberResponseDto,
   MenuDayDto,
+  UpdateMenuDayNoteInput,
   MyProviderMembershipDto,
   ProviderApiClient,
   ProviderBatchDetailDto,
@@ -200,6 +202,24 @@ export const providerApiClient: ProviderApiClient = {
   publishMenuDay(menuDayId: string): Promise<MenuDayDto> {
     return apiRequest<MenuDayDto>(`${menuDay(menuDayId)}/publish`, {
       method: "POST",
+    });
+  },
+  reviseMenuDay(
+    menuDayId: string,
+    input: EditMenuDayInput,
+  ): Promise<MenuDayDto> {
+    return apiRequest<MenuDayDto>(menuDay(menuDayId), {
+      method: "PUT",
+      body: input,
+    });
+  },
+  updateMenuDayNote(
+    menuDayId: string,
+    input: UpdateMenuDayNoteInput,
+  ): Promise<MenuDayDto> {
+    return apiRequest<MenuDayDto>(menuDay(menuDayId), {
+      method: "PATCH",
+      body: input,
     });
   },
 

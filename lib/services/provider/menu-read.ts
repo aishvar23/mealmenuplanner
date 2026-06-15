@@ -15,8 +15,11 @@ import { mapReadError, numOrNull, type SupabaseClient } from "./read-utils";
 
 /**
  * Provider menu READ service (MP-A-120, contract 03 § 8). The read-only half of
- * the menu surface — authoring/publish (MP-A-121) and the edit-after-response
- * guard (MP-A-012E) are BLOCKED on ADR-7 and ship separately; nothing here mutates.
+ * the menu surface — authoring/publish (MP-A-121, `menu-authoring.ts`/`menu-publish.ts`)
+ * and the structural-edit + revision guard (MP-A-012E, `menu-edit.ts`) ship separately;
+ * nothing here mutates. Today/weekly reads serve only the LIVE revision (a superseded
+ * day — `superseded_at` set, ADR-7 — is excluded); `getMenuDay` by id still returns a
+ * superseded revision for owner audit.
  *
  *   • `getMenuDay`      — `GET /api/provider-menu-days/{id}`; one day + its full
  *     component tree (alternatives + customizations).
@@ -44,6 +47,7 @@ import { mapReadError, numOrNull, type SupabaseClient } from "./read-utils";
 /** The menu-day projection: the day + its nested component tree, no `*`. */
 const MENU_DAY_SELECT: string = `
   id, provider_id, weekly_menu_id, menu_date, cutoff_at, status, note, published_at, locked_at,
+  revision, supersedes_menu_day_id, superseded_at,
   components:provider_menu_components(
     id, component_group, default_catalog_item_id, default_item_name, default_quantity, canonical_unit,
     is_required, supports_spice_level, supports_salt_level, sort_order,
@@ -115,6 +119,9 @@ interface RawMenuDay {
   note: string | null;
   published_at: string | null;
   locked_at: string | null;
+  revision: number;
+  supersedes_menu_day_id: string | null;
+  superseded_at: string | null;
   components: RawComponent[] | null;
 }
 
@@ -190,6 +197,9 @@ function toMenuDayDto(row: RawMenuDay): MenuDayDto {
     note: row.note,
     publishedAt: row.published_at,
     lockedAt: row.locked_at,
+    revision: row.revision,
+    supersedesMenuDayId: row.supersedes_menu_day_id,
+    supersededAt: row.superseded_at,
     components: (row.components ?? [])
       .sort(bySortOrder)
       .map(toMenuComponentDto),
@@ -281,6 +291,8 @@ export async function getTodayMenu(
     .select(MENU_DAY_SELECT)
     .eq("provider_id", providerId)
     .eq("menu_date", today)
+    // Exclude superseded revisions — only the live (latest) revision is served (ADR-7).
+    .is("superseded_at", null)
     .order("published_at", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false })
     .order("id", { ascending: true })
@@ -308,6 +320,8 @@ export async function getWeeklyMenu(providerId: string): Promise<MenuDayDto[]> {
     .eq("provider_id", providerId)
     .gte("menu_date", today)
     .lte("menu_date", weekEnd)
+    // Exclude superseded revisions — one live day per date (ADR-7).
+    .is("superseded_at", null)
     .order("menu_date", { ascending: true });
   if (error) mapReadError(error, "Failed to load the menu.");
   return ((data ?? []) as unknown as RawMenuDay[]).map(toMenuDayDto);

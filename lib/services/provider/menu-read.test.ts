@@ -28,6 +28,9 @@ const FULL_ROW = {
   note: null,
   published_at: "2026-06-12T10:00:00Z",
   locked_at: null,
+  revision: 1,
+  supersedes_menu_day_id: null,
+  superseded_at: null,
   components: [
     {
       id: "c2",
@@ -136,7 +139,7 @@ function makeChain(
   calls: Record<string, unknown[][]>,
 ) {
   const chain: Record<string, unknown> = {};
-  for (const m of ["select", "eq", "order", "limit", "gte", "lte"]) {
+  for (const m of ["select", "eq", "order", "limit", "gte", "lte", "is"]) {
     chain[m] = (...args: unknown[]) => {
       (calls[m] ??= []).push(args);
       return chain;

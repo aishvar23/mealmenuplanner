@@ -24,9 +24,11 @@ import {
   type CreateCatalogItemRequest,
   type CreateMenuDayInput,
   type CreateProviderInviteResult,
+  type EditMenuDayInput,
   type MemberDto,
   type MemberResponseDto,
   type MenuDayDto,
+  type UpdateMenuDayNoteInput,
   type MyProviderMembershipDto,
   type ProviderApiClient,
   type ProviderBatchDetailDto,
@@ -204,6 +206,22 @@ export const mockProviderClient: ProviderApiClient = {
   },
   publishMenuDay(): Promise<MenuDayDto> {
     return Promise.resolve({ ...f.publishedMenuDay, status: "published" });
+  },
+  reviseMenuDay(
+    _menuDayId: string,
+    input: EditMenuDayInput,
+  ): Promise<MenuDayDto> {
+    return Promise.resolve({
+      ...f.publishedMenuDay,
+      cutoffAt: input.cutoffAt,
+      note: input.note ?? null,
+    });
+  },
+  updateMenuDayNote(
+    _menuDayId: string,
+    input: UpdateMenuDayNoteInput,
+  ): Promise<MenuDayDto> {
+    return Promise.resolve({ ...f.publishedMenuDay, note: input.note });
   },
 
   // ── Member response ──
