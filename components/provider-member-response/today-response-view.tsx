@@ -447,10 +447,11 @@ function ComponentCard({
         ) : null}
       </div>
 
-      {/* Choice picker (default + alternatives). One option = nothing to switch. */}
+      {/* Choice picker (default + alternatives), labelled by dish name (ADO #39).
+          One option = nothing to switch. */}
       {choices.length > 1 ? (
         <div role="radiogroup" className="flex flex-wrap gap-2">
-          {choices.map((choice, index) => {
+          {choices.map((choice) => {
             const active =
               selection.selectedCatalogItemId === choice.catalogItemId;
             return (
@@ -467,15 +468,20 @@ function ComponentCard({
                     : "border-border bg-card hover:border-primary/30"
                 }`}
               >
-                {choice.isDefault ? "Default" : `Option ${index}`} ·{" "}
-                {choice.quantity} {choice.canonicalUnit}
+                {choice.itemName} · {choice.quantity} {choice.canonicalUnit}
+                {choice.isDefault ? (
+                  <span className="ml-1 text-xs text-muted-foreground">
+                    Default
+                  </span>
+                ) : null}
               </button>
             );
           })}
         </div>
       ) : (
         <p className="text-sm text-muted-foreground">
-          {choices[0]!.quantity} {choices[0]!.canonicalUnit}
+          {choices[0]!.itemName} · {choices[0]!.quantity}{" "}
+          {choices[0]!.canonicalUnit}
         </p>
       )}
 

@@ -1841,6 +1841,7 @@ export type Database = {
           component_group: Database["public"]["Enums"]["provider_component_group"];
           created_at: string;
           default_catalog_item_id: string;
+          default_item_name: string;
           default_quantity: number;
           id: string;
           is_required: boolean;
@@ -1855,6 +1856,7 @@ export type Database = {
           component_group: Database["public"]["Enums"]["provider_component_group"];
           created_at?: string;
           default_catalog_item_id: string;
+          default_item_name: string;
           default_quantity: number;
           id?: string;
           is_required?: boolean;
@@ -1869,6 +1871,7 @@ export type Database = {
           component_group?: Database["public"]["Enums"]["provider_component_group"];
           created_at?: string;
           default_catalog_item_id?: string;
+          default_item_name?: string;
           default_quantity?: number;
           id?: string;
           is_required?: boolean;
@@ -1902,6 +1905,7 @@ export type Database = {
           created_at: string;
           id: string;
           is_active: boolean;
+          item_name: string;
           menu_component_id: string;
           quantity: number;
           updated_at: string;
@@ -1912,6 +1916,7 @@ export type Database = {
           created_at?: string;
           id?: string;
           is_active?: boolean;
+          item_name: string;
           menu_component_id: string;
           quantity: number;
           updated_at?: string;
@@ -1922,6 +1927,7 @@ export type Database = {
           created_at?: string;
           id?: string;
           is_active?: boolean;
+          item_name?: string;
           menu_component_id?: string;
           quantity?: number;
           updated_at?: string;

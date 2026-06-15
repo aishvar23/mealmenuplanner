@@ -52,6 +52,8 @@ export type ResponseFormState = Record<string, ComponentSelection>;
 /** A selectable item for a component: the default plus each active alternative. */
 export interface ComponentChoice {
   catalogItemId: string;
+  /** The dish display name, denormalized off the catalog (ADO #39). */
+  itemName: string;
   quantity: number;
   canonicalUnit: string;
   isDefault: boolean;
@@ -64,12 +66,14 @@ export function componentChoices(
   return [
     {
       catalogItemId: component.defaultCatalogItemId,
+      itemName: component.defaultItemName,
       quantity: component.defaultQuantity,
       canonicalUnit: component.canonicalUnit,
       isDefault: true,
     },
     ...component.alternatives.map((alt) => ({
       catalogItemId: alt.catalogItemId,
+      itemName: alt.itemName,
       quantity: alt.quantity,
       canonicalUnit: alt.canonicalUnit,
       isDefault: false,
@@ -87,6 +91,7 @@ function choiceFor(
       (c) => c.catalogItemId === catalogItemId,
     ) ?? {
       catalogItemId: component.defaultCatalogItemId,
+      itemName: component.defaultItemName,
       quantity: component.defaultQuantity,
       canonicalUnit: component.canonicalUnit,
       isDefault: true,

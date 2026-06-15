@@ -334,6 +334,7 @@ export const test = base.extend<{ providerTeam: ProviderTeam }>({
               menu_day_id: menuDayId,
               component_group: "dal_or_legume",
               default_catalog_item_id: rajmaCatalogId,
+              default_item_name: "Rajma",
               default_quantity: 16,
               canonical_unit: "oz",
               is_required: true,
@@ -345,6 +346,7 @@ export const test = base.extend<{ providerTeam: ProviderTeam }>({
               menu_day_id: menuDayId,
               component_group: "bread",
               default_catalog_item_id: rotiCatalogId,
+              default_item_name: "Roti",
               default_quantity: 2,
               canonical_unit: "piece",
               is_required: true,
@@ -369,6 +371,7 @@ export const test = base.extend<{ providerTeam: ProviderTeam }>({
           .insert({
             menu_component_id: dalComponentId,
             catalog_item_id: chanaCatalogId,
+            item_name: "Chana",
             quantity: 16,
             canonical_unit: "oz",
           })

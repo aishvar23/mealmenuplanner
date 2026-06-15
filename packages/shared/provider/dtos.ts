@@ -201,6 +201,12 @@ export interface MenuComponentDto {
   menuComponentId: string;
   componentGroup: ProviderComponentGroup;
   defaultCatalogItemId: string;
+  /**
+   * Display name of the default item, DENORMALIZED off the catalog at authoring
+   * time (§ 4) so a customer reads the dish by name without access to the
+   * owner-private catalog (ADO #39). Mirrors the quantity/unit/spice denorm.
+   */
+  defaultItemName: string;
   defaultQuantity: number;
   canonicalUnit: string;
   isRequired: boolean;
@@ -208,6 +214,8 @@ export interface MenuComponentDto {
   alternatives: Array<{
     alternativeId: string;
     catalogItemId: string;
+    /** Display name of this alternative item, denormalized off the catalog (ADO #39). */
+    itemName: string;
     quantity: number;
     canonicalUnit: string;
   }>;

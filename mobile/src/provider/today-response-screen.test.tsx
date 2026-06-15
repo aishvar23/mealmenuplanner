@@ -78,6 +78,10 @@ describe("TodayResponseScreen", () => {
     // Component group headers render (dal / bread / rice from the fixture).
     expect(screen.getByText(/Dal \/ legume/)).toBeOnTheScreen();
     expect(screen.getByText(/Bread/)).toBeOnTheScreen();
+    // Choices are labelled by dish NAME, not "Default"/"Option N" (ADO #39):
+    // the dal slot's Rajma chip and the single-choice bread slot's Roti both show.
+    expect(screen.getByText(/Rajma/)).toBeOnTheScreen();
+    expect(screen.getByText(/Roti/)).toBeOnTheScreen();
     expect(screen.getByText("Confirm order")).toBeOnTheScreen();
     expect(screen.getByText("Draft — not confirmed")).toBeOnTheScreen();
   });
