@@ -4,7 +4,9 @@ import { ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import {
+  dishCountLabel,
   formatCutoffCountdown,
+  formatCutoffDateTime,
   providerMenuStatusLabel,
   type ProviderDashboardDto,
 } from "@mmp/shared/provider";
@@ -51,22 +53,6 @@ export function DashboardScreen({ providerId }: { providerId: string }) {
   );
 }
 
-/** A readable cutoff date+time in the provider's timezone (falls back to raw ISO). */
-function formatCutoff(cutoffAtIso: string, timeZone: string): string {
-  try {
-    return new Intl.DateTimeFormat("en-US", {
-      timeZone,
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    }).format(new Date(cutoffAtIso));
-  } catch {
-    return cutoffAtIso;
-  }
-}
-
 function TodayCard({ dashboard }: { dashboard: ProviderDashboardDto }) {
   const { today, timezone } = dashboard;
 
@@ -77,12 +63,15 @@ function TodayCard({ dashboard }: { dashboard: ProviderDashboardDto }) {
     return () => clearInterval(id);
   }, []);
 
+  // Compute the countdown once per render and reuse it for the colour + label.
+  const countdown = today ? formatCutoffCountdown(today.cutoffAt, nowMs) : null;
+
   return (
     <View className="gap-3 rounded-xl border border-gray-100 bg-white p-4">
       <Text className="text-base font-semibold text-gray-900">
         Today&apos;s menu
       </Text>
-      {today ? (
+      {today && countdown ? (
         <View className="gap-2">
           <View className="flex-row flex-wrap items-center gap-2">
             <Text className="font-medium text-gray-900">{today.menuDate}</Text>
@@ -92,21 +81,18 @@ function TodayCard({ dashboard }: { dashboard: ProviderDashboardDto }) {
               {providerMenuStatusLabel(today.status)}
             </Text>
             <Text className="text-xs text-gray-500">
-              {today.componentCount}{" "}
-              {today.componentCount === 1 ? "dish" : "dishes"}
+              {dishCountLabel(today.componentCount)}
             </Text>
           </View>
           <Text className="text-sm text-gray-600">
-            Cutoff {formatCutoff(today.cutoffAt, timezone)}
+            Cutoff {formatCutoffDateTime(today.cutoffAt, timezone)}
           </Text>
           <Text
             className={`text-sm font-medium ${
-              formatCutoffCountdown(today.cutoffAt, nowMs).passed
-                ? "text-gray-500"
-                : "text-green-700"
+              countdown.passed ? "text-gray-500" : "text-green-700"
             }`}
           >
-            {formatCutoffCountdown(today.cutoffAt, nowMs).label}
+            {countdown.label}
           </Text>
         </View>
       ) : (
@@ -161,11 +147,9 @@ function ResponsesCard({
         ))}
       </View>
       <View className="flex-row flex-wrap items-center gap-2">
-        <Text
-          className={`text-xs font-medium ${batch.status === "current" ? "text-green-700" : "text-gray-500"}`}
-        >
-          {batch.status === "current" ? "Current" : "Stale"}
-        </Text>
+        {/* The dashboard batch comes from listProviderBatches, which only returns the
+            current revision per day — so it is always current. */}
+        <Text className="text-xs font-medium text-green-700">Current</Text>
         <Text
           className={`text-xs font-medium ${batch.emailStatus === "sent" ? "text-green-700" : "text-gray-500"}`}
         >

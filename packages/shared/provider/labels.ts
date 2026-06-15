@@ -218,7 +218,8 @@ export const PROVIDER_MENU_STATUS_BADGE_VARIANT: Record<
  * caller-supplied `now` (epoch ms; the screens pass `Date.now()` and re-tick). Returns
  * whether cutoff has passed plus a short human label. At most two units (days+hours, or
  * hours+minutes) so it reads at a glance; under a day always shows minutes so "0h" never
- * stands alone. A malformed timestamp degrades to a neutral dash rather than throwing.
+ * stands alone, and the final sub-minute window reads "<1m" rather than a bare "0m". A
+ * malformed timestamp degrades to a neutral dash rather than throwing.
  */
 export function formatCutoffCountdown(
   cutoffAtIso: string,
@@ -230,6 +231,9 @@ export function formatCutoffCountdown(
   if (diffMs <= 0) return { passed: true, label: "Cutoff passed" };
 
   const totalMinutes = Math.floor(diffMs / 60_000);
+  // Under a minute remaining: don't render a bare "0m" (reads as if cutoff is now).
+  if (totalMinutes === 0) return { passed: false, label: "<1m until cutoff" };
+
   const days = Math.floor(totalMinutes / (60 * 24));
   const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
   const minutes = totalMinutes % 60;
@@ -240,6 +244,52 @@ export function formatCutoffCountdown(
   // Show minutes only when we're under a day (so the label stays to two units).
   if (days === 0) parts.push(`${minutes}m`);
   return { passed: false, label: `${parts.join(" ")} until cutoff` };
+}
+
+/** A preparation batch's summary-email delivery status (null = not yet sent). */
+export type ProviderBatchEmailStatus = "queued" | "sent" | "failed";
+
+/**
+ * How a preparation batch's summary-email status reads — the single source shared by the
+ * owner dashboard (MP-B-060) and the preparation detail view, so the two surfaces label
+ * `queued`/`sent`/`failed` identically. A `null` status (not yet sent) is rendered by the
+ * caller, not in this map.
+ */
+export const PROVIDER_BATCH_EMAIL_STATUS_LABELS: Record<
+  ProviderBatchEmailStatus,
+  string
+> = {
+  queued: "Queued",
+  sent: "Sent",
+  failed: "Failed",
+};
+
+/**
+ * A readable cutoff date+time in the provider's timezone (MP-B-060) — the single source
+ * shared by the web + mobile dashboards so both render the cutoff instant identically;
+ * falls back to the raw ISO if the timezone or timestamp can't be formatted.
+ */
+export function formatCutoffDateTime(
+  cutoffAtIso: string,
+  timeZone: string,
+): string {
+  try {
+    return new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(new Date(cutoffAtIso));
+  } catch {
+    return cutoffAtIso;
+  }
+}
+
+/** "1 dish" / "N dishes" — shared so web + mobile pluralize the dish count identically. */
+export function dishCountLabel(count: number): string {
+  return `${count} ${count === 1 ? "dish" : "dishes"}`;
 }
 
 /**

@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  dishCountLabel,
   formatCutoffCountdown,
+  formatCutoffDateTime,
+  PROVIDER_BATCH_EMAIL_STATUS_LABELS,
   PROVIDER_MENU_STATUS_BADGE_VARIANT,
   PROVIDER_MENU_STATUS_LABELS,
   PROVIDER_RESPONSE_STATUS_BADGE_VARIANT,
@@ -74,10 +77,50 @@ describe("formatCutoffCountdown (MP-B-060)", () => {
     );
   });
 
+  it("reads the final sub-minute window as '<1m', never a bare '0m'", () => {
+    // 30s before cutoff: still open, but under a minute — must not read "0m until cutoff".
+    expect(formatCutoffCountdown("2026-06-14T12:00:30Z", NOW)).toEqual({
+      passed: false,
+      label: "<1m until cutoff",
+    });
+  });
+
   it("degrades a malformed timestamp to a neutral dash rather than throwing", () => {
     expect(formatCutoffCountdown("not-a-date", NOW)).toEqual({
       passed: false,
       label: "—",
     });
+  });
+});
+
+describe("PROVIDER_BATCH_EMAIL_STATUS_LABELS (MP-B-060)", () => {
+  it("labels every non-null email status", () => {
+    expect(PROVIDER_BATCH_EMAIL_STATUS_LABELS).toEqual({
+      queued: "Queued",
+      sent: "Sent",
+      failed: "Failed",
+    });
+  });
+});
+
+describe("dishCountLabel (MP-B-060)", () => {
+  it("pluralizes the dish count (1 dish / N dishes)", () => {
+    expect(dishCountLabel(1)).toBe("1 dish");
+    expect(dishCountLabel(0)).toBe("0 dishes");
+    expect(dishCountLabel(3)).toBe("3 dishes");
+  });
+});
+
+describe("formatCutoffDateTime (MP-B-060)", () => {
+  it("renders the cutoff instant in the provider timezone", () => {
+    // 2026-06-14T12:00:00Z is 17:30 in Asia/Kolkata (UTC+5:30).
+    const label = formatCutoffDateTime("2026-06-14T12:00:00Z", "Asia/Kolkata");
+    expect(label).toContain("5:30");
+  });
+
+  it("falls back to the raw ISO when the timezone is invalid", () => {
+    expect(formatCutoffDateTime("2026-06-14T12:00:00Z", "Not/AZone")).toBe(
+      "2026-06-14T12:00:00Z",
+    );
   });
 });

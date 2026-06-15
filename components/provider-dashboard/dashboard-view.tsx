@@ -2,7 +2,7 @@
 
 import { CalendarDays, ChefHat, Clock, Mail } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -14,7 +14,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
+  dishCountLabel,
   formatCutoffCountdown,
+  formatCutoffDateTime,
+  PROVIDER_BATCH_EMAIL_STATUS_LABELS,
   PROVIDER_MENU_STATUS_BADGE_VARIANT,
   providerMenuStatusLabel,
   type ProviderDashboardDto,
@@ -29,26 +32,22 @@ import {
  * generated at cutoff, never live-aggregated (the batch is the source of truth).
  */
 
-const EMAIL_STATUS_LABEL: Record<string, string> = {
-  queued: "Queued",
-  sent: "Sent",
-  failed: "Failed",
-};
-
-/** A readable cutoff date+time in the provider's timezone (falls back to the raw ISO). */
-function formatCutoff(cutoffAtIso: string, timeZone: string): string {
-  try {
-    return new Intl.DateTimeFormat("en-US", {
-      timeZone,
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    }).format(new Date(cutoffAtIso));
-  } catch {
-    return cutoffAtIso;
-  }
+// The current epoch-ms, bucketed to the minute and re-read every minute, via
+// useSyncExternalStore: the SERVER snapshot is `null` (the countdown is omitted from the
+// SSR markup), and the client takes over after hydration WITHOUT a mismatch — time is
+// inherently client-only, so the two clocks can no longer disagree across a minute
+// boundary. Bucketing to the minute keeps the snapshot reference-stable within a minute
+// (no render loop) and matches the label's minute granularity.
+const MINUTE_MS = 60_000;
+function subscribeMinute(onStoreChange: () => void): () => void {
+  const id = setInterval(onStoreChange, MINUTE_MS);
+  return () => clearInterval(id);
+}
+function getMinuteSnapshot(): number {
+  return Math.floor(Date.now() / MINUTE_MS) * MINUTE_MS;
+}
+function getServerMinuteSnapshot(): number | null {
+  return null;
 }
 
 export function DashboardView({
@@ -58,16 +57,16 @@ export function DashboardView({
 }) {
   const { today, batch, providerName, timezone } = dashboard;
 
-  // Re-tick the countdown each minute. Seeded lazily from the clock (the label is
-  // minute-granular, so server and client first renders agree) and updated only from
-  // the interval callback — never a synchronous setState in the effect body.
-  const [nowMs, setNowMs] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNowMs(Date.now()), 60_000);
-    return () => clearInterval(id);
-  }, []);
+  const nowMs = useSyncExternalStore(
+    subscribeMinute,
+    getMinuteSnapshot,
+    getServerMinuteSnapshot,
+  );
 
-  const countdown = today ? formatCutoffCountdown(today.cutoffAt, nowMs) : null;
+  const countdown =
+    today && nowMs !== null
+      ? formatCutoffCountdown(today.cutoffAt, nowMs)
+      : null;
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-6 px-4 py-8 lg:px-8">
@@ -100,14 +99,13 @@ export function DashboardView({
                 </Badge>
                 <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
                   <ChefHat className="size-4" />
-                  {today.componentCount}{" "}
-                  {today.componentCount === 1 ? "dish" : "dishes"}
+                  {dishCountLabel(today.componentCount)}
                 </span>
               </div>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
                 <span className="inline-flex items-center gap-1 text-muted-foreground">
                   <Clock className="size-4" />
-                  Cutoff {formatCutoff(today.cutoffAt, timezone)}
+                  Cutoff {formatCutoffDateTime(today.cutoffAt, timezone)}
                 </span>
                 {countdown ? (
                   <Badge variant={countdown.passed ? "neutral" : "emerald"}>
@@ -177,11 +175,9 @@ export function DashboardView({
                   </div>
                 </dl>
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge
-                    variant={batch.status === "current" ? "emerald" : "neutral"}
-                  >
-                    {batch.status === "current" ? "Current" : "Stale"}
-                  </Badge>
+                  {/* The dashboard batch comes from listProviderBatches, which only
+                      returns the current revision per day — so it is always current. */}
+                  <Badge variant="emerald">Current</Badge>
                   <Badge
                     variant={
                       batch.emailStatus === "sent" ? "emerald" : "outline"
@@ -189,7 +185,7 @@ export function DashboardView({
                   >
                     <Mail className="size-3" />
                     {batch.emailStatus
-                      ? `Email: ${EMAIL_STATUS_LABEL[batch.emailStatus]}`
+                      ? `Email: ${PROVIDER_BATCH_EMAIL_STATUS_LABELS[batch.emailStatus]}`
                       : "Email: not sent"}
                   </Badge>
                   <Link
