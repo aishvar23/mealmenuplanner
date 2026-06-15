@@ -235,6 +235,16 @@ export interface MenuDayDto {
   note: string | null;
   publishedAt: string | null;
   lockedAt: string | null;
+  /**
+   * Revision number for this date (ADR-7). A fresh day is `1`; a structural edit on
+   * a day that already had member responses creates rev N+1 (the prior revision is
+   * archived). Census/prep always read the latest live revision.
+   */
+  revision: number;
+  /** The prior revision this day replaced (null on revision 1; ADR-7). */
+  supersedesMenuDayId: string | null;
+  /** When this revision was replaced by a newer one (null while it is the live one). */
+  supersededAt: string | null;
   components: MenuComponentDto[];
 }
 
@@ -296,6 +306,32 @@ export interface CreateMenuDayInput {
   cutoffAt: string;
   note?: string | null;
   components: CreateMenuComponentInput[];
+}
+
+/**
+ * `PUT /api/provider-menu-days/{menuDayId}` body — a STRUCTURAL edit of an existing
+ * menu day (MP-A-012E + MP-A-121, ADR-7 = REVISION; UC-MENU-004/005). The day's date
+ * is immutable (it identifies the day), so unlike {@link CreateMenuDayInput} this
+ * carries no `menuDate`; the full desired component tree + cutoff replace the current
+ * structure. Owner-only, before cutoff only. When NO member has responded the change
+ * applies in place; once a response exists the server creates a new revision (rev
+ * N+1), carries existing responses forward, selectively invalidates those whose order
+ * no longer fits, and notifies the affected members to re-confirm. Returns the
+ * resulting live `MenuDayDto` (the same day in place, or the new revision).
+ */
+export interface EditMenuDayInput {
+  cutoffAt: string;
+  note?: string | null;
+  components: CreateMenuComponentInput[];
+}
+
+/**
+ * `PATCH /api/provider-menu-days/{menuDayId}` body — a NON-STRUCTURAL edit: only the
+ * day's note (ADR-7 applies a note change IN PLACE regardless of responses, never a
+ * revision). Owner-only. Returns the updated `MenuDayDto`.
+ */
+export interface UpdateMenuDayNoteInput {
+  note: string | null;
 }
 
 // ─────────────────────────── Member / response ───────────────────────────

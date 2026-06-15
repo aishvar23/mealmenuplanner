@@ -262,6 +262,9 @@ export const publishedMenuDay: MenuDayDto = {
   note: "Fresh rajma soaked overnight.",
   publishedAt: "2026-06-10T18:00:00Z",
   lockedAt: null,
+  revision: 1,
+  supersedesMenuDayId: null,
+  supersededAt: null,
   components: [
     {
       menuComponentId: COMPONENT_DAL_ID,

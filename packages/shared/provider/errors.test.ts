@@ -36,6 +36,7 @@ const EXPECTED: Record<
   menu_not_published: { code: "CONFLICT", httpStatus: 409 },
   menu_already_locked: { code: "CONFLICT", httpStatus: 409 },
   menu_not_draft: { code: "CONFLICT", httpStatus: 409 },
+  menu_not_editable: { code: "CONFLICT", httpStatus: 409 },
   menu_day_exists: { code: "CONFLICT", httpStatus: 409 },
   cutoff_passed: { code: "CONFLICT", httpStatus: 409 },
   response_already_locked: { code: "CONFLICT", httpStatus: 409 },

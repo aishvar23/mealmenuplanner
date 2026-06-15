@@ -198,6 +198,33 @@ describe("providerApiClient — menus & response", () => {
     );
   });
 
+  it("reviseMenuDay PUTs the structural edit to the menu-day route", async () => {
+    mockApiRequest.mockResolvedValue({ menuDayId: "md1", status: "published" });
+    const input = {
+      cutoffAt: "2099-01-06T10:00:00.000Z",
+      note: "rev2",
+      components: [{ componentGroup: "main", defaultCatalogItemId: "cat-1" }],
+    };
+
+    await providerApiClient.reviseMenuDay("md1", input as never);
+
+    expect(mockApiRequest).toHaveBeenCalledWith("/api/provider-menu-days/md1", {
+      method: "PUT",
+      body: input,
+    });
+  });
+
+  it("updateMenuDayNote PATCHes the note to the menu-day route", async () => {
+    mockApiRequest.mockResolvedValue({ menuDayId: "md1", note: "new note" });
+
+    await providerApiClient.updateMenuDayNote("md1", { note: "new note" });
+
+    expect(mockApiRequest).toHaveBeenCalledWith("/api/provider-menu-days/md1", {
+      method: "PATCH",
+      body: { note: "new note" },
+    });
+  });
+
   it("saveMyResponse PUTs the body to the menu-day response route", async () => {
     mockApiRequest.mockResolvedValue({ responseId: "r1" });
     const body = {

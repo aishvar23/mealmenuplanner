@@ -27,9 +27,11 @@ import type {
   CreateMenuDayInput,
   CreateProviderInviteRequest,
   CreateProviderInviteResult,
+  EditMenuDayInput,
   MemberDto,
   MemberResponseDto,
   MenuDayDto,
+  UpdateMenuDayNoteInput,
   MyProviderMembershipDto,
   ProviderDashboardDto,
   ProviderBatchDetailDto,
@@ -155,6 +157,20 @@ export interface ProviderApiClient {
   getWeeklyMenu(providerId: string): Promise<MenuDayDto[]>;
   /** `POST /api/provider-menu-days/{menuDayId}/publish`. */
   publishMenuDay(menuDayId: string): Promise<MenuDayDto>;
+  /** `PUT /api/provider-menu-days/{menuDayId}` — a STRUCTURAL edit (owner, before
+   * cutoff; ADR-7 = REVISION). In place when no response exists, else a new revision
+   * with carry-forward + selective invalidation + re-confirm notices. Returns the live
+   * `MenuDayDto`. */
+  reviseMenuDay(
+    menuDayId: string,
+    input: EditMenuDayInput,
+  ): Promise<MenuDayDto>;
+  /** `PATCH /api/provider-menu-days/{menuDayId}` — a NON-STRUCTURAL note edit, applied
+   * in place (never a revision). Returns the updated `MenuDayDto`. */
+  updateMenuDayNote(
+    menuDayId: string,
+    input: UpdateMenuDayNoteInput,
+  ): Promise<MenuDayDto>;
 
   // ── Member response ──
   /** `GET /api/provider-menu-days/{menuDayId}/my-response`. */

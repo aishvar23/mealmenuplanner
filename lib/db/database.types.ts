@@ -1784,7 +1784,10 @@ export type Database = {
           note: string | null;
           provider_id: string;
           published_at: string | null;
+          revision: number;
           status: Database["public"]["Enums"]["provider_menu_status"];
+          superseded_at: string | null;
+          supersedes_menu_day_id: string | null;
           updated_at: string;
           weekly_menu_id: string;
         };
@@ -1799,7 +1802,10 @@ export type Database = {
           note?: string | null;
           provider_id: string;
           published_at?: string | null;
+          revision?: number;
           status?: Database["public"]["Enums"]["provider_menu_status"];
+          superseded_at?: string | null;
+          supersedes_menu_day_id?: string | null;
           updated_at?: string;
           weekly_menu_id: string;
         };
@@ -1814,7 +1820,10 @@ export type Database = {
           note?: string | null;
           provider_id?: string;
           published_at?: string | null;
+          revision?: number;
           status?: Database["public"]["Enums"]["provider_menu_status"];
+          superseded_at?: string | null;
+          supersedes_menu_day_id?: string | null;
           updated_at?: string;
           weekly_menu_id?: string;
         };
@@ -1824,6 +1833,13 @@ export type Database = {
             columns: ["provider_id"];
             isOneToOne: false;
             referencedRelation: "provider_organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "provider_menu_days_supersedes_menu_day_id_fkey";
+            columns: ["supersedes_menu_day_id"];
+            isOneToOne: false;
+            referencedRelation: "provider_menu_days";
             referencedColumns: ["id"];
           },
           {
@@ -2821,6 +2837,33 @@ export type Database = {
         // (the existing one on an idempotent no-op) so the service patches its already-
         // read DTO. Custom SQLSTATEs PMOWN/PMNDR/PMINC are mapped in menu-publish.ts.
         Args: { p_menu_day_id: string };
+        Returns: string;
+      };
+      insert_provider_menu_component_tree: {
+        // Internal SECURITY DEFINER helper (pmp_20): the shared create-tree build loop
+        // extracted from create_provider_menu_day; builds a day's component tree off
+        // the owner-private catalog. service_role-only; not invoked from app code.
+        Args: {
+          p_menu_day_id: string;
+          p_provider_id: string;
+          p_components: Json;
+        };
+        Returns: undefined;
+      };
+      update_provider_menu_day_note: {
+        // MP-A-012E non-structural edit (pmp_20): owner-gates, applies a note change in
+        // place (no revision). Custom SQLSTATEs MEOWN/MESTA are mapped in menu-edit.ts.
+        Args: { p_menu_day_id: string; p_note: string | null };
+        Returns: undefined;
+      };
+      edit_provider_menu_day: {
+        // MP-A-012E + MP-A-121 structural-edit + revision writer (pmp_20, ADR-7=REVISION):
+        // owner-gates, rebuilds the tree IN PLACE when no response exists, else creates a
+        // rev N+1 with response carry-forward + selective invalidation + re-confirm fan-out
+        // (old revision archived/superseded). Returns the resulting LIVE day's id (same id
+        // in place, the new revision's id otherwise). Custom SQLSTATEs MEOWN/MESTA/MECUT and
+        // the shared MAINC are mapped in menu-edit.ts.
+        Args: { p_menu_day_id: string; p_payload: Json };
         Returns: string;
       };
       run_provider_cutoffs: { Args: never; Returns: number };
