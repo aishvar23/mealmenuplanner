@@ -57,6 +57,123 @@ test.describe("Provider menu builder (MP-B-030)", () => {
     await expect(page.getByText("Published")).toBeVisible({ timeout: 30_000 });
   });
 
+  test("edits a published day via the builder (revision-aware) and shows the change", async ({
+    page,
+    providerTeam,
+  }) => {
+    const owner = await providerTeam.createUser("menu-revise-owner");
+    const providerId = await providerTeam.createProvider(owner, {
+      name: "Revise Kitchen",
+    });
+    // A published, before-cutoff day (dal + bread, active catalog) — the deterministic
+    // edit target, so the test doesn't depend on a draft→publish UI transition.
+    await providerTeam.seedMenuDay(providerId, owner, {
+      status: "published",
+      cutoffHoursFromNow: 8,
+    });
+
+    await signIn(page, owner.email, owner.password);
+    await page.goto("/provider/menu");
+
+    // A published, before-cutoff day offers Edit (not Publish). `exact` so the card's
+    // "Edit" button doesn't collide with an "Account menu for …edit…" control.
+    await expect(page.getByText("Published")).toBeVisible({ timeout: 30_000 });
+    await page.getByRole("button", { name: "Edit", exact: true }).click();
+
+    // The builder loads the existing structure, warns about revisions, and the immutable
+    // date is read-only. CardTitle renders as a styled element, not a heading — assert by
+    // text. A note change keeps the day publishable.
+    await expect(page.getByText(/Edit menu/)).toBeVisible();
+    await expect(page.getByTestId("menu-revision-warning")).toBeVisible();
+    await expect(page.locator("#menu-date")).toBeDisabled();
+    await expect(page.getByTestId("menu-component")).toHaveCount(2);
+
+    await page.locator("#menu-note").fill("Updated by owner");
+    await page.getByRole("button", { name: "Save changes" }).click();
+
+    // The builder closes (warning gone), the list shows the saved note, and the day
+    // stays published. `exact` so "Published" matches only the status badge, not the
+    // warning's "…published menu…" copy.
+    await expect(page.getByTestId("menu-revision-warning")).toBeHidden({
+      timeout: 30_000,
+    });
+    await expect(page.getByText("Updated by owner")).toBeVisible();
+    await expect(page.getByText("Published", { exact: true })).toBeVisible();
+  });
+
+  test("editing a day whose default + alternative were archived keeps them visible and saves a clean replacement", async ({
+    page,
+    providerTeam,
+  }) => {
+    const owner = await providerTeam.createUser("menu-archived-owner");
+    const providerId = await providerTeam.createProvider(owner, {
+      name: "Archive Kitchen",
+    });
+    // A published day (dal: default Rajma + Chana alternative, + Roti bread).
+    const seed = await providerTeam.seedMenuDay(providerId, owner, {
+      status: "published",
+      cutoffHoursFromNow: 8,
+    });
+    // Add an ACTIVE replacement dal dish, then archive the day's default (Rajma) and its
+    // alternative (Chana) — i.e. they were archived AFTER the day was authored.
+    const moong = await providerTeam.admin
+      .from("provider_catalog_items")
+      .insert({
+        provider_id: providerId,
+        name: "Moong Dal",
+        component_group: "dal_or_legume",
+        canonical_unit: "oz",
+        default_quantity: 16,
+        supports_spice_level: false,
+        supports_salt_level: false,
+      })
+      .select("id")
+      .single();
+    if (moong.error || !moong.data) {
+      throw new Error(`E2E: insert Moong failed: ${moong.error?.message}`);
+    }
+    const archive = await providerTeam.admin
+      .from("provider_catalog_items")
+      .update({ is_active: false })
+      .in("id", [seed.rajmaCatalogId, seed.chanaCatalogId]);
+    if (archive.error) {
+      throw new Error(`E2E: archive catalog failed: ${archive.error.message}`);
+    }
+
+    await signIn(page, owner.email, owner.password);
+    await page.goto("/provider/menu");
+
+    await expect(page.getByText("Published")).toBeVisible({ timeout: 30_000 });
+    await page.getByRole("button", { name: "Edit", exact: true }).click();
+    await expect(page.getByTestId("menu-revision-warning")).toBeVisible();
+
+    // The archived default stays VISIBLE as a flagged <option>, and the archived
+    // alternative stays as a flagged (still-checked) box — neither is silently dropped.
+    await expect(
+      page.getByRole("option", { name: /Rajma \(unavailable\)/ }),
+    ).toBeAttached();
+    await expect(page.getByText("Chana (unavailable)")).toBeVisible();
+
+    // They block the save until replaced.
+    await expect(page.getByTestId("menu-unavailable-selection")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Save changes" }),
+    ).toBeDisabled();
+
+    // Replace the archived default with the active Moong Dal (this also clears the
+    // archived alternative), then save — the day stays published.
+    await page
+      .getByLabel("Default dish for component 1")
+      .selectOption(moong.data.id as string);
+    await expect(page.getByTestId("menu-unavailable-selection")).toBeHidden();
+    await page.getByRole("button", { name: "Save changes" }).click();
+
+    await expect(page.getByTestId("menu-revision-warning")).toBeHidden({
+      timeout: 30_000,
+    });
+    await expect(page.getByText("Published", { exact: true })).toBeVisible();
+  });
+
   test("an incomplete (past-cutoff) draft cannot be published and explains why", async ({
     page,
     providerTeam,

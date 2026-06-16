@@ -1,7 +1,7 @@
 "use client";
 
 import { Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,14 +10,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  activeCatalog,
   addComponentDraft,
+  alternativeChoices,
+  catalogById,
   changeComponentDefault,
-  eligibleAlternatives,
+  hasUnavailableSelection,
   isMenuBuilderCreatable,
-  isMenuBuilderPublishable,
+  isoToLocalDateTime,
   localDateTimeToIso,
+  MENU_REVISION_WARNING,
   menuBuilderIssues,
   menuBuilderStateToCreateInput,
+  menuBuilderStateToEditInput,
   patchComponentDraft,
   PROVIDER_COMPONENT_GROUP_OPTIONS,
   providerComponentGroupLabel,
@@ -29,16 +34,25 @@ import {
   type MenuComponentDraft,
 } from "@/packages/shared/provider";
 
-import { createMenuDay } from "./menu-client";
+import { createMenuDay, reviseMenuDay } from "./menu-client";
 
 /**
- * Structured menu-day builder (MP-B-030, UC-MENU-001/002). NO free-form JSON — the
+ * Structured menu-day builder (MP-B-030, UC-MENU-001/002/004/005). NO free-form JSON — the
  * owner picks a date + cutoff, then adds component slots, each a default dish from the
- * catalog plus optional same-group swaps and a "required" flag. The live completeness
- * panel reuses the SHARED `menuBuilderIssues` (the #84 validator), so what it says
- * about "publishable" is exactly what the publish gate will decide. Submitting authors
- * a DRAFT (`createMenuDay`); publishing is a separate step on the menu list once the
- * day is complete. Customization groups + price labels are the remainder of #22.
+ * catalog plus optional same-group swaps and a "required" flag. The live completeness panel
+ * reuses the SHARED `menuBuilderIssues` (the #84 validator), so what it says about
+ * "publishable" is exactly what the publish gate will decide.
+ *
+ * Two modes:
+ *   • `create` — authors a brand-new DRAFT (`createMenuDay`, POST). A draft may be saved
+ *     incomplete (publishing is a separate step on the list once it's complete).
+ *   • `edit`   — a STRUCTURAL edit of an existing day (`reviseMenuDay`, PUT; ADR-7 = REVISION).
+ *     The date is immutable, so it shows read-only; editing a PUBLISHED day with member
+ *     responses creates a new revision and asks them to re-confirm (the consequence banner).
+ *     The edit RPC enforces a future cutoff + valid catalog refs, so an edit saves only when
+ *     the menu is PUBLISHABLE — the owner can't leave a live menu incomplete.
+ *
+ * Customization-group authoring + the note-only PATCH are the remainder of #22.
  */
 
 /** Catalog items grouped into the natural plate order for the default-dish picker. */
@@ -54,38 +68,67 @@ function groupedCatalog(
 export function MenuBuilderForm({
   providerId,
   catalog,
-  defaultMenuDate,
-  defaultCutoffLocal,
+  mode,
+  menuDayId,
+  initialState,
+  showRevisionWarning = false,
+  requirePublishable = false,
   now,
-  onCreated,
+  onSaved,
   onCancel,
 }: {
   providerId: string;
-  /** Active catalog items the builder can place (the page filters to active). */
+  /** Catalog the builder can place. For an `edit` it also carries any archived item the
+   *  day still references (flagged `isActive: false`) so a stored selection stays visible. */
   catalog: CatalogItemDto[];
-  defaultMenuDate: string;
-  /** A `YYYY-MM-DDTHH:mm` local value to prefill the cutoff input. */
-  defaultCutoffLocal: string;
+  /** `create` authors a new draft (POST); `edit` revises an existing day (PUT). */
+  mode: "create" | "edit";
+  /** The day being edited — required in `edit` mode (the PUT target). */
+  menuDayId?: string;
+  /** The builder's starting state — an empty day for `create`, the loaded day for `edit`. */
+  initialState: MenuBuilderState;
+  /** Show the revision/re-confirm consequence banner (editing a PUBLISHED day). */
+  showRevisionWarning?: boolean;
+  /** Require the day to be fully PUBLISHABLE before saving (editing a PUBLISHED day). A
+   *  draft edit (or a create) saves with the looser `creatable` gate, matching the server. */
+  requirePublishable?: boolean;
   /** Epoch ms "now" for the completeness/cutoff check (the page passes a fresh value). */
   now: number;
-  onCreated: () => void;
+  onSaved: () => void;
   onCancel: () => void;
 }) {
-  const [state, setState] = useState<MenuBuilderState>({
-    menuDate: defaultMenuDate,
-    cutoffAt: localDateTimeToIso(defaultCutoffLocal),
-    note: "",
-    components: [],
-  });
-  const [cutoffLocal, setCutoffLocal] = useState(defaultCutoffLocal);
+  const isEdit = mode === "edit";
+  const [state, setState] = useState<MenuBuilderState>(initialState);
+  const [cutoffLocal, setCutoffLocal] = useState(() =>
+    isoToLocalDateTime(initialState.cutoffAt),
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const groups = groupedCatalog(catalog);
+  // The catalog the owner can ADD/PLACE is active only; the picker additionally surfaces an
+  // already-selected archived item so it can be replaced/unchecked (review #1/#2).
+  const active = useMemo(() => activeCatalog(catalog), [catalog]);
+  const byId = useMemo(() => catalogById(catalog), [catalog]);
+  const activeIds = useMemo(
+    () => new Set(active.map((item) => item.catalogItemId)),
+    [active],
+  );
+  const groups = groupedCatalog(active);
 
-  const issues = menuBuilderIssues(state, catalog, new Date(now));
+  // Compute the completeness issues ONCE; `publishable` is just "no issues" (review #10).
+  const issues = menuBuilderIssues(state, active, new Date(now));
+  const publishable = issues.length === 0;
   const creatable = isMenuBuilderCreatable(state);
-  const publishable = isMenuBuilderPublishable(state, catalog, new Date(now));
+  // A selection (default/alt) that's been archived must be replaced before saving — the
+  // edit RPC rejects an inactive ref (review #1/#2).
+  const unavailable = hasUnavailableSelection(state, active);
+  // Create / draft-edit can save an incomplete DRAFT (publish later); editing a PUBLISHED
+  // day must keep it PUBLISHABLE. Either way an archived selection blocks the save, and an
+  // edit with no target id never falls through to a create (review #3/#4).
+  const canSave =
+    (requirePublishable ? publishable : creatable) &&
+    !unavailable &&
+    !(isEdit && !menuDayId);
 
   function patch(next: Partial<MenuBuilderState>) {
     setState((prev) => ({ ...prev, ...next }));
@@ -99,7 +142,7 @@ export function MenuBuilderForm({
   }
 
   function addComponent() {
-    setState((prev) => addComponentDraft(prev, catalog));
+    setState((prev) => addComponentDraft(prev, active));
   }
 
   function removeComponent(key: string) {
@@ -117,15 +160,23 @@ export function MenuBuilderForm({
   }
 
   async function submit() {
+    // An edit MUST target an existing day — never silently fall through to a create, which
+    // would try to author a duplicate day for the (immutable) date (review #4).
+    if (isEdit && !menuDayId) {
+      setError("Couldn't save the menu — the day to edit is missing.");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
-      await createMenuDay(providerId, menuBuilderStateToCreateInput(state));
-      onCreated();
+      if (isEdit && menuDayId) {
+        await reviseMenuDay(menuDayId, menuBuilderStateToEditInput(state));
+      } else {
+        await createMenuDay(providerId, menuBuilderStateToCreateInput(state));
+      }
+      onSaved();
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Couldn't create the menu.",
-      );
+      setError(err instanceof Error ? err.message : "Couldn't save the menu.");
       setBusy(false);
     }
   }
@@ -133,7 +184,9 @@ export function MenuBuilderForm({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>New menu day</CardTitle>
+        <CardTitle>
+          {isEdit ? `Edit menu — ${state.menuDate}` : "New menu day"}
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
         {error ? (
@@ -145,6 +198,15 @@ export function MenuBuilderForm({
           </p>
         ) : null}
 
+        {showRevisionWarning ? (
+          <p
+            className="rounded-md border border-saffron/40 bg-saffron/10 px-3 py-2 text-sm text-muted-foreground"
+            data-testid="menu-revision-warning"
+          >
+            {MENU_REVISION_WARNING}
+          </p>
+        ) : null}
+
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor="menu-date">Menu date</Label>
@@ -152,6 +214,7 @@ export function MenuBuilderForm({
               id="menu-date"
               type="date"
               value={state.menuDate}
+              disabled={isEdit}
               onChange={(e) => patch({ menuDate: e.target.value })}
             />
           </div>
@@ -199,7 +262,12 @@ export function MenuBuilderForm({
             </p>
           ) : (
             state.components.map((component, index) => {
-              const alts = eligibleAlternatives(component, catalog);
+              const alts = alternativeChoices(component, catalog);
+              // An archived default (no longer active) is kept VISIBLE as a flagged option so
+              // the owner sees what's stored and must replace it before saving (review #1/#2).
+              const defaultArchived =
+                component.defaultCatalogItemId.length > 0 &&
+                !activeIds.has(component.defaultCatalogItemId);
               return (
                 <div
                   key={component.key}
@@ -221,6 +289,13 @@ export function MenuBuilderForm({
                         }
                         className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm"
                       >
+                        {defaultArchived ? (
+                          <option value={component.defaultCatalogItemId}>
+                            {byId.get(component.defaultCatalogItemId)?.name ??
+                              "Unknown dish"}{" "}
+                            (unavailable)
+                          </option>
+                        ) : null}
                         {groups.map((group) => (
                           <optgroup key={group.label} label={group.label}>
                             {group.items.map((item) => (
@@ -284,6 +359,7 @@ export function MenuBuilderForm({
                               }
                             />
                             {alt.name}
+                            {alt.isActive ? "" : " (unavailable)"}
                           </label>
                         ))}
                       </div>
@@ -296,7 +372,7 @@ export function MenuBuilderForm({
         </div>
 
         {/* Live completeness — what the publish gate will see. */}
-        {creatable && !publishable ? (
+        {(creatable || unavailable) && !publishable ? (
           <div
             className="space-y-1.5 rounded-md border border-saffron/40 bg-saffron/10 p-3"
             data-testid="menu-completeness"
@@ -309,20 +385,33 @@ export function MenuBuilderForm({
                 <li key={message}>{message}</li>
               ))}
             </ul>
+            {unavailable ? (
+              <p
+                className="text-xs text-muted-foreground"
+                data-testid="menu-unavailable-selection"
+              >
+                One or more selected dishes are no longer available — replace
+                them before saving.
+              </p>
+            ) : null}
             <p className="text-xs text-muted-foreground">
-              You can still save this as a draft and finish it later.
+              {requirePublishable
+                ? "Fix these before saving — a published menu must stay complete."
+                : "You can still save this as a draft and finish it later."}
             </p>
           </div>
         ) : null}
         {creatable && publishable ? (
           <p className="text-sm">
-            <Badge variant="emerald">Ready to publish</Badge>
+            <Badge variant="emerald">
+              {isEdit ? "Ready to save" : "Ready to publish"}
+            </Badge>
           </p>
         ) : null}
 
         <div className="flex flex-wrap gap-2">
-          <Button type="button" onClick={submit} disabled={!creatable || busy}>
-            {busy ? "Saving…" : "Save draft"}
+          <Button type="button" onClick={submit} disabled={!canSave || busy}>
+            {busy ? "Saving…" : isEdit ? "Save changes" : "Save draft"}
           </Button>
           <Button
             type="button"

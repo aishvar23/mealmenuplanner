@@ -10,17 +10,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
   activeCatalog,
-  defaultCutoffIso,
+  defaultCutoffLocalIso,
   dishCountLabel,
+  editCatalog,
+  emptyMenuBuilderState,
   formatCutoffCountdown,
   formatCutoffDateTime,
-  isoToLocalDateTime,
+  isMenuDayEditable,
+  menuBuilderStateFromMenuDay,
   PROVIDER_MENU_STATUS_BADGE_VARIANT,
   providerMenuStatusLabel,
   providerTodayDate,
   summarizeMenuIssues,
   validateMenuCompleteness,
   type CatalogItemDto,
+  type MenuBuilderState,
   type MenuDayDto,
 } from "@/packages/shared/provider";
 
@@ -72,10 +76,12 @@ export function MenuManagerView({
   );
 
   const [building, setBuilding] = useState(false);
+  const [editing, setEditing] = useState<MenuDayDto | null>(null);
   const [publishingId, setPublishingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const active = activeCatalog(catalog);
+  const builderOpen = building || editing !== null;
 
   async function onPublish(menuDayId: string) {
     setPublishingId(menuDayId);
@@ -103,8 +109,14 @@ export function MenuManagerView({
             Build and publish each day&apos;s menu.
           </p>
         </div>
-        {active.length > 0 && !building ? (
-          <Button type="button" onClick={() => setBuilding(true)}>
+        {active.length > 0 && !builderOpen ? (
+          <Button
+            type="button"
+            onClick={() => {
+              setEditing(null);
+              setBuilding(true);
+            }}
+          >
             <Plus /> New menu day
           </Button>
         ) : null}
@@ -133,21 +145,26 @@ export function MenuManagerView({
 
       {/* The builder needs a live clock for its defaults + completeness gate; it only
           opens on a click (post-hydration), so `nowMs` is always set by then. */}
-      {building && nowMs !== null ? (
+      {builderOpen && nowMs !== null ? (
         <BuilderPanel
           providerId={providerId}
           catalog={active}
           timezone={timezone}
           nowMs={nowMs}
-          onCreated={() => {
+          editing={editing}
+          onSaved={() => {
             setBuilding(false);
+            setEditing(null);
             router.refresh();
           }}
-          onCancel={() => setBuilding(false)}
+          onCancel={() => {
+            setBuilding(false);
+            setEditing(null);
+          }}
         />
       ) : null}
 
-      {weeklyMenu.length === 0 && active.length > 0 && !building ? (
+      {weeklyMenu.length === 0 && active.length > 0 && !builderOpen ? (
         <Card>
           <CardContent className="py-8">
             <EmptyState
@@ -168,6 +185,14 @@ export function MenuManagerView({
             nowMs={nowMs}
             publishing={publishingId === day.menuDayId}
             onPublish={() => onPublish(day.menuDayId)}
+            editable={
+              !builderOpen && nowMs !== null && isMenuDayEditable(day, nowMs)
+            }
+            onEdit={() => {
+              setError(null);
+              setBuilding(false);
+              setEditing(day);
+            }}
           />
         ))}
       </div>
@@ -176,37 +201,49 @@ export function MenuManagerView({
 }
 
 /**
- * The builder, with its date/cutoff defaults derived from the live clock. Split out so
- * the defaults are computed only when the builder is open (and `nowMs` is non-null),
- * keeping the parent render pure (no `Date.now()` during render).
+ * The builder, with its starting state derived from the live clock. Split out so the
+ * defaults (or the loaded day, for an edit) are computed only when the builder is open (and
+ * `nowMs` is non-null), keeping the parent render pure (no `Date.now()` during render). When
+ * `editing` is set the builder opens in EDIT mode on that day's current structure; otherwise
+ * it opens in CREATE mode on a fresh day defaulted to today + an 8h cutoff.
  */
 function BuilderPanel({
   providerId,
   catalog,
   timezone,
   nowMs,
-  onCreated,
+  editing,
+  onSaved,
   onCancel,
 }: {
   providerId: string;
   catalog: CatalogItemDto[];
   timezone: string;
   nowMs: number;
-  onCreated: () => void;
+  editing: MenuDayDto | null;
+  onSaved: () => void;
   onCancel: () => void;
 }) {
-  const defaultMenuDate = providerTodayDate(timezone, new Date(nowMs));
-  const defaultCutoffLocal = isoToLocalDateTime(
-    defaultCutoffIso(new Date(nowMs)),
-  );
+  const initialState: MenuBuilderState = editing
+    ? menuBuilderStateFromMenuDay(editing)
+    : emptyMenuBuilderState(
+        providerTodayDate(timezone, new Date(nowMs)),
+        defaultCutoffLocalIso(new Date(nowMs)),
+      );
+  // For an edit, surface any archived item the day still references so the owner can
+  // see/replace it instead of it silently vanishing from the picker (review #1/#2).
+  const builderCatalog = editing ? editCatalog(catalog, editing) : catalog;
   return (
     <MenuBuilderForm
       providerId={providerId}
-      catalog={catalog}
-      defaultMenuDate={defaultMenuDate}
-      defaultCutoffLocal={defaultCutoffLocal}
+      catalog={builderCatalog}
+      mode={editing ? "edit" : "create"}
+      menuDayId={editing?.menuDayId}
+      initialState={initialState}
+      showRevisionWarning={editing?.status === "published"}
+      requirePublishable={editing?.status === "published"}
       now={nowMs}
-      onCreated={onCreated}
+      onSaved={onSaved}
       onCancel={onCancel}
     />
   );
@@ -218,12 +255,16 @@ function MenuDayCard({
   nowMs,
   publishing,
   onPublish,
+  editable,
+  onEdit,
 }: {
   day: MenuDayDto;
   timezone: string;
   nowMs: number | null;
   publishing: boolean;
   onPublish: () => void;
+  editable: boolean;
+  onEdit: () => void;
 }) {
   const countdown =
     nowMs !== null ? formatCutoffCountdown(day.cutoffAt, nowMs) : null;
@@ -268,26 +309,39 @@ function MenuDayCard({
           <p className="text-sm text-muted-foreground">{day.note}</p>
         ) : null}
 
-        {isDraft ? (
-          <div className="space-y-2">
-            {issues !== null && !publishable ? (
-              <ul
-                className="ml-4 list-disc text-sm text-muted-foreground"
-                data-testid="draft-blockers"
+        {isDraft && issues !== null && !publishable ? (
+          <ul
+            className="ml-4 list-disc text-sm text-muted-foreground"
+            data-testid="draft-blockers"
+          >
+            {summarizeMenuIssues(issues).map((message) => (
+              <li key={message}>{message}</li>
+            ))}
+          </ul>
+        ) : null}
+
+        {isDraft || editable ? (
+          <div className="flex flex-wrap gap-2">
+            {isDraft ? (
+              <Button
+                type="button"
+                size="sm"
+                onClick={onPublish}
+                disabled={!publishable || publishing}
               >
-                {summarizeMenuIssues(issues).map((message) => (
-                  <li key={message}>{message}</li>
-                ))}
-              </ul>
+                {publishing ? "Publishing…" : "Publish"}
+              </Button>
             ) : null}
-            <Button
-              type="button"
-              size="sm"
-              onClick={onPublish}
-              disabled={!publishable || publishing}
-            >
-              {publishing ? "Publishing…" : "Publish"}
-            </Button>
+            {editable ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={onEdit}
+              >
+                Edit
+              </Button>
+            ) : null}
           </div>
         ) : null}
       </CardContent>

@@ -1,21 +1,23 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Text, View } from "react-native";
 
 import {
+  activeCatalog,
   addComponentDraft,
+  alternativeChoices,
+  catalogById,
   changeComponentDefault,
-  eligibleAlternatives,
+  hasUnavailableSelection,
   isMenuBuilderCreatable,
-  isMenuBuilderPublishable,
+  isoToLocalDateTime,
   localDateTimeToIso,
+  MENU_REVISION_WARNING,
   menuBuilderIssues,
-  menuBuilderStateToCreateInput,
   patchComponentDraft,
   providerComponentGroupLabel,
   removeComponentDraft,
   summarizeMenuIssues,
   type CatalogItemDto,
-  type CreateMenuDayInput,
   type MenuBuilderState,
   type MenuComponentDraft,
 } from "@mmp/shared/provider";
@@ -27,43 +29,69 @@ import { TextField } from "@/components/TextField";
 
 /**
  * Structured menu-day builder (MP-C-030, the mobile twin of the web MenuBuilderForm,
- * UC-MENU-001/002). No free-form JSON: the owner sets a date + cutoff, then adds
+ * UC-MENU-001/002/004/005). No free-form JSON: the owner sets a date + cutoff, then adds
  * component slots — each a default dish from the catalog plus same-group swaps and a
  * "required" flag. The live completeness panel reuses the SHARED `menuBuilderIssues`
- * (the #84 validator), so "publishable" matches what the publish gate decides. Submit
- * authors a DRAFT; publishing is a separate action on the menu list. Shares no UI code
- * with web — same `/api/*` routes, same `@mmp/shared/provider` model.
+ * (the #84 validator), so "publishable" matches what the publish gate decides.
+ *
+ * Two modes mirror the web form: `create` authors a new DRAFT (saveable incomplete), `edit`
+ * STRUCTURALLY edits an existing day (ADR-7 = REVISION; the immutable date is read-only, and
+ * an edit saves only when PUBLISHABLE so a live menu can't be left incomplete). Emits the
+ * working `MenuBuilderState` — the screen maps it to the create/edit input + the right
+ * mutation. Shares no UI code with web — same `/api/*` routes, same `@mmp/shared/provider`.
  */
 export function MenuBuilderForm({
   catalog,
-  defaultMenuDate,
-  defaultCutoffLocal,
+  mode,
+  initialState,
+  showRevisionWarning = false,
+  requirePublishable = false,
   now,
   submitting,
   error,
   onSubmit,
   onCancel,
 }: {
+  /** Catalog the builder can place. For an `edit` it also carries any archived item the
+   *  day still references (flagged `isActive: false`) so a stored selection stays visible. */
   catalog: CatalogItemDto[];
-  defaultMenuDate: string;
-  defaultCutoffLocal: string;
+  mode: "create" | "edit";
+  initialState: MenuBuilderState;
+  showRevisionWarning?: boolean;
+  /** Require the day to be fully PUBLISHABLE before saving (editing a PUBLISHED day); a
+   *  draft edit / create saves with the looser `creatable` gate, matching the server. */
+  requirePublishable?: boolean;
   now: number;
   submitting: boolean;
   error: string | null;
-  onSubmit: (input: CreateMenuDayInput) => void;
+  onSubmit: (state: MenuBuilderState) => void;
   onCancel: () => void;
 }) {
-  const [cutoffLocal, setCutoffLocal] = useState(defaultCutoffLocal);
-  const [state, setState] = useState<MenuBuilderState>({
-    menuDate: defaultMenuDate,
-    cutoffAt: localDateTimeToIso(defaultCutoffLocal),
-    note: "",
-    components: [],
-  });
+  const isEdit = mode === "edit";
+  const [cutoffLocal, setCutoffLocal] = useState(() =>
+    isoToLocalDateTime(initialState.cutoffAt),
+  );
+  const [state, setState] = useState<MenuBuilderState>(initialState);
 
-  const issues = menuBuilderIssues(state, catalog, new Date(now));
+  // The catalog the owner can ADD/PLACE is active only; the picker additionally surfaces an
+  // already-selected archived item so it can be replaced/unchecked (review #1/#2).
+  const active = useMemo(() => activeCatalog(catalog), [catalog]);
+  const byId = useMemo(() => catalogById(catalog), [catalog]);
+  const activeIds = useMemo(
+    () => new Set(active.map((item) => item.catalogItemId)),
+    [active],
+  );
+
+  // Compute the completeness issues ONCE; `publishable` is just "no issues" (review #10).
+  const issues = menuBuilderIssues(state, active, new Date(now));
+  const publishable = issues.length === 0;
   const creatable = isMenuBuilderCreatable(state);
-  const publishable = isMenuBuilderPublishable(state, catalog, new Date(now));
+  // An archived selection (default/alt) must be replaced before saving (review #1/#2).
+  const unavailable = hasUnavailableSelection(state, active);
+  // Create / draft-edit can save an incomplete DRAFT; editing a PUBLISHED day must keep it
+  // PUBLISHABLE. An archived selection blocks the save either way (review #3/#1/#2).
+  const canSave =
+    (requirePublishable ? publishable : creatable) && !unavailable;
 
   // All component transitions go through the shared pure reducers (see
   // menu-builder.ts) so web + mobile stay in lockstep and the new key is derived from
@@ -73,7 +101,7 @@ export function MenuBuilderForm({
   }
 
   function addComponent() {
-    setState((prev) => addComponentDraft(prev, catalog));
+    setState((prev) => addComponentDraft(prev, active));
   }
 
   function removeComponent(key: string) {
@@ -89,14 +117,23 @@ export function MenuBuilderForm({
   return (
     <View className="gap-4 rounded-xl border border-gray-100 bg-white p-4">
       <Text className="text-base font-semibold text-gray-900">
-        New menu day
+        {isEdit ? `Edit menu · ${state.menuDate}` : "New menu day"}
       </Text>
 
       {error ? <ErrorBanner message={error} /> : null}
 
+      {showRevisionWarning ? (
+        <View className="gap-1 rounded-lg border border-amber-200 bg-amber-50 p-3">
+          <Text className="text-sm text-amber-800">
+            {MENU_REVISION_WARNING}
+          </Text>
+        </View>
+      ) : null}
+
       <TextField
         label="Menu date (YYYY-MM-DD)"
         value={state.menuDate}
+        editable={!isEdit}
         autoCapitalize="none"
         onChangeText={(menuDate) => setState((prev) => ({ ...prev, menuDate }))}
       />
@@ -133,7 +170,26 @@ export function MenuBuilderForm({
           </Text>
         ) : (
           state.components.map((component) => {
-            const alts = eligibleAlternatives(component, catalog);
+            const alts = alternativeChoices(component, catalog);
+            // An archived default (no longer active) stays VISIBLE as a flagged chip so the
+            // owner sees what's stored and must replace it before saving (review #1/#2).
+            const defaultArchived =
+              component.defaultCatalogItemId.length > 0 &&
+              !activeIds.has(component.defaultCatalogItemId);
+            const defaultOptions = [
+              ...active.map((item) => ({
+                value: item.catalogItemId,
+                label: `${item.name} · ${item.defaultQuantity} ${item.canonicalUnit}`,
+              })),
+              ...(defaultArchived
+                ? [
+                    {
+                      value: component.defaultCatalogItemId,
+                      label: `${byId.get(component.defaultCatalogItemId)?.name ?? "Unknown dish"} (unavailable)`,
+                    },
+                  ]
+                : []),
+            ];
             return (
               <View
                 key={component.key}
@@ -145,10 +201,7 @@ export function MenuBuilderForm({
                 </Text>
                 <SelectChips
                   mode="single"
-                  options={catalog.map((item) => ({
-                    value: item.catalogItemId,
-                    label: `${item.name} · ${item.defaultQuantity} ${item.canonicalUnit}`,
-                  }))}
+                  options={defaultOptions}
                   selected={[component.defaultCatalogItemId]}
                   onChange={(next) => {
                     if (next[0]) changeDefault(component.key, next[0]);
@@ -175,7 +228,9 @@ export function MenuBuilderForm({
                       mode="multi"
                       options={alts.map((alt) => ({
                         value: alt.catalogItemId,
-                        label: alt.name,
+                        label: alt.isActive
+                          ? alt.name
+                          : `${alt.name} (unavailable)`,
                       }))}
                       selected={component.alternativeCatalogItemIds}
                       onChange={(next) =>
@@ -198,7 +253,7 @@ export function MenuBuilderForm({
         )}
       </View>
 
-      {creatable && !publishable ? (
+      {(creatable || unavailable) && !publishable ? (
         <View className="gap-1.5 rounded-lg border border-amber-200 bg-amber-50 p-3">
           <Text className="text-sm font-semibold text-amber-800">
             Not publishable yet
@@ -208,21 +263,29 @@ export function MenuBuilderForm({
               • {message}
             </Text>
           ))}
+          {unavailable ? (
+            <Text className="text-xs text-amber-700">
+              One or more selected dishes are no longer available — replace them
+              before saving.
+            </Text>
+          ) : null}
           <Text className="text-xs text-amber-700">
-            You can still save this as a draft and finish it later.
+            {requirePublishable
+              ? "Fix these before saving — a published menu must stay complete."
+              : "You can still save this as a draft and finish it later."}
           </Text>
         </View>
       ) : null}
       {creatable && publishable ? (
         <Text className="text-sm font-medium text-green-700">
-          Ready to publish
+          {isEdit ? "Ready to save" : "Ready to publish"}
         </Text>
       ) : null}
 
       <Button
-        label="Save draft"
-        onPress={() => onSubmit(menuBuilderStateToCreateInput(state))}
-        disabled={!creatable}
+        label={isEdit ? "Save changes" : "Save draft"}
+        onPress={() => onSubmit(state)}
+        disabled={!canSave}
         loading={submitting}
       />
       <Button label="Cancel" variant="ghost" onPress={onCancel} />

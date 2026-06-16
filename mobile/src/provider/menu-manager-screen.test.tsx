@@ -90,6 +90,7 @@ function value(
     catalog: query<CatalogItemDto[]>(CATALOG),
     create: mutation(),
     publish: mutation(),
+    revise: mutation(),
     ...overrides,
   } as unknown as ReturnType<typeof useMenuManager>;
 }
@@ -188,5 +189,121 @@ describe("MenuManagerScreen (MP-C-030)", () => {
     expect(input.components[0].defaultCatalogItemId).toBe(
       CATALOG[0]!.catalogItemId,
     );
+  });
+
+  it("edits a published day via the revise mutation, warning about re-confirmation", async () => {
+    const revise = mutation();
+    const published = makeDay({
+      status: "published",
+      publishedAt: "2026-06-10T00:00:00Z",
+      cutoffAt: "2999-01-01T00:00:00Z",
+    });
+    mockUseMenuManager.mockReturnValue(
+      value({ revise, weeklyMenu: query<MenuDayDto[]>([published]) }),
+    );
+    render(<MenuManagerScreen providerId="p1" />);
+
+    // A published, before-cutoff day offers Edit (not Publish).
+    fireEvent.press(screen.getByText("Edit"));
+    expect(screen.getByText(/Edit menu/)).toBeOnTheScreen();
+    // The owner is warned that editing a published day may spawn a revision.
+    expect(screen.getByText(/may create a new revision/)).toBeOnTheScreen();
+
+    fireEvent.press(screen.getByText("Save changes"));
+    await waitFor(() => expect(revise.mutateAsync).toHaveBeenCalledTimes(1));
+    const arg = revise.mutateAsync.mock.calls[0]![0];
+    expect(arg.menuDayId).toBe("d1");
+    expect(arg.input.components).toHaveLength(1);
+    expect(arg.input.components[0].defaultCatalogItemId).toBe(
+      CATALOG[0]!.catalogItemId,
+    );
+    // The immutable date is not part of the edit payload.
+    expect("menuDate" in arg.input).toBe(false);
+  });
+
+  it("saves an incomplete DRAFT edit (draft gate is creatable, not publishable)", async () => {
+    const revise = mutation();
+    // A draft with a past cutoff is NOT publishable, but a draft edit may still be saved.
+    const draft = makeDay({
+      status: "draft",
+      cutoffAt: "2000-01-01T00:00:00Z",
+    });
+    mockUseMenuManager.mockReturnValue(
+      value({ revise, weeklyMenu: query<MenuDayDto[]>([draft]) }),
+    );
+    render(<MenuManagerScreen providerId="p1" />);
+
+    fireEvent.press(screen.getByText("Edit"));
+    expect(screen.getByText(/Edit menu/)).toBeOnTheScreen();
+    const saveBtn = screen.getByRole("button", { name: "Save changes" });
+    expect(saveBtn.props.accessibilityState?.disabled).toBeFalsy();
+    fireEvent.press(saveBtn);
+    await waitFor(() => expect(revise.mutateAsync).toHaveBeenCalledTimes(1));
+  });
+
+  it("keeps an archived default + alternative visible and blocks save until replaced", async () => {
+    const revise = mutation();
+    const rajma = CATALOG.find((c) => c.componentGroup === "dal_or_legume")!;
+    const published: MenuDayDto = {
+      ...makeDay({
+        status: "published",
+        publishedAt: "2026-06-10T00:00:00Z",
+        cutoffAt: "2999-01-01T00:00:00Z",
+      }),
+      components: [
+        {
+          menuComponentId: "mc-dal",
+          componentGroup: "dal_or_legume",
+          defaultCatalogItemId: "archived-dal", // archived after authoring
+          defaultItemName: "Old Rajma",
+          defaultQuantity: 16,
+          canonicalUnit: "oz",
+          isRequired: true,
+          sortOrder: 0,
+          alternatives: [
+            {
+              alternativeId: "alt-1",
+              catalogItemId: "archived-alt", // also archived
+              itemName: "Old Chana",
+              quantity: 16,
+              canonicalUnit: "oz",
+            },
+          ],
+          customizationGroups: [],
+          supportsSpiceLevel: false,
+          supportsSaltLevel: false,
+        },
+      ],
+    };
+    mockUseMenuManager.mockReturnValue(
+      value({ revise, weeklyMenu: query<MenuDayDto[]>([published]) }),
+    );
+    render(<MenuManagerScreen providerId="p1" />);
+
+    fireEvent.press(screen.getByText("Edit"));
+    // The archived default + alternative stay VISIBLE (flagged), never silently dropped.
+    expect(screen.getByText("Old Rajma (unavailable)")).toBeOnTheScreen();
+    expect(screen.getByText("Old Chana (unavailable)")).toBeOnTheScreen();
+    // They block saving until replaced.
+    expect(screen.getByText(/no longer available/)).toBeOnTheScreen();
+    expect(
+      screen.getByRole("button", { name: "Save changes" }).props
+        .accessibilityState?.disabled,
+    ).toBe(true);
+
+    // Replacing the default with an active dish (which clears the archived alt) saves.
+    fireEvent.press(
+      screen.getByText(
+        `${rajma.name} · ${rajma.defaultQuantity} ${rajma.canonicalUnit}`,
+      ),
+    );
+    expect(screen.queryByText(/no longer available/)).toBeNull();
+    fireEvent.press(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(revise.mutateAsync).toHaveBeenCalledTimes(1));
+    const arg = revise.mutateAsync.mock.calls[0]![0];
+    expect(arg.input.components[0].defaultCatalogItemId).toBe(
+      rajma.catalogItemId,
+    );
+    expect(arg.input.components[0].alternativeCatalogItemIds).toEqual([]);
   });
 });
