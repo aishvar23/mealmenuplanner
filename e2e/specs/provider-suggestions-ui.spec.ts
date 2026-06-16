@@ -130,4 +130,132 @@ test.describe("Provider suggestion UI (MP-A-131)", () => {
     await expect(memberList.getByText("Not added")).toBeVisible();
     await expect(memberList.getByText(/Sorry, not this week\./)).toBeVisible();
   });
+
+  test("the owner triage recovers from a transient load failure on re-expand", async ({
+    page,
+    providerTeam,
+  }) => {
+    const owner = await providerTeam.createUser("sugg-ui-owner3");
+    const providerId = await providerTeam.createProvider(owner, {
+      name: "Suggestion UI Kitchen 3",
+    });
+    const customer = await providerTeam.createUser("sugg-ui-cust3");
+    await providerTeam.addCustomer(providerId, customer, "approved");
+    const { menuDayId } = await providerTeam.seedMenuDay(providerId, owner, {
+      cutoffHoursFromNow: 8,
+    });
+
+    // A member files a suggestion so the day's triage has a row to show on success.
+    await signIn(page, customer.email, customer.password);
+    const created = await page.request.post(
+      `/api/provider-menu-days/${menuDayId}/suggestions`,
+      { data: { suggestionText: "Add jeera rice please" } },
+    );
+    expect(created.status()).toBe(201);
+
+    // Fail only the FIRST read of this day's suggestions; let the retry through.
+    let failedOnce = false;
+    await page.route(
+      `**/api/provider-menu-days/${menuDayId}/suggestions`,
+      async (route) => {
+        if (route.request().method() === "GET" && !failedOnce) {
+          failedOnce = true;
+          await route.fulfill({
+            status: 500,
+            contentType: "application/json",
+            body: JSON.stringify({ error: { message: "Temporary outage" } }),
+          });
+          return;
+        }
+        await route.continue();
+      },
+    );
+
+    await signIn(page, owner.email, owner.password);
+    await page.goto("/provider/menu");
+    await expect(
+      page.getByRole("heading", { name: "Weekly menu" }),
+    ).toBeVisible({ timeout: 30_000 });
+
+    const triageToggle = page.getByRole("button", {
+      name: "Member suggestions",
+    });
+    const panel = page.getByTestId("owner-suggestion-panel");
+
+    // First expand → the GET fails → the error surfaces.
+    await triageToggle.click();
+    await expect(panel.getByText("Temporary outage")).toBeVisible({
+      timeout: 15_000,
+    });
+
+    // Collapse, then re-expand → the retry succeeds and the suggestion loads.
+    await triageToggle.click();
+    await triageToggle.click();
+    await expect(panel.getByText("Add jeera rice please")).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(panel.getByText("Temporary outage")).toBeHidden();
+  });
+
+  test("an optimistic create survives a slow initial GET that omits it", async ({
+    page,
+    providerTeam,
+  }) => {
+    const owner = await providerTeam.createUser("sugg-ui-owner4");
+    const providerId = await providerTeam.createProvider(owner, {
+      name: "Suggestion UI Kitchen 4",
+    });
+    const customer = await providerTeam.createUser("sugg-ui-cust4");
+    await providerTeam.addCustomer(providerId, customer, "approved");
+    const { menuDayId } = await providerTeam.seedMenuDay(providerId, owner, {
+      cutoffHoursFromNow: 8,
+    });
+
+    await signIn(page, customer.email, customer.password);
+
+    // Hold the initial list read so it resolves AFTER the create, and return a STALE
+    // list (empty) that omits the just-sent row — the merge must keep the optimistic
+    // row rather than let the in-flight GET clobber it. The create POST is real.
+    await page.route(
+      `**/api/provider-menu-days/${menuDayId}/suggestions`,
+      async (route) => {
+        if (route.request().method() === "GET") {
+          await new Promise((resolve) => setTimeout(resolve, 2_500));
+          await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: "[]",
+          });
+          return;
+        }
+        await route.continue();
+      },
+    );
+
+    const staleGet = page.waitForResponse(
+      (r) =>
+        r.url().includes(`/api/provider-menu-days/${menuDayId}/suggestions`) &&
+        r.request().method() === "GET",
+    );
+
+    await page.goto(`/providers/${providerId}/today`);
+    await expect(
+      page.getByRole("heading", { name: "Today’s menu" }),
+    ).toBeVisible({ timeout: 30_000 });
+
+    await page
+      .getByPlaceholder("e.g. Could you add a millet roti option?")
+      .fill("Add jeera rice please");
+    await page.getByRole("button", { name: /Send suggestion/ }).click();
+    await expect(page.getByText("Suggestion sent. Thanks!")).toBeVisible({
+      timeout: 15_000,
+    });
+
+    const memberList = page.getByTestId("member-suggestion-list");
+    await expect(memberList.getByText("Add jeera rice please")).toBeVisible();
+
+    // Let the stale initial GET land; the optimistic row must NOT disappear.
+    await staleGet;
+    await expect(memberList.getByText("Add jeera rice please")).toBeVisible();
+  });
 });

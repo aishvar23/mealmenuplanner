@@ -435,8 +435,9 @@ function MenuDayCard({
         ) : null}
 
         {/* Members can only suggest on a published/locked day (RLS gates the insert to
-            readable, non-draft days), so the owner triage shows only once published. */}
-        {day.status !== "draft" ? (
+            those), so the owner triage shows only there — not on draft and not on a
+            terminal archived/cancelled day where it would be a dead, always-empty panel. */}
+        {day.status === "published" || day.status === "locked" ? (
           <OwnerDaySuggestions menuDayId={day.menuDayId} />
         ) : null}
       </CardContent>

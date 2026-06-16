@@ -1,7 +1,7 @@
 "use client";
 
 import { Lightbulb, MessageSquarePlus } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,12 +38,22 @@ export function MemberSuggestions({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // Suggestions created optimistically (prepended below) — kept so a slow initial
+  // GET that resolves *after* a create can't overwrite and drop a just-sent row.
+  const localCreatesRef = useRef<ProviderSuggestionDto[]>([]);
 
   useEffect(() => {
     let active = true;
     listSuggestions(menuDayId)
       .then((items) => {
-        if (active) setSuggestions(items);
+        if (!active) return;
+        // Merge any locally-created rows the server response doesn't yet include
+        // (newest-first), deduped by id, so an in-flight create never disappears.
+        const seen = new Set(items.map((s) => s.suggestionId));
+        const pendingLocal = localCreatesRef.current.filter(
+          (s) => !seen.has(s.suggestionId),
+        );
+        setSuggestions([...pendingLocal, ...items]);
       })
       .catch((err: unknown) => {
         if (active)
@@ -68,7 +78,9 @@ export function MemberSuggestions({
       const created = await createSuggestion(menuDayId, {
         suggestionText: trimmed,
       });
-      // Prepend (the list is newest-first) so the member sees it land immediately.
+      // Prepend (the list is newest-first) so the member sees it land immediately,
+      // and remember it so an in-flight initial GET can't clobber it on resolve.
+      localCreatesRef.current = [created, ...localCreatesRef.current];
       setSuggestions((prev) => [created, ...(prev ?? [])]);
       setText("");
       setNotice("Suggestion sent. Thanks!");

@@ -35,8 +35,11 @@ export function OwnerDaySuggestions({ menuDayId }: { menuDayId: string }) {
   async function toggle() {
     const next = !open;
     setOpen(next);
-    // Load once, on first expand. A collapse keeps what we have for a cheap re-open.
-    if (next && items === null && loadError === null) {
+    // Load on first expand; a collapse keeps what we have for a cheap re-open. A
+    // transient failure leaves `items` null, so a re-expand clears the stale error
+    // and retries (matching the recovering TanStack-backed mobile twin).
+    if (next && items === null) {
+      setLoadError(null);
       try {
         setItems(await listSuggestions(menuDayId));
       } catch (err) {
