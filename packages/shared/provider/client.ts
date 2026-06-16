@@ -186,6 +186,10 @@ export interface ProviderApiClient {
   cancelResponse(responseId: string): Promise<MemberResponseDto>;
 
   // ── Suggestions ──
+  /** `GET /api/provider-menu-days/{menuDayId}/suggestions` — list the suggestions the
+   * caller may see for the day (RLS-scoped: owner → all for the day, member → own).
+   * Newest-first; `[]` when none or no access. */
+  listSuggestions(menuDayId: string): Promise<ProviderSuggestionDto[]>;
   /** `POST /api/provider-menu-days/{menuDayId}/suggestions` — a member files a
    * non-binding suggestion for the day (rate-limited; BR-012). */
   createSuggestion(

@@ -1,10 +1,23 @@
 import { withErrorBoundary } from "@/lib/errors";
 import { readJsonObject } from "@/lib/http";
-import { createSuggestion } from "@/lib/services/provider";
+import { createSuggestion, listSuggestions } from "@/lib/services/provider";
 
 export const dynamic = "force-dynamic";
 
 type RouteContext = { params: Promise<{ menuDayId: string }> };
+
+/**
+ * `GET /api/provider-menu-days/{menuDayId}/suggestions` — list the suggestions the
+ * caller may see for the day (MP-A-131). RLS scopes it: the owner sees all
+ * suggestions filed against the day (triage); a member sees only their own. Returns
+ * `ProviderSuggestionDto[]` (newest-first; `[]` when none or no access).
+ */
+export const GET = withErrorBoundary(
+  async (_request: Request, context: RouteContext) => {
+    const { menuDayId } = await context.params;
+    return Response.json(await listSuggestions(menuDayId));
+  },
+);
 
 /**
  * `POST /api/provider-menu-days/{menuDayId}/suggestions` — the caller files a
