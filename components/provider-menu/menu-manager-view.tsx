@@ -33,6 +33,8 @@ import {
   type MenuDayDto,
 } from "@/packages/shared/provider";
 
+import { OwnerDaySuggestions } from "@/components/provider-suggestions/owner-day-suggestions";
+
 import { MenuBuilderForm } from "./menu-builder-form";
 import { publishMenuDay, updateMenuDayNote } from "./menu-client";
 
@@ -430,6 +432,12 @@ function MenuDayCard({
               </Button>
             ) : null}
           </div>
+        ) : null}
+
+        {/* Members can only suggest on a published/locked day (RLS gates the insert to
+            readable, non-draft days), so the owner triage shows only once published. */}
+        {day.status !== "draft" ? (
+          <OwnerDaySuggestions menuDayId={day.menuDayId} />
         ) : null}
       </CardContent>
     </Card>

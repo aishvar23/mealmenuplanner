@@ -9,7 +9,12 @@ import {
   PROVIDER_MENU_STATUS_LABELS,
   PROVIDER_RESPONSE_STATUS_BADGE_VARIANT,
   PROVIDER_RESPONSE_STATUS_LABELS,
+  PROVIDER_SUGGESTION_STATUS_BADGE_VARIANT,
+  PROVIDER_SUGGESTION_STATUS_LABELS,
   providerMenuStatusLabel,
+  providerSuggestionStatusLabel,
+  SUGGESTION_RESPONSE_MAX_LENGTH,
+  SUGGESTION_TEXT_MAX_LENGTH,
 } from "./labels";
 
 describe("PROVIDER_RESPONSE_STATUS_BADGE_VARIANT", () => {
@@ -44,6 +49,33 @@ describe("providerMenuStatusLabel / PROVIDER_MENU_STATUS_BADGE_VARIANT (MP-B-060
     expect(PROVIDER_MENU_STATUS_BADGE_VARIANT.published).toBe("emerald");
     expect(PROVIDER_MENU_STATUS_BADGE_VARIANT.cancelled).toBe("ember");
     expect(PROVIDER_MENU_STATUS_BADGE_VARIANT.draft).toBe("marigold");
+  });
+});
+
+describe("provider suggestion status labels (MP-A-131)", () => {
+  it("labels every suggestion status (pending reads awaiting, accepted a win)", () => {
+    expect(providerSuggestionStatusLabel("pending")).toBe("Pending review");
+    expect(providerSuggestionStatusLabel("accepted_as_option")).toBe(
+      "Accepted as an option",
+    );
+    expect(providerSuggestionStatusLabel("rejected")).toBe("Not added");
+    expect(providerSuggestionStatusLabel("deferred")).toBe("Maybe later");
+  });
+
+  it("colours every suggestion status (no neutral fallthrough gap)", () => {
+    expect(
+      Object.keys(PROVIDER_SUGGESTION_STATUS_BADGE_VARIANT).sort(),
+    ).toEqual(Object.keys(PROVIDER_SUGGESTION_STATUS_LABELS).sort());
+    expect(PROVIDER_SUGGESTION_STATUS_BADGE_VARIANT.accepted_as_option).toBe(
+      "emerald",
+    );
+    expect(PROVIDER_SUGGESTION_STATUS_BADGE_VARIANT.pending).toBe("marigold");
+    expect(PROVIDER_SUGGESTION_STATUS_BADGE_VARIANT.rejected).toBe("ember");
+  });
+
+  it("caps suggestion text + owner response at the shared bound (mirrors the service)", () => {
+    expect(SUGGESTION_TEXT_MAX_LENGTH).toBe(1000);
+    expect(SUGGESTION_RESPONSE_MAX_LENGTH).toBe(1000);
   });
 });
 

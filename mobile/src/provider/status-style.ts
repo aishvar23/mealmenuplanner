@@ -1,11 +1,13 @@
 import {
   PROVIDER_MENU_STATUS_BADGE_VARIANT,
   PROVIDER_RESPONSE_STATUS_BADGE_VARIANT,
+  PROVIDER_SUGGESTION_STATUS_BADGE_VARIANT,
   type ProviderResponseBadgeVariant,
 } from "@mmp/shared/provider";
 import type {
   ProviderMenuStatus,
   ProviderResponseStatus,
+  ProviderSuggestionStatus,
 } from "@mmp/shared/provider";
 
 /**
@@ -36,4 +38,15 @@ export function providerMenuStatusTextClass(
   status: ProviderMenuStatus,
 ): string {
   return VARIANT_TEXT_CLASS[PROVIDER_MENU_STATUS_BADGE_VARIANT[status]];
+}
+
+/**
+ * The mobile twin of the web suggestion-status `Badge` colour (MP-A-131), via the
+ * SHARED `PROVIDER_SUGGESTION_STATUS_BADGE_VARIANT`, so an accepted suggestion reads
+ * emerald and a rejected one ember exactly as on web — one mapping, no per-screen drift.
+ */
+export function providerSuggestionStatusTextClass(
+  status: ProviderSuggestionStatus,
+): string {
+  return VARIANT_TEXT_CLASS[PROVIDER_SUGGESTION_STATUS_BADGE_VARIANT[status]];
 }

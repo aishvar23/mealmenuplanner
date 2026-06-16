@@ -18,6 +18,12 @@ jest.mock("./use-today-response", () => ({
   useTodayResponse: jest.fn(),
 }));
 
+// The member-suggestions section has its own data hook + test; stub it here so this
+// screen test stays focused on the response form and needs no QueryClient.
+jest.mock("./member-suggestions", () => ({
+  MemberSuggestions: () => null,
+}));
+
 const mockUseTodayResponse = jest.mocked(useTodayResponse);
 
 // A far-future cutoff so the response stays open for the interactive tests (the

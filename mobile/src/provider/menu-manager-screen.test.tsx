@@ -19,6 +19,12 @@ import { useMenuManager } from "./use-menu-manager";
 // (ADR-17/Q-8) — this is the unit/hook bar (MP-C-030).
 jest.mock("./use-menu-manager", () => ({ useMenuManager: jest.fn() }));
 
+// The owner suggestion triage has its own data hook + test; stub it here so this
+// screen test stays focused on the menu list/builder and needs no QueryClient.
+jest.mock("./owner-day-suggestions", () => ({
+  OwnerDaySuggestions: () => null,
+}));
+
 const mockUseMenuManager = jest.mocked(useMenuManager);
 
 const CATALOG: CatalogItemDto[] = providerFixtures.catalogItems;

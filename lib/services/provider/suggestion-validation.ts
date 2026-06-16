@@ -1,5 +1,9 @@
 import { ValidationError, type ValidationIssue } from "@/lib/errors";
 import type { JsonObject } from "@/lib/http";
+import {
+  SUGGESTION_RESPONSE_MAX_LENGTH,
+  SUGGESTION_TEXT_MAX_LENGTH,
+} from "@/packages/shared/provider";
 
 import { optionalText, requiredText } from "./text-validators";
 
@@ -11,10 +15,12 @@ import { optionalText, requiredText } from "./text-validators";
  * of a generic constraint surfacing as a 500.
  */
 
+// Re-export the shared caps under the service-local names the routes/tests already use,
+// so the client form cap (`@mmp/shared/provider`) and this server bound are one value.
 /** Max length of a member's free-text suggestion (DB column is unbounded text). */
-export const SUGGESTION_TEXT_MAX = 1000;
+export const SUGGESTION_TEXT_MAX = SUGGESTION_TEXT_MAX_LENGTH;
 /** Max length of the owner's optional resolution note. */
-export const SUGGESTION_RESPONSE_MAX = 1000;
+export const SUGGESTION_RESPONSE_MAX = SUGGESTION_RESPONSE_MAX_LENGTH;
 
 /** A validated `CreateProviderSuggestionRequest` — the trimmed required text. */
 export interface NormalizedSuggestionCreate {

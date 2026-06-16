@@ -37,6 +37,7 @@ import { ErrorBanner, LoadingState } from "@/components/Feedback";
 import { SelectChips } from "@/components/SelectChips";
 import { TextField } from "@/components/TextField";
 
+import { MemberSuggestions } from "./member-suggestions";
 import { providerStatusTextClass } from "./status-style";
 import { useTodayResponse } from "./use-today-response";
 
@@ -352,6 +353,8 @@ function ResponseForm({
             ) : null}
           </View>
         ) : null}
+
+        <MemberSuggestions menuDayId={menu.menuDayId} />
       </ScrollView>
     </SafeAreaView>
   );

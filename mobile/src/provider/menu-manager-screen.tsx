@@ -30,6 +30,7 @@ import { EmptyState, ErrorState, LoadingState } from "@/components/Feedback";
 import { TextField } from "@/components/TextField";
 
 import { MenuBuilderForm } from "./menu-builder-form";
+import { OwnerDaySuggestions } from "./owner-day-suggestions";
 import { providerMenuStatusTextClass } from "./status-style";
 import { useMenuManager } from "./use-menu-manager";
 
@@ -355,6 +356,12 @@ function MenuDayCard({
             />
           ) : null}
         </View>
+      ) : null}
+
+      {/* Members can only suggest on a published/locked day (RLS gates the insert to
+          readable, non-draft days), so the owner triage shows only once published. */}
+      {day.status !== "draft" ? (
+        <OwnerDaySuggestions menuDayId={day.menuDayId} />
       ) : null}
     </View>
   );
