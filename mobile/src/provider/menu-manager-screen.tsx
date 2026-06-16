@@ -10,12 +10,16 @@ import {
   emptyMenuBuilderState,
   formatCutoffCountdown,
   isMenuDayEditable,
+  isMenuDayNoteEditable,
   menuBuilderStateFromMenuDay,
   menuBuilderStateToCreateInput,
   menuBuilderStateToEditInput,
+  menuDayNoteChanged,
+  MENU_NOTE_MAX_LENGTH,
   providerMenuStatusLabel,
   providerTodayDate,
   summarizeMenuIssues,
+  toUpdateMenuDayNoteInput,
   validateMenuCompleteness,
   type MenuBuilderState,
   type MenuDayDto,
@@ -23,6 +27,7 @@ import {
 
 import { Button } from "@/components/Button";
 import { EmptyState, ErrorState, LoadingState } from "@/components/Feedback";
+import { TextField } from "@/components/TextField";
 
 import { MenuBuilderForm } from "./menu-builder-form";
 import { providerMenuStatusTextClass } from "./status-style";
@@ -33,11 +38,13 @@ import { useMenuManager } from "./use-menu-manager";
  * §13.3). Lists this week's menu days with status, cutoff + live countdown, and dish
  * count; lets the owner author a DRAFT via the structured builder and publish a
  * complete draft. Publishing is completeness-gated by the SHARED
- * `validateMenuCompleteness` (the #84 validator), mirroring the publish gate. Edit /
- * revision + customization authoring are the remainder of #22.
+ * `validateMenuCompleteness` (the #84 validator), mirroring the publish gate. Each
+ * non-terminal day also carries a lightweight in-place NOTE editor (`updateNote` / PATCH) —
+ * distinct from the structural builder: a note edit never starts a revision and stays
+ * available on locked / past-cutoff days. Member suggestions UI is the remainder of #22.
  */
 export function MenuManagerScreen({ providerId }: { providerId: string }) {
-  const { weeklyMenu, catalog, create, publish, revise } =
+  const { weeklyMenu, catalog, create, publish, revise, updateNote } =
     useMenuManager(providerId);
   const [building, setBuilding] = useState(false);
   const [editing, setEditing] = useState<MenuDayDto | null>(null);
@@ -95,6 +102,20 @@ export function MenuManagerScreen({ providerId }: { providerId: string }) {
   function closeBuilder() {
     setBuilding(false);
     setEditing(null);
+  }
+
+  // Save just the day's note via the PATCH route (in place, never a revision). Returns
+  // whether the write landed so the card closes its inline editor only on success.
+  async function onSaveNote(day: MenuDayDto, raw: string): Promise<boolean> {
+    try {
+      await updateNote.mutateAsync({
+        menuDayId: day.menuDayId,
+        input: toUpdateMenuDayNoteInput(raw),
+      });
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async function onSave(next: MenuBuilderState) {
@@ -179,6 +200,12 @@ export function MenuManagerScreen({ providerId }: { providerId: string }) {
               setBuilding(false);
               setEditing(day);
             }}
+            noteEditable={!builderOpen && isMenuDayNoteEditable(day)}
+            savingNote={
+              updateNote.isPending &&
+              updateNote.variables?.menuDayId === day.menuDayId
+            }
+            onSaveNote={(raw) => onSaveNote(day, raw)}
           />
         ))}
       </ScrollView>
@@ -193,6 +220,9 @@ function MenuDayCard({
   onPublish,
   editable,
   onEdit,
+  noteEditable,
+  savingNote,
+  onSaveNote,
 }: {
   day: MenuDayDto;
   nowMs: number;
@@ -200,11 +230,27 @@ function MenuDayCard({
   onPublish: () => void;
   editable: boolean;
   onEdit: () => void;
+  noteEditable: boolean;
+  savingNote: boolean;
+  onSaveNote: (raw: string) => Promise<boolean>;
 }) {
   const countdown = formatCutoffCountdown(day.cutoffAt, nowMs);
   const issues = validateMenuCompleteness(day, new Date(nowMs));
   const publishable = issues.length === 0;
   const isDraft = day.status === "draft";
+
+  const [editingNote, setEditingNote] = useState(false);
+  const [noteDraft, setNoteDraft] = useState(day.note ?? "");
+
+  function openNoteEditor() {
+    setNoteDraft(day.note ?? "");
+    setEditingNote(true);
+  }
+
+  async function saveNote() {
+    const ok = await onSaveNote(noteDraft);
+    if (ok) setEditingNote(false);
+  }
 
   return (
     <View className="gap-2 rounded-xl border border-gray-100 bg-white p-4">
@@ -227,7 +273,33 @@ function MenuDayCard({
       >
         {countdown.label}
       </Text>
-      {day.note ? (
+
+      {editingNote ? (
+        <View className="gap-2">
+          <TextField
+            label="Note"
+            accessibilityLabel="Menu day note"
+            value={noteDraft}
+            multiline
+            maxLength={MENU_NOTE_MAX_LENGTH}
+            placeholder="A note shown to members for this day's menu."
+            onChangeText={setNoteDraft}
+          />
+          <View className="flex-row gap-2">
+            <Button
+              label={savingNote ? "Saving…" : "Save note"}
+              onPress={saveNote}
+              disabled={savingNote || !menuDayNoteChanged(day, noteDraft)}
+            />
+            <Button
+              label="Cancel"
+              variant="secondary"
+              onPress={() => setEditingNote(false)}
+              disabled={savingNote}
+            />
+          </View>
+        </View>
+      ) : day.note ? (
         <Text className="text-sm text-gray-500">{day.note}</Text>
       ) : null}
 
@@ -241,7 +313,7 @@ function MenuDayCard({
         </View>
       ) : null}
 
-      {isDraft || editable ? (
+      {!editingNote && (isDraft || editable || noteEditable) ? (
         <View className="gap-2">
           {isDraft ? (
             <Button
@@ -252,6 +324,13 @@ function MenuDayCard({
           ) : null}
           {editable ? (
             <Button label="Edit" variant="secondary" onPress={onEdit} />
+          ) : null}
+          {noteEditable ? (
+            <Button
+              label={day.note ? "Edit note" : "Add note"}
+              variant="secondary"
+              onPress={openNoteEditor}
+            />
           ) : null}
         </View>
       ) : null}

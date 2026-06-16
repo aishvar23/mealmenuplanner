@@ -14,6 +14,7 @@ import type {
   CreateMenuDayInput,
   EditMenuDayInput,
   MenuDayDto,
+  UpdateMenuDayNoteInput,
 } from "@/packages/shared/provider";
 
 /** `POST /api/providers/{providerId}/menus` — author a new DRAFT menu day. */
@@ -52,6 +53,26 @@ export async function reviseMenuDay(
   });
   if (!res.ok) {
     throw new Error(await readApiErrorMessage(res, "Couldn't save the menu."));
+  }
+  return res.json();
+}
+
+/**
+ * `PATCH /api/provider-menu-days/{menuDayId}` — a NON-STRUCTURAL note edit, applied IN
+ * PLACE regardless of member responses (never a revision; ADR-7). Returns the updated live
+ * `MenuDayDto`. Reuses the merged note writer (PR #59 / `update_provider_menu_day_note`).
+ */
+export async function updateMenuDayNote(
+  menuDayId: string,
+  input: UpdateMenuDayNoteInput,
+): Promise<MenuDayDto> {
+  const res = await fetch(`/api/provider-menu-days/${menuDayId}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    throw new Error(await readApiErrorMessage(res, "Couldn't save the note."));
   }
   return res.json();
 }
