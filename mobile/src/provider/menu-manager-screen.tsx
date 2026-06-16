@@ -6,13 +6,17 @@ import {
   activeCatalog,
   defaultCutoffIso,
   dishCountLabel,
+  emptyMenuBuilderState,
   formatCutoffCountdown,
-  isoToLocalDateTime,
+  isMenuDayEditable,
+  menuBuilderStateFromMenuDay,
+  menuBuilderStateToCreateInput,
+  menuBuilderStateToEditInput,
   providerMenuStatusLabel,
   providerTodayDate,
   summarizeMenuIssues,
   validateMenuCompleteness,
-  type CreateMenuDayInput,
+  type MenuBuilderState,
   type MenuDayDto,
 } from "@mmp/shared/provider";
 
@@ -32,8 +36,10 @@ import { useMenuManager } from "./use-menu-manager";
  * revision + customization authoring are the remainder of #22.
  */
 export function MenuManagerScreen({ providerId }: { providerId: string }) {
-  const { weeklyMenu, catalog, create, publish } = useMenuManager(providerId);
+  const { weeklyMenu, catalog, create, publish, revise } =
+    useMenuManager(providerId);
   const [building, setBuilding] = useState(false);
+  const [editing, setEditing] = useState<MenuDayDto | null>(null);
 
   // A minute-ticking clock so the countdown + publishable gate stay current.
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -57,22 +63,39 @@ export function MenuManagerScreen({ providerId }: { providerId: string }) {
 
   const active = activeCatalog(catalog.data);
   const days = weeklyMenu.data;
+  const builderOpen = building || editing !== null;
 
   const deviceTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const defaultMenuDate = providerTodayDate(deviceTz, new Date(nowMs));
-  const defaultCutoffLocal = isoToLocalDateTime(
-    defaultCutoffIso(new Date(nowMs)),
-  );
+  const initialState: MenuBuilderState = editing
+    ? menuBuilderStateFromMenuDay(editing)
+    : emptyMenuBuilderState(
+        providerTodayDate(deviceTz, new Date(nowMs)),
+        defaultCutoffIso(new Date(nowMs)),
+      );
+  // The active write for the open builder — revise when editing a day, else create.
+  const saving = editing ? revise : create;
 
-  async function onCreate(input: CreateMenuDayInput) {
+  function closeBuilder() {
+    setBuilding(false);
+    setEditing(null);
+  }
+
+  async function onSave(next: MenuBuilderState) {
     // Mirror the web form's submit: keep the builder open on failure (the error is
-    // surfaced via `create.error` in the builder) and never let the rejection escape
-    // unhandled. Only close the builder once the draft is actually authored.
+    // surfaced via the mutation's `error` in the builder) and never let the rejection
+    // escape unhandled. Only close once the write actually lands.
     try {
-      await create.mutateAsync(input);
-      setBuilding(false);
+      if (editing) {
+        await revise.mutateAsync({
+          menuDayId: editing.menuDayId,
+          input: menuBuilderStateToEditInput(next),
+        });
+      } else {
+        await create.mutateAsync(menuBuilderStateToCreateInput(next));
+      }
+      closeBuilder();
     } catch {
-      // Error shown inline via create.error; leave the builder open to retry.
+      // Error shown inline via the mutation's error; leave the builder open to retry.
     }
   }
 
@@ -81,8 +104,14 @@ export function MenuManagerScreen({ providerId }: { providerId: string }) {
       <ScrollView contentContainerClassName="gap-4 p-5 pb-10">
         <View className="flex-row items-center justify-between">
           <Text className="text-2xl font-bold text-gray-900">Weekly menu</Text>
-          {active.length > 0 && !building ? (
-            <Button label="New" onPress={() => setBuilding(true)} />
+          {active.length > 0 && !builderOpen ? (
+            <Button
+              label="New"
+              onPress={() => {
+                setEditing(null);
+                setBuilding(true);
+              }}
+            />
           ) : null}
         </View>
 
@@ -95,20 +124,21 @@ export function MenuManagerScreen({ providerId }: { providerId: string }) {
           </View>
         ) : null}
 
-        {building ? (
+        {builderOpen ? (
           <MenuBuilderForm
             catalog={active}
-            defaultMenuDate={defaultMenuDate}
-            defaultCutoffLocal={defaultCutoffLocal}
+            mode={editing ? "edit" : "create"}
+            initialState={initialState}
+            showRevisionWarning={editing?.status === "published"}
             now={nowMs}
-            submitting={create.isPending}
-            error={create.error instanceof Error ? create.error.message : null}
-            onSubmit={onCreate}
-            onCancel={() => setBuilding(false)}
+            submitting={saving.isPending}
+            error={saving.error instanceof Error ? saving.error.message : null}
+            onSubmit={onSave}
+            onCancel={closeBuilder}
           />
         ) : null}
 
-        {days.length === 0 && active.length > 0 && !building ? (
+        {days.length === 0 && active.length > 0 && !builderOpen ? (
           <View className="rounded-xl border border-gray-100 bg-white p-4">
             <EmptyState
               title="No menu days this week yet"
@@ -126,6 +156,11 @@ export function MenuManagerScreen({ providerId }: { providerId: string }) {
               publish.isPending && publish.variables === day.menuDayId
             }
             onPublish={() => publish.mutate(day.menuDayId)}
+            editable={!builderOpen && isMenuDayEditable(day, nowMs)}
+            onEdit={() => {
+              setBuilding(false);
+              setEditing(day);
+            }}
           />
         ))}
       </ScrollView>
@@ -138,11 +173,15 @@ function MenuDayCard({
   nowMs,
   publishing,
   onPublish,
+  editable,
+  onEdit,
 }: {
   day: MenuDayDto;
   nowMs: number;
   publishing: boolean;
   onPublish: () => void;
+  editable: boolean;
+  onEdit: () => void;
 }) {
   const countdown = formatCutoffCountdown(day.cutoffAt, nowMs);
   const issues = validateMenuCompleteness(day, new Date(nowMs));
@@ -174,22 +213,28 @@ function MenuDayCard({
         <Text className="text-sm text-gray-500">{day.note}</Text>
       ) : null}
 
-      {isDraft ? (
+      {isDraft && !publishable ? (
+        <View className="gap-0.5">
+          {summarizeMenuIssues(issues).map((message) => (
+            <Text key={message} className="text-sm text-gray-500">
+              • {message}
+            </Text>
+          ))}
+        </View>
+      ) : null}
+
+      {isDraft || editable ? (
         <View className="gap-2">
-          {!publishable ? (
-            <View className="gap-0.5">
-              {summarizeMenuIssues(issues).map((message) => (
-                <Text key={message} className="text-sm text-gray-500">
-                  • {message}
-                </Text>
-              ))}
-            </View>
+          {isDraft ? (
+            <Button
+              label={publishing ? "Publishing…" : "Publish"}
+              onPress={onPublish}
+              disabled={!publishable || publishing}
+            />
           ) : null}
-          <Button
-            label={publishing ? "Publishing…" : "Publish"}
-            onPress={onPublish}
-            disabled={!publishable || publishing}
-          />
+          {editable ? (
+            <Button label="Edit" variant="secondary" onPress={onEdit} />
+          ) : null}
         </View>
       ) : null}
     </View>

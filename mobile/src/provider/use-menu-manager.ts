@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   CatalogItemDto,
   CreateMenuDayInput,
+  EditMenuDayInput,
   MenuDayDto,
 } from "@mmp/shared/provider";
 
@@ -11,10 +12,11 @@ import { providerClient } from "./client";
 /**
  * Owner menu manager hook (MP-C-030, the mobile twin of the web menu page, spec §13.3).
  * Reads this week's menu days + the owner's catalog through the shared
- * `ProviderApiClient` seam, and exposes the two owner writes as mutations that
- * invalidate the week list — authoring a draft day and publishing a complete one
- * (reusing the merged writers, PR #57/#58). Customization authoring + structural
- * edit/revision are the remainder of #22.
+ * `ProviderApiClient` seam, and exposes the owner writes as mutations that invalidate the
+ * week list — authoring a draft day (`create`), publishing a complete one (`publish`), and
+ * STRUCTURALLY editing an existing day (`revise`, ADR-7 = REVISION). Each reuses the merged
+ * writers (PR #57/#58/#59). Customization authoring + member suggestions are the remainder
+ * of #22.
  */
 
 export function weeklyMenuQueryKey(providerId: string) {
@@ -54,5 +56,16 @@ export function useMenuManager(providerId: string) {
     onSuccess: invalidateWeek,
   });
 
-  return { weeklyMenu, catalog, create, publish };
+  const revise = useMutation({
+    mutationFn: ({
+      menuDayId,
+      input,
+    }: {
+      menuDayId: string;
+      input: EditMenuDayInput;
+    }) => providerClient.reviseMenuDay(menuDayId, input),
+    onSuccess: invalidateWeek,
+  });
+
+  return { weeklyMenu, catalog, create, publish, revise };
 }

@@ -301,6 +301,7 @@ export const publishedMenuDay: MenuDayDto = {
               code: "extra_portion",
               label: "Extra portion (+8 oz)",
               quantityDelta: 8,
+              canonicalUnit: "oz",
               externalPriceLabel: "+$3",
               minimumQuantity: 0,
               maximumQuantity: 3,

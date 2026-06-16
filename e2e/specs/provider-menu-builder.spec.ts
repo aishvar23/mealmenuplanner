@@ -57,6 +57,50 @@ test.describe("Provider menu builder (MP-B-030)", () => {
     await expect(page.getByText("Published")).toBeVisible({ timeout: 30_000 });
   });
 
+  test("edits a published day via the builder (revision-aware) and shows the change", async ({
+    page,
+    providerTeam,
+  }) => {
+    const owner = await providerTeam.createUser("menu-revise-owner");
+    const providerId = await providerTeam.createProvider(owner, {
+      name: "Revise Kitchen",
+    });
+    // A published, before-cutoff day (dal + bread, active catalog) — the deterministic
+    // edit target, so the test doesn't depend on a draft→publish UI transition.
+    await providerTeam.seedMenuDay(providerId, owner, {
+      status: "published",
+      cutoffHoursFromNow: 8,
+    });
+
+    await signIn(page, owner.email, owner.password);
+    await page.goto("/provider/menu");
+
+    // A published, before-cutoff day offers Edit (not Publish). `exact` so the card's
+    // "Edit" button doesn't collide with an "Account menu for …edit…" control.
+    await expect(page.getByText("Published")).toBeVisible({ timeout: 30_000 });
+    await page.getByRole("button", { name: "Edit", exact: true }).click();
+
+    // The builder loads the existing structure, warns about revisions, and the immutable
+    // date is read-only. CardTitle renders as a styled element, not a heading — assert by
+    // text. A note change keeps the day publishable.
+    await expect(page.getByText(/Edit menu/)).toBeVisible();
+    await expect(page.getByTestId("menu-revision-warning")).toBeVisible();
+    await expect(page.locator("#menu-date")).toBeDisabled();
+    await expect(page.getByTestId("menu-component")).toHaveCount(2);
+
+    await page.locator("#menu-note").fill("Updated by owner");
+    await page.getByRole("button", { name: "Save changes" }).click();
+
+    // The builder closes (warning gone), the list shows the saved note, and the day
+    // stays published. `exact` so "Published" matches only the status badge, not the
+    // warning's "…published menu…" copy.
+    await expect(page.getByTestId("menu-revision-warning")).toBeHidden({
+      timeout: 30_000,
+    });
+    await expect(page.getByText("Updated by owner")).toBeVisible();
+    await expect(page.getByText("Published", { exact: true })).toBeVisible();
+  });
+
   test("an incomplete (past-cutoff) draft cannot be published and explains why", async ({
     page,
     providerTeam,

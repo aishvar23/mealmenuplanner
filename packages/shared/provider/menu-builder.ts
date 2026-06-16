@@ -23,6 +23,8 @@ import type {
   CreateMenuComponentInput,
   CreateMenuCustomizationGroupInput,
   CreateMenuDayInput,
+  CustomizationGroupDto,
+  EditMenuDayInput,
   MenuComponentDto,
   MenuDayDto,
 } from "./dtos";
@@ -262,6 +264,102 @@ export function menuBuilderStateToCreateInput(
 }
 
 /**
+ * Map a `CustomizationGroupDto` (read off an existing menu) back to the
+ * `CreateMenuCustomizationGroupInput` the writer accepts, so a STRUCTURAL edit carries it
+ * forward unchanged. The edit RPC rebuilds the WHOLE component tree from the payload, so a
+ * group (or any of its fields) omitted here would be DELETED — this round-trips every field
+ * the DTO exposes, including the option `canonicalUnit` added for exactly this.
+ */
+function customizationGroupToInput(
+  group: CustomizationGroupDto,
+): CreateMenuCustomizationGroupInput {
+  return {
+    name: group.name,
+    customizationType: group.customizationType,
+    includedInPrice: group.includedInPrice,
+    isRequired: group.isRequired,
+    minimumSelections: group.minimumSelections,
+    maximumSelections: group.maximumSelections,
+    options: group.options.map((option) => ({
+      code: option.code,
+      label: option.label,
+      quantityDelta: option.quantityDelta,
+      canonicalUnit: option.canonicalUnit,
+      externalPriceLabel: option.externalPriceLabel,
+      minimumQuantity: option.minimumQuantity,
+      maximumQuantity: option.maximumQuantity,
+    })),
+  };
+}
+
+/**
+ * Load an existing `MenuDayDto` into a fresh `MenuBuilderState` so the EDIT builder opens on
+ * the day's CURRENT structure — the reverse of {@link previewMenuDayFromBuilder}. Each
+ * component becomes a draft keyed by its `menuComponentId`; alternatives map to their catalog
+ * ids and customization groups carry forward verbatim (the edit RPC rebuilds the whole tree,
+ * so anything not loaded here is dropped on save). Components are taken in `sortOrder` so the
+ * rebuilt order matches what the owner already sees.
+ */
+export function menuBuilderStateFromMenuDay(day: MenuDayDto): MenuBuilderState {
+  const components = [...day.components]
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map<MenuComponentDraft>((component) => ({
+      key: component.menuComponentId,
+      componentGroup: component.componentGroup,
+      defaultCatalogItemId: component.defaultCatalogItemId,
+      isRequired: component.isRequired,
+      alternativeCatalogItemIds: component.alternatives.map(
+        (alt) => alt.catalogItemId,
+      ),
+      customizationGroups: component.customizationGroups.map(
+        customizationGroupToInput,
+      ),
+    }));
+  return {
+    menuDate: day.menuDate,
+    cutoffAt: day.cutoffAt,
+    note: day.note ?? "",
+    components,
+  };
+}
+
+/**
+ * The `EditMenuDayInput` a STRUCTURAL edit PUTs to `/api/provider-menu-days/{id}`. Identical
+ * to {@link menuBuilderStateToCreateInput} minus the immutable `menuDate` (the day's date
+ * cannot change) — the full desired component tree + cutoff (+ note) REPLACE the current
+ * structure. The defensive empty-default filter mirrors the create mapping.
+ */
+export function menuBuilderStateToEditInput(
+  state: MenuBuilderState,
+): EditMenuDayInput {
+  return {
+    cutoffAt: state.cutoffAt,
+    note: state.note.trim().length > 0 ? state.note.trim() : null,
+    components: state.components
+      .filter((draft) => draft.defaultCatalogItemId.length > 0)
+      .map(draftToComponentInput),
+  };
+}
+
+/**
+ * Whether a menu day can be opened in the EDIT builder — mirrors the `edit_provider_menu_day`
+ * RPC gate (pmp_20): a `draft` or `published` day that is not locked, not superseded, and —
+ * once published — whose cutoff is still in the FUTURE (a closed window can't be reopened;
+ * a draft's past cutoff is fine because the owner fixes it in the builder). `nowMs` makes the
+ * cutoff check deterministic. A locked / archived / cancelled / superseded day, or a published
+ * day past its cutoff, returns false (the owner sees no Edit affordance).
+ */
+export function isMenuDayEditable(day: MenuDayDto, nowMs: number): boolean {
+  if (day.supersededAt !== null || day.lockedAt !== null) return false;
+  if (day.status !== "draft" && day.status !== "published") return false;
+  if (day.status === "published") {
+    const cutoffMs = Date.parse(day.cutoffAt);
+    if (Number.isNaN(cutoffMs) || cutoffMs <= nowMs) return false;
+  }
+  return true;
+}
+
+/**
  * Build a `MenuDayDto` PREVIEW from the builder state + the catalog, denormalizing
  * the display fields (name / quantity / unit / spice-salt) off the catalog exactly
  * as the `create_provider_menu_day` RPC does server-side. Feeding this to
@@ -318,6 +416,7 @@ export function previewMenuDayFromBuilder(
             code: option.code,
             label: option.label,
             quantityDelta: option.quantityDelta ?? null,
+            canonicalUnit: option.canonicalUnit ?? null,
             externalPriceLabel: option.externalPriceLabel ?? null,
             minimumQuantity: option.minimumQuantity ?? null,
             maximumQuantity: option.maximumQuantity ?? null,

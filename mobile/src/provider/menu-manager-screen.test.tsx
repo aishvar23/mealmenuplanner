@@ -90,6 +90,7 @@ function value(
     catalog: query<CatalogItemDto[]>(CATALOG),
     create: mutation(),
     publish: mutation(),
+    revise: mutation(),
     ...overrides,
   } as unknown as ReturnType<typeof useMenuManager>;
 }
@@ -188,5 +189,35 @@ describe("MenuManagerScreen (MP-C-030)", () => {
     expect(input.components[0].defaultCatalogItemId).toBe(
       CATALOG[0]!.catalogItemId,
     );
+  });
+
+  it("edits a published day via the revise mutation, warning about re-confirmation", async () => {
+    const revise = mutation();
+    const published = makeDay({
+      status: "published",
+      publishedAt: "2026-06-10T00:00:00Z",
+      cutoffAt: "2999-01-01T00:00:00Z",
+    });
+    mockUseMenuManager.mockReturnValue(
+      value({ revise, weeklyMenu: query<MenuDayDto[]>([published]) }),
+    );
+    render(<MenuManagerScreen providerId="p1" />);
+
+    // A published, before-cutoff day offers Edit (not Publish).
+    fireEvent.press(screen.getByText("Edit"));
+    expect(screen.getByText(/Edit menu/)).toBeOnTheScreen();
+    // The owner is warned that editing a published day may spawn a revision.
+    expect(screen.getByText(/may create a new revision/)).toBeOnTheScreen();
+
+    fireEvent.press(screen.getByText("Save changes"));
+    await waitFor(() => expect(revise.mutateAsync).toHaveBeenCalledTimes(1));
+    const arg = revise.mutateAsync.mock.calls[0]![0];
+    expect(arg.menuDayId).toBe("d1");
+    expect(arg.input.components).toHaveLength(1);
+    expect(arg.input.components[0].defaultCatalogItemId).toBe(
+      CATALOG[0]!.catalogItemId,
+    );
+    // The immutable date is not part of the edit payload.
+    expect("menuDate" in arg.input).toBe(false);
   });
 });

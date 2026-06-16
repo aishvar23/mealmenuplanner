@@ -190,6 +190,10 @@ export interface CustomizationGroupDto {
     code: string;
     label: string;
     quantityDelta: number | null;
+    /** The unit of `quantityDelta`, denormalized off the catalog (§ 4). Exposed so a
+     * structural edit can carry an option forward LOSSLESSLY — the edit RPC rebuilds the
+     * whole component tree, so an omitted field would be dropped (MP-A-121 edit path). */
+    canonicalUnit: string | null;
     externalPriceLabel: string | null;
     minimumQuantity: number | null;
     maximumQuantity: number | null;

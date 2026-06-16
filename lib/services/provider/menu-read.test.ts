@@ -204,6 +204,7 @@ describe("getMenuDay", () => {
       code: "two",
       label: "Two",
       quantityDelta: 2,
+      canonicalUnit: "piece",
       externalPriceLabel: "+$2",
       minimumQuantity: 0,
       maximumQuantity: 4,

@@ -10,11 +10,14 @@ import {
   emptyMenuBuilderState,
   isMenuBuilderCreatable,
   isMenuBuilderPublishable,
+  isMenuDayEditable,
   isoToLocalDateTime,
   localDateTimeToIso,
   makeComponentDraft,
   menuBuilderIssues,
+  menuBuilderStateFromMenuDay,
   menuBuilderStateToCreateInput,
+  menuBuilderStateToEditInput,
   nextComponentKey,
   patchComponentDraft,
   previewMenuDayFromBuilder,
@@ -397,5 +400,146 @@ describe("date / cutoff helpers", () => {
     // Round-trip through the same helpers stays stable (host tz cancels out).
     const local = isoToLocalDateTime("2026-06-15T17:00:00.000Z");
     expect(localDateTimeToIso(local)).toBe("2026-06-15T17:00:00.000Z");
+  });
+});
+
+describe("menuBuilderStateFromMenuDay (edit builder load)", () => {
+  it("loads a day's date/cutoff/note and its components keyed by component id", () => {
+    const s = menuBuilderStateFromMenuDay(f.publishedMenuDay);
+    expect(s.menuDate).toBe(f.publishedMenuDay.menuDate);
+    expect(s.cutoffAt).toBe(f.publishedMenuDay.cutoffAt);
+    expect(s.note).toBe(f.publishedMenuDay.note);
+    expect(s.components.map((c) => c.key)).toEqual(
+      f.publishedMenuDay.components.map((c) => c.menuComponentId),
+    );
+    const dal = s.components[0]!;
+    expect(dal.defaultCatalogItemId).toBe(
+      f.publishedMenuDay.components[0]!.defaultCatalogItemId,
+    );
+    expect(dal.isRequired).toBe(true);
+    // Alternatives carry forward as their catalog ids (the swap picker's value).
+    expect(dal.alternativeCatalogItemIds).toEqual(
+      f.publishedMenuDay.components[0]!.alternatives.map(
+        (a) => a.catalogItemId,
+      ),
+    );
+  });
+
+  it("carries customization groups forward LOSSLESSLY, incl. option canonicalUnit", () => {
+    const s = menuBuilderStateFromMenuDay(f.publishedMenuDay);
+    const group = s.components[0]!.customizationGroups[0]!;
+    const src = f.publishedMenuDay.components[0]!.customizationGroups[0]!;
+    expect(group).toEqual({
+      name: src.name,
+      customizationType: src.customizationType,
+      includedInPrice: src.includedInPrice,
+      isRequired: src.isRequired,
+      minimumSelections: src.minimumSelections,
+      maximumSelections: src.maximumSelections,
+      options: [
+        {
+          code: src.options[0]!.code,
+          label: src.options[0]!.label,
+          quantityDelta: src.options[0]!.quantityDelta,
+          canonicalUnit: src.options[0]!.canonicalUnit,
+          externalPriceLabel: src.options[0]!.externalPriceLabel,
+          minimumQuantity: src.options[0]!.minimumQuantity,
+          maximumQuantity: src.options[0]!.maximumQuantity,
+        },
+      ],
+    });
+    // The carried-forward unit is the real value, not dropped to null.
+    expect(group.options[0]!.canonicalUnit).toBe("oz");
+  });
+
+  it("orders components by sortOrder so the rebuilt tree matches what the owner sees", () => {
+    const shuffled = {
+      ...f.publishedMenuDay,
+      components: [...f.publishedMenuDay.components].reverse(),
+    };
+    const s = menuBuilderStateFromMenuDay(shuffled);
+    expect(s.components.map((c) => c.key)).toEqual(
+      [...f.publishedMenuDay.components]
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+        .map((c) => c.menuComponentId),
+    );
+  });
+});
+
+describe("menuBuilderStateToEditInput", () => {
+  it("is the create input minus the immutable menuDate, with the note trimmed", () => {
+    const state: MenuBuilderState = {
+      ...publishableState(),
+      note: "  Holiday menu  ",
+    };
+    const edit = menuBuilderStateToEditInput(state);
+    expect("menuDate" in edit).toBe(false);
+    expect(edit.cutoffAt).toBe(state.cutoffAt);
+    expect(edit.note).toBe("Holiday menu");
+    expect(edit.components).toHaveLength(2);
+    expect(edit.components[0]!.defaultCatalogItemId).toBe(rajma.catalogItemId);
+    expect(edit.components[0]!.alternativeCatalogItemIds).toEqual([
+      chana.catalogItemId,
+    ]);
+  });
+
+  it("round-trips a loaded day back to an equivalent edit payload", () => {
+    const state = menuBuilderStateFromMenuDay(f.publishedMenuDay);
+    const edit = menuBuilderStateToEditInput(state);
+    expect(edit.cutoffAt).toBe(f.publishedMenuDay.cutoffAt);
+    expect(edit.components).toHaveLength(f.publishedMenuDay.components.length);
+    // Customizations survive the full load→save round-trip.
+    expect(edit.components[0]!.customizationGroups).toEqual(
+      state.components[0]!.customizationGroups,
+    );
+  });
+
+  it("empties the note to null when blank", () => {
+    expect(
+      menuBuilderStateToEditInput({ ...publishableState(), note: "   " }).note,
+    ).toBeNull();
+  });
+});
+
+describe("isMenuDayEditable (edit affordance gate)", () => {
+  const day = f.publishedMenuDay; // published, cutoff 2026-06-11T14:30Z
+  const beforeCutoff = Date.parse("2026-06-11T10:00:00Z");
+  const afterCutoff = Date.parse("2026-06-12T00:00:00Z");
+
+  it("a published day is editable before its cutoff", () => {
+    expect(isMenuDayEditable(day, beforeCutoff)).toBe(true);
+  });
+
+  it("a published day past its cutoff is NOT editable", () => {
+    expect(isMenuDayEditable(day, afterCutoff)).toBe(false);
+  });
+
+  it("a draft day is editable even with a past cutoff (the owner fixes it)", () => {
+    const draft = { ...day, status: "draft" as const };
+    expect(isMenuDayEditable(draft, afterCutoff)).toBe(true);
+  });
+
+  it("locked / superseded / terminal days are never editable", () => {
+    expect(
+      isMenuDayEditable(
+        { ...day, lockedAt: "2026-06-11T14:30:00Z" },
+        beforeCutoff,
+      ),
+    ).toBe(false);
+    expect(
+      isMenuDayEditable(
+        { ...day, supersededAt: "2026-06-11T12:00:00Z" },
+        beforeCutoff,
+      ),
+    ).toBe(false);
+    expect(
+      isMenuDayEditable({ ...day, status: "cancelled" }, beforeCutoff),
+    ).toBe(false);
+    expect(
+      isMenuDayEditable({ ...day, status: "archived" }, beforeCutoff),
+    ).toBe(false);
+    expect(isMenuDayEditable({ ...day, status: "locked" }, beforeCutoff)).toBe(
+      false,
+    );
   });
 });

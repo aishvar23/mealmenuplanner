@@ -15,9 +15,11 @@ import {
   eligibleAlternatives,
   isMenuBuilderCreatable,
   isMenuBuilderPublishable,
+  isoToLocalDateTime,
   localDateTimeToIso,
   menuBuilderIssues,
   menuBuilderStateToCreateInput,
+  menuBuilderStateToEditInput,
   patchComponentDraft,
   PROVIDER_COMPONENT_GROUP_OPTIONS,
   providerComponentGroupLabel,
@@ -29,16 +31,25 @@ import {
   type MenuComponentDraft,
 } from "@/packages/shared/provider";
 
-import { createMenuDay } from "./menu-client";
+import { createMenuDay, reviseMenuDay } from "./menu-client";
 
 /**
- * Structured menu-day builder (MP-B-030, UC-MENU-001/002). NO free-form JSON — the
+ * Structured menu-day builder (MP-B-030, UC-MENU-001/002/004/005). NO free-form JSON — the
  * owner picks a date + cutoff, then adds component slots, each a default dish from the
- * catalog plus optional same-group swaps and a "required" flag. The live completeness
- * panel reuses the SHARED `menuBuilderIssues` (the #84 validator), so what it says
- * about "publishable" is exactly what the publish gate will decide. Submitting authors
- * a DRAFT (`createMenuDay`); publishing is a separate step on the menu list once the
- * day is complete. Customization groups + price labels are the remainder of #22.
+ * catalog plus optional same-group swaps and a "required" flag. The live completeness panel
+ * reuses the SHARED `menuBuilderIssues` (the #84 validator), so what it says about
+ * "publishable" is exactly what the publish gate will decide.
+ *
+ * Two modes:
+ *   • `create` — authors a brand-new DRAFT (`createMenuDay`, POST). A draft may be saved
+ *     incomplete (publishing is a separate step on the list once it's complete).
+ *   • `edit`   — a STRUCTURAL edit of an existing day (`reviseMenuDay`, PUT; ADR-7 = REVISION).
+ *     The date is immutable, so it shows read-only; editing a PUBLISHED day with member
+ *     responses creates a new revision and asks them to re-confirm (the consequence banner).
+ *     The edit RPC enforces a future cutoff + valid catalog refs, so an edit saves only when
+ *     the menu is PUBLISHABLE — the owner can't leave a live menu incomplete.
+ *
+ * Customization-group authoring + the note-only PATCH are the remainder of #22.
  */
 
 /** Catalog items grouped into the natural plate order for the default-dish picker. */
@@ -54,30 +65,35 @@ function groupedCatalog(
 export function MenuBuilderForm({
   providerId,
   catalog,
-  defaultMenuDate,
-  defaultCutoffLocal,
+  mode,
+  menuDayId,
+  initialState,
+  showRevisionWarning = false,
   now,
-  onCreated,
+  onSaved,
   onCancel,
 }: {
   providerId: string;
   /** Active catalog items the builder can place (the page filters to active). */
   catalog: CatalogItemDto[];
-  defaultMenuDate: string;
-  /** A `YYYY-MM-DDTHH:mm` local value to prefill the cutoff input. */
-  defaultCutoffLocal: string;
+  /** `create` authors a new draft (POST); `edit` revises an existing day (PUT). */
+  mode: "create" | "edit";
+  /** The day being edited — required in `edit` mode (the PUT target). */
+  menuDayId?: string;
+  /** The builder's starting state — an empty day for `create`, the loaded day for `edit`. */
+  initialState: MenuBuilderState;
+  /** Show the revision/re-confirm consequence banner (editing a PUBLISHED day). */
+  showRevisionWarning?: boolean;
   /** Epoch ms "now" for the completeness/cutoff check (the page passes a fresh value). */
   now: number;
-  onCreated: () => void;
+  onSaved: () => void;
   onCancel: () => void;
 }) {
-  const [state, setState] = useState<MenuBuilderState>({
-    menuDate: defaultMenuDate,
-    cutoffAt: localDateTimeToIso(defaultCutoffLocal),
-    note: "",
-    components: [],
-  });
-  const [cutoffLocal, setCutoffLocal] = useState(defaultCutoffLocal);
+  const isEdit = mode === "edit";
+  const [state, setState] = useState<MenuBuilderState>(initialState);
+  const [cutoffLocal, setCutoffLocal] = useState(() =>
+    isoToLocalDateTime(initialState.cutoffAt),
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -86,6 +102,11 @@ export function MenuBuilderForm({
   const issues = menuBuilderIssues(state, catalog, new Date(now));
   const creatable = isMenuBuilderCreatable(state);
   const publishable = isMenuBuilderPublishable(state, catalog, new Date(now));
+  // Create can save an incomplete DRAFT (publish later); an edit must keep the day
+  // PUBLISHABLE — the edit RPC enforces a future cutoff + valid refs, so a half-finished
+  // edit would just be rejected. So the save gate is the looser `creatable` for create,
+  // the strict `publishable` for edit.
+  const canSave = isEdit ? publishable : creatable;
 
   function patch(next: Partial<MenuBuilderState>) {
     setState((prev) => ({ ...prev, ...next }));
@@ -120,12 +141,14 @@ export function MenuBuilderForm({
     setBusy(true);
     setError(null);
     try {
-      await createMenuDay(providerId, menuBuilderStateToCreateInput(state));
-      onCreated();
+      if (isEdit && menuDayId) {
+        await reviseMenuDay(menuDayId, menuBuilderStateToEditInput(state));
+      } else {
+        await createMenuDay(providerId, menuBuilderStateToCreateInput(state));
+      }
+      onSaved();
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Couldn't create the menu.",
-      );
+      setError(err instanceof Error ? err.message : "Couldn't save the menu.");
       setBusy(false);
     }
   }
@@ -133,7 +156,9 @@ export function MenuBuilderForm({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>New menu day</CardTitle>
+        <CardTitle>
+          {isEdit ? `Edit menu — ${state.menuDate}` : "New menu day"}
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
         {error ? (
@@ -145,6 +170,16 @@ export function MenuBuilderForm({
           </p>
         ) : null}
 
+        {showRevisionWarning ? (
+          <p
+            className="rounded-md border border-saffron/40 bg-saffron/10 px-3 py-2 text-sm text-muted-foreground"
+            data-testid="menu-revision-warning"
+          >
+            Editing a published menu may create a new revision. Members who have
+            already responded will be asked to re-confirm before the cutoff.
+          </p>
+        ) : null}
+
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor="menu-date">Menu date</Label>
@@ -152,6 +187,7 @@ export function MenuBuilderForm({
               id="menu-date"
               type="date"
               value={state.menuDate}
+              disabled={isEdit}
               onChange={(e) => patch({ menuDate: e.target.value })}
             />
           </div>
@@ -310,19 +346,23 @@ export function MenuBuilderForm({
               ))}
             </ul>
             <p className="text-xs text-muted-foreground">
-              You can still save this as a draft and finish it later.
+              {isEdit
+                ? "Fix these before saving — a published menu must stay complete."
+                : "You can still save this as a draft and finish it later."}
             </p>
           </div>
         ) : null}
         {creatable && publishable ? (
           <p className="text-sm">
-            <Badge variant="emerald">Ready to publish</Badge>
+            <Badge variant="emerald">
+              {isEdit ? "Ready to save" : "Ready to publish"}
+            </Badge>
           </p>
         ) : null}
 
         <div className="flex flex-wrap gap-2">
-          <Button type="button" onClick={submit} disabled={!creatable || busy}>
-            {busy ? "Saving…" : "Save draft"}
+          <Button type="button" onClick={submit} disabled={!canSave || busy}>
+            {busy ? "Saving…" : isEdit ? "Save changes" : "Save draft"}
           </Button>
           <Button
             type="button"

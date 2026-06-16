@@ -17,6 +17,7 @@ jest.mock("./client", () => ({
     listCatalog: jest.fn(),
     createMenuDay: jest.fn(),
     publishMenuDay: jest.fn(),
+    reviseMenuDay: jest.fn(),
   },
 }));
 
@@ -24,6 +25,7 @@ const mockGetWeeklyMenu = providerClient.getWeeklyMenu as jest.Mock;
 const mockListCatalog = providerClient.listCatalog as jest.Mock;
 const mockCreateMenuDay = providerClient.createMenuDay as jest.Mock;
 const mockPublishMenuDay = providerClient.publishMenuDay as jest.Mock;
+const mockReviseMenuDay = providerClient.reviseMenuDay as jest.Mock;
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -31,6 +33,7 @@ beforeEach(() => {
   mockListCatalog.mockResolvedValue(providerFixtures.catalogItems);
   mockCreateMenuDay.mockResolvedValue(providerFixtures.publishedMenuDay);
   mockPublishMenuDay.mockResolvedValue(providerFixtures.publishedMenuDay);
+  mockReviseMenuDay.mockResolvedValue(providerFixtures.publishedMenuDay);
 });
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -86,5 +89,20 @@ describe("useMenuManager", () => {
       await hook!.publish.mutateAsync("menu-day-1");
     });
     expect(mockPublishMenuDay).toHaveBeenCalledWith("menu-day-1");
+  });
+
+  it("structurally edits a day via reviseMenuDay", async () => {
+    render(<Sample providerId="prov-a" />, { wrapper });
+    await waitFor(() => expect(screen.getByText("days:1")).toBeOnTheScreen());
+
+    const input = {
+      cutoffAt: "2026-06-20T12:00:00Z",
+      note: null,
+      components: [],
+    };
+    await act(async () => {
+      await hook!.revise.mutateAsync({ menuDayId: "menu-day-1", input });
+    });
+    expect(mockReviseMenuDay).toHaveBeenCalledWith("menu-day-1", input);
   });
 });

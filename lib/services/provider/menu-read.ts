@@ -150,6 +150,7 @@ function toCustomizationGroupDto(group: RawGroup): CustomizationGroupDto {
         code: option.code,
         label: option.label,
         quantityDelta: numOrNull(option.quantity_delta),
+        canonicalUnit: option.canonical_unit,
         externalPriceLabel: option.external_price_label,
         minimumQuantity: numOrNull(option.minimum_quantity),
         maximumQuantity: numOrNull(option.maximum_quantity),

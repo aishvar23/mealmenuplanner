@@ -7,15 +7,14 @@ import {
   eligibleAlternatives,
   isMenuBuilderCreatable,
   isMenuBuilderPublishable,
+  isoToLocalDateTime,
   localDateTimeToIso,
   menuBuilderIssues,
-  menuBuilderStateToCreateInput,
   patchComponentDraft,
   providerComponentGroupLabel,
   removeComponentDraft,
   summarizeMenuIssues,
   type CatalogItemDto,
-  type CreateMenuDayInput,
   type MenuBuilderState,
   type MenuComponentDraft,
 } from "@mmp/shared/provider";
@@ -27,17 +26,22 @@ import { TextField } from "@/components/TextField";
 
 /**
  * Structured menu-day builder (MP-C-030, the mobile twin of the web MenuBuilderForm,
- * UC-MENU-001/002). No free-form JSON: the owner sets a date + cutoff, then adds
+ * UC-MENU-001/002/004/005). No free-form JSON: the owner sets a date + cutoff, then adds
  * component slots — each a default dish from the catalog plus same-group swaps and a
  * "required" flag. The live completeness panel reuses the SHARED `menuBuilderIssues`
- * (the #84 validator), so "publishable" matches what the publish gate decides. Submit
- * authors a DRAFT; publishing is a separate action on the menu list. Shares no UI code
- * with web — same `/api/*` routes, same `@mmp/shared/provider` model.
+ * (the #84 validator), so "publishable" matches what the publish gate decides.
+ *
+ * Two modes mirror the web form: `create` authors a new DRAFT (saveable incomplete), `edit`
+ * STRUCTURALLY edits an existing day (ADR-7 = REVISION; the immutable date is read-only, and
+ * an edit saves only when PUBLISHABLE so a live menu can't be left incomplete). Emits the
+ * working `MenuBuilderState` — the screen maps it to the create/edit input + the right
+ * mutation. Shares no UI code with web — same `/api/*` routes, same `@mmp/shared/provider`.
  */
 export function MenuBuilderForm({
   catalog,
-  defaultMenuDate,
-  defaultCutoffLocal,
+  mode,
+  initialState,
+  showRevisionWarning = false,
   now,
   submitting,
   error,
@@ -45,25 +49,27 @@ export function MenuBuilderForm({
   onCancel,
 }: {
   catalog: CatalogItemDto[];
-  defaultMenuDate: string;
-  defaultCutoffLocal: string;
+  mode: "create" | "edit";
+  initialState: MenuBuilderState;
+  showRevisionWarning?: boolean;
   now: number;
   submitting: boolean;
   error: string | null;
-  onSubmit: (input: CreateMenuDayInput) => void;
+  onSubmit: (state: MenuBuilderState) => void;
   onCancel: () => void;
 }) {
-  const [cutoffLocal, setCutoffLocal] = useState(defaultCutoffLocal);
-  const [state, setState] = useState<MenuBuilderState>({
-    menuDate: defaultMenuDate,
-    cutoffAt: localDateTimeToIso(defaultCutoffLocal),
-    note: "",
-    components: [],
-  });
+  const isEdit = mode === "edit";
+  const [cutoffLocal, setCutoffLocal] = useState(() =>
+    isoToLocalDateTime(initialState.cutoffAt),
+  );
+  const [state, setState] = useState<MenuBuilderState>(initialState);
 
   const issues = menuBuilderIssues(state, catalog, new Date(now));
   const creatable = isMenuBuilderCreatable(state);
   const publishable = isMenuBuilderPublishable(state, catalog, new Date(now));
+  // Create can save an incomplete DRAFT; an edit must keep the day PUBLISHABLE (the edit
+  // RPC enforces a future cutoff + valid refs). Same gate split as the web form.
+  const canSave = isEdit ? publishable : creatable;
 
   // All component transitions go through the shared pure reducers (see
   // menu-builder.ts) so web + mobile stay in lockstep and the new key is derived from
@@ -89,14 +95,24 @@ export function MenuBuilderForm({
   return (
     <View className="gap-4 rounded-xl border border-gray-100 bg-white p-4">
       <Text className="text-base font-semibold text-gray-900">
-        New menu day
+        {isEdit ? `Edit menu · ${state.menuDate}` : "New menu day"}
       </Text>
 
       {error ? <ErrorBanner message={error} /> : null}
 
+      {showRevisionWarning ? (
+        <View className="gap-1 rounded-lg border border-amber-200 bg-amber-50 p-3">
+          <Text className="text-sm text-amber-800">
+            Editing a published menu may create a new revision. Members who have
+            already responded will be asked to re-confirm before the cutoff.
+          </Text>
+        </View>
+      ) : null}
+
       <TextField
         label="Menu date (YYYY-MM-DD)"
         value={state.menuDate}
+        editable={!isEdit}
         autoCapitalize="none"
         onChangeText={(menuDate) => setState((prev) => ({ ...prev, menuDate }))}
       />
@@ -209,20 +225,22 @@ export function MenuBuilderForm({
             </Text>
           ))}
           <Text className="text-xs text-amber-700">
-            You can still save this as a draft and finish it later.
+            {isEdit
+              ? "Fix these before saving — a published menu must stay complete."
+              : "You can still save this as a draft and finish it later."}
           </Text>
         </View>
       ) : null}
       {creatable && publishable ? (
         <Text className="text-sm font-medium text-green-700">
-          Ready to publish
+          {isEdit ? "Ready to save" : "Ready to publish"}
         </Text>
       ) : null}
 
       <Button
-        label="Save draft"
-        onPress={() => onSubmit(menuBuilderStateToCreateInput(state))}
-        disabled={!creatable}
+        label={isEdit ? "Save changes" : "Save draft"}
+        onPress={() => onSubmit(state)}
+        disabled={!canSave}
         loading={submitting}
       />
       <Button label="Cancel" variant="ghost" onPress={onCancel} />

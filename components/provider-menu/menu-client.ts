@@ -12,6 +12,7 @@
 import { readApiErrorMessage } from "@/packages/shared/provider";
 import type {
   CreateMenuDayInput,
+  EditMenuDayInput,
   MenuDayDto,
 } from "@/packages/shared/provider";
 
@@ -29,6 +30,28 @@ export async function createMenuDay(
     throw new Error(
       await readApiErrorMessage(res, "Couldn't create the menu."),
     );
+  }
+  return res.json();
+}
+
+/**
+ * `PUT /api/provider-menu-days/{menuDayId}` — a STRUCTURAL edit of an existing menu day
+ * (MP-A-012E + MP-A-121, ADR-7 = REVISION). When no member has responded the change applies
+ * in place; once a response exists the server creates a new revision (rev N+1) and asks the
+ * affected members to re-confirm. Returns the resulting live `MenuDayDto`. Reuses the merged
+ * edit writer (PR #59).
+ */
+export async function reviseMenuDay(
+  menuDayId: string,
+  input: EditMenuDayInput,
+): Promise<MenuDayDto> {
+  const res = await fetch(`/api/provider-menu-days/${menuDayId}`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    throw new Error(await readApiErrorMessage(res, "Couldn't save the menu."));
   }
   return res.json();
 }
