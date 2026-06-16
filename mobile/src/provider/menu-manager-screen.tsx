@@ -43,6 +43,12 @@ import { useMenuManager } from "./use-menu-manager";
  * distinct from the structural builder: a note edit never starts a revision and stays
  * available on locked / past-cutoff days. Member suggestions UI is the remainder of #22.
  */
+/** The user-facing message for a failed note save (mirrors the web `onSaveNote` fallback). */
+function noteErrorMessage(error: unknown): string | null {
+  if (error === null || error === undefined) return null;
+  return error instanceof Error ? error.message : "Couldn't save the note.";
+}
+
 export function MenuManagerScreen({ providerId }: { providerId: string }) {
   const { weeklyMenu, catalog, create, publish, revise, updateNote } =
     useMenuManager(providerId);
@@ -205,6 +211,11 @@ export function MenuManagerScreen({ providerId }: { providerId: string }) {
               updateNote.isPending &&
               updateNote.variables?.menuDayId === day.menuDayId
             }
+            noteError={
+              updateNote.variables?.menuDayId === day.menuDayId
+                ? noteErrorMessage(updateNote.error)
+                : null
+            }
             onSaveNote={(raw) => onSaveNote(day, raw)}
           />
         ))}
@@ -222,6 +233,7 @@ function MenuDayCard({
   onEdit,
   noteEditable,
   savingNote,
+  noteError,
   onSaveNote,
 }: {
   day: MenuDayDto;
@@ -232,6 +244,7 @@ function MenuDayCard({
   onEdit: () => void;
   noteEditable: boolean;
   savingNote: boolean;
+  noteError: string | null;
   onSaveNote: (raw: string) => Promise<boolean>;
 }) {
   const countdown = formatCutoffCountdown(day.cutoffAt, nowMs);
@@ -285,6 +298,15 @@ function MenuDayCard({
             placeholder="A note shown to members for this day's menu."
             onChangeText={setNoteDraft}
           />
+          {noteError ? (
+            <Text
+              accessibilityRole="alert"
+              accessibilityLiveRegion="assertive"
+              className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600"
+            >
+              {noteError}
+            </Text>
+          ) : null}
           <View className="flex-row gap-2">
             <Button
               label={savingNote ? "Saving…" : "Save note"}
