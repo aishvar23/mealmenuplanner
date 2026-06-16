@@ -4,8 +4,12 @@ import type { CatalogItemDto } from "./dtos";
 import { providerFixtures as f } from "./index";
 import {
   addComponentDraft,
+  addCustomizationGroup,
+  addCustomizationOption,
   alternativeChoices,
   changeComponentDefault,
+  changeCustomizationType,
+  customizationInsertIssues,
   defaultCutoffIso,
   defaultCutoffLocalIso,
   editCatalog,
@@ -18,16 +22,24 @@ import {
   isoToLocalDateTime,
   localDateTimeToIso,
   makeComponentDraft,
+  makeCustomizationGroup,
+  makeCustomizationOption,
   MENU_REVISION_WARNING,
   menuBuilderIssues,
   menuBuilderStateFromMenuDay,
   menuBuilderStateToCreateInput,
   menuBuilderStateToEditInput,
   nextComponentKey,
+  nextOptionCode,
+  normalizeCustomizationGroup,
   patchComponentDraft,
+  patchCustomizationGroup,
+  patchCustomizationOption,
   previewMenuDayFromBuilder,
   providerTodayDate,
   removeComponentDraft,
+  removeCustomizationGroup,
+  removeCustomizationOption,
   summarizeMenuIssues,
   toggleComponentAlternative,
   type MenuBuilderState,
@@ -684,5 +696,326 @@ describe("MENU_REVISION_WARNING (shared copy)", () => {
   it("is the single re-confirm consequence sentence used by web + mobile", () => {
     expect(MENU_REVISION_WARNING).toMatch(/revision/i);
     expect(MENU_REVISION_WARNING).toMatch(/re-confirm/i);
+  });
+});
+
+// ─────────────────────── Customization-group authoring ───────────────────────
+
+/** A one-component builder state (a dal slot) the customization reducers target. */
+function oneComponentState(): MenuBuilderState {
+  return {
+    menuDate: "2026-06-15",
+    cutoffAt: FUTURE_CUTOFF,
+    note: "",
+    components: [makeComponentDraft(rajma, "k-dal")],
+  };
+}
+
+const KEY = "k-dal";
+
+describe("normalizeCustomizationGroup (type-driven bounds)", () => {
+  it("forces a single selection for single_select and boolean", () => {
+    expect(
+      normalizeCustomizationGroup(makeCustomizationGroup("single_select"))
+        .maximumSelections,
+    ).toBe(1);
+    expect(
+      normalizeCustomizationGroup(makeCustomizationGroup("boolean"))
+        .maximumSelections,
+    ).toBe(1);
+  });
+
+  it("defaults a quantity_increment to a finite cap (never unbounded)", () => {
+    expect(makeCustomizationGroup("quantity_increment").maximumSelections).toBe(
+      1,
+    );
+  });
+
+  it("clears selection counts for a free-text note", () => {
+    const g = normalizeCustomizationGroup({
+      ...makeCustomizationGroup("text_note"),
+      minimumSelections: 3,
+      maximumSelections: 5,
+    });
+    expect(g.minimumSelections).toBe(0);
+    expect(g.maximumSelections).toBeNull();
+  });
+
+  it("bumps a required choice group's minimum to at least one", () => {
+    const g = normalizeCustomizationGroup({
+      ...makeCustomizationGroup("multi_select"),
+      isRequired: true,
+      maximumSelections: 3,
+    });
+    expect(g.minimumSelections).toBe(1);
+  });
+
+  it("does NOT force a minimum on a required boolean / text_note", () => {
+    expect(
+      normalizeCustomizationGroup({
+        ...makeCustomizationGroup("boolean"),
+        isRequired: true,
+      }).minimumSelections,
+    ).toBe(0);
+  });
+
+  it("clamps the minimum down to never exceed a finite maximum", () => {
+    const g = normalizeCustomizationGroup({
+      ...makeCustomizationGroup("multi_select"),
+      minimumSelections: 5,
+      maximumSelections: 2,
+    });
+    expect(g.minimumSelections).toBe(2);
+  });
+
+  it("truncates fractional selection counts to whole numbers (INTEGER columns)", () => {
+    const g = normalizeCustomizationGroup({
+      ...makeCustomizationGroup("multi_select"),
+      minimumSelections: 1.9,
+      maximumSelections: 3.7,
+    });
+    expect(g.minimumSelections).toBe(1);
+    expect(g.maximumSelections).toBe(3);
+    expect(Number.isInteger(g.minimumSelections)).toBe(true);
+    expect(Number.isInteger(g.maximumSelections)).toBe(true);
+  });
+
+  it("drops options when a group becomes a free-text note (no orphaned option)", () => {
+    const g = normalizeCustomizationGroup({
+      ...makeCustomizationGroup("text_note"),
+      options: [
+        { code: "opt_1", label: "" },
+        { code: "opt_2", label: "Mint" },
+      ],
+    });
+    expect(g.options).toEqual([]);
+  });
+});
+
+describe("nextOptionCode / makeCustomizationOption", () => {
+  it("mints a unique opt_<n> code skipping ones already used", () => {
+    expect(nextOptionCode([])).toBe("opt_1");
+    expect(nextOptionCode([{ code: "opt_1" }])).toBe("opt_2");
+    // length+1 collides with an existing custom code → skip past it.
+    expect(nextOptionCode([{ code: "mint" }, { code: "opt_3" }])).toBe("opt_4");
+  });
+
+  it("creates an option with an auto code and a blank label to fill", () => {
+    const opt = makeCustomizationOption([{ code: "opt_1" }]);
+    expect(opt.code).toBe("opt_2");
+    expect(opt.label).toBe("");
+    expect(opt.quantityDelta).toBeNull();
+  });
+});
+
+describe("customization group reducers (add / remove / change type)", () => {
+  it("adds a group to the targeted component only", () => {
+    const next = addCustomizationGroup(
+      oneComponentState(),
+      KEY,
+      "single_select",
+    );
+    expect(next.components[0]!.customizationGroups).toHaveLength(1);
+    expect(next.components[0]!.customizationGroups[0]!.customizationType).toBe(
+      "single_select",
+    );
+    // A missing component key is a no-op.
+    expect(
+      addCustomizationGroup(oneComponentState(), "nope").components[0]!
+        .customizationGroups,
+    ).toHaveLength(0);
+  });
+
+  it("removes the group at the given index", () => {
+    let s = addCustomizationGroup(oneComponentState(), KEY, "single_select");
+    s = addCustomizationGroup(s, KEY, "multi_select");
+    s = removeCustomizationGroup(s, KEY, 0);
+    expect(s.components[0]!.customizationGroups).toHaveLength(1);
+    expect(s.components[0]!.customizationGroups[0]!.customizationType).toBe(
+      "multi_select",
+    );
+  });
+
+  it("re-normalizes bounds when the type changes (multi → single forces max 1)", () => {
+    let s = addCustomizationGroup(oneComponentState(), KEY, "multi_select");
+    s = patchCustomizationGroup(s, KEY, 0, { maximumSelections: 4 });
+    s = changeCustomizationType(s, KEY, 0, "single_select");
+    expect(s.components[0]!.customizationGroups[0]!.maximumSelections).toBe(1);
+    expect(s.components[0]!.customizationGroups[0]!.customizationType).toBe(
+      "single_select",
+    );
+  });
+
+  it("patchCustomizationGroup re-normalizes (toggling required bumps the minimum)", () => {
+    let s = addCustomizationGroup(oneComponentState(), KEY, "multi_select");
+    s = patchCustomizationGroup(s, KEY, 0, {
+      maximumSelections: 3,
+      isRequired: true,
+    });
+    expect(s.components[0]!.customizationGroups[0]!.minimumSelections).toBe(1);
+  });
+});
+
+describe("customization option reducers (add / remove / patch)", () => {
+  it("adds and patches an option in place", () => {
+    let s = addCustomizationGroup(oneComponentState(), KEY, "single_select");
+    s = addCustomizationOption(s, KEY, 0);
+    s = patchCustomizationOption(s, KEY, 0, 0, { label: "Mint chutney" });
+    const opt = s.components[0]!.customizationGroups[0]!.options[0]!;
+    expect(opt.label).toBe("Mint chutney");
+    expect(opt.code).toBe("opt_1");
+  });
+
+  it("removes the option at the given index", () => {
+    let s = addCustomizationGroup(oneComponentState(), KEY, "multi_select");
+    s = addCustomizationOption(s, KEY, 0);
+    s = addCustomizationOption(s, KEY, 0);
+    s = removeCustomizationOption(s, KEY, 0, 0);
+    expect(s.components[0]!.customizationGroups[0]!.options).toHaveLength(1);
+    // The second-added option (code opt_2) is the survivor.
+    expect(s.components[0]!.customizationGroups[0]!.options[0]!.code).toBe(
+      "opt_2",
+    );
+  });
+});
+
+describe("customizationInsertIssues (mirrors the pmp_4 DB CHECKs)", () => {
+  /** A well-formed single-select group with one named option — should be insertable. */
+  function validState(): MenuBuilderState {
+    let s = addCustomizationGroup(oneComponentState(), KEY, "single_select");
+    s = patchCustomizationGroup(s, KEY, 0, { name: "Sauce" });
+    s = addCustomizationOption(s, KEY, 0);
+    s = patchCustomizationOption(s, KEY, 0, 0, { label: "Mint chutney" });
+    return s;
+  }
+
+  it("is empty for a well-formed group", () => {
+    expect(customizationInsertIssues(validState())).toEqual([]);
+  });
+
+  it("flags a blank group name", () => {
+    const s = patchCustomizationGroup(validState(), KEY, 0, { name: "  " });
+    expect(customizationInsertIssues(s).join(" ")).toMatch(/needs a name/i);
+  });
+
+  it("flags a blank option label", () => {
+    const s = patchCustomizationOption(validState(), KEY, 0, 0, { label: "" });
+    expect(customizationInsertIssues(s).join(" ")).toMatch(/needs a label/i);
+  });
+
+  it("flags duplicate option codes within a group", () => {
+    let s = addCustomizationOption(validState(), KEY, 0);
+    s = patchCustomizationOption(s, KEY, 0, 1, {
+      code: "opt_1",
+      label: "Dup",
+    });
+    expect(customizationInsertIssues(s).join(" ")).toMatch(/unique/i);
+  });
+
+  it("does NOT flag a quantity add-on's missing per-option max (publish rule, not a DB CHECK)", () => {
+    let s = addCustomizationGroup(
+      oneComponentState(),
+      KEY,
+      "quantity_increment",
+    );
+    s = patchCustomizationGroup(s, KEY, 0, { name: "Extra roti" });
+    s = addCustomizationOption(s, KEY, 0);
+    s = patchCustomizationOption(s, KEY, 0, 0, { label: "One more" }); // no maximumQuantity
+    // The DB has no per-option-max CHECK (qty_order only orders present bounds), so the
+    // group row + option row INSERT fine — the missing cap is a publish-completeness issue,
+    // caught by the publish gate, NOT a draft-save blocker (review #2).
+    expect(customizationInsertIssues(s)).toEqual([]);
+    expect(
+      menuBuilderIssues(s, f.catalogItems, NOW)
+        .map((issue) => issue.message)
+        .join(" "),
+    ).toMatch(/finite maximum quantity/i);
+  });
+
+  it("does NOT flag a required group with no options (publish rule, not a DB CHECK)", () => {
+    let s = addCustomizationGroup(oneComponentState(), KEY, "multi_select");
+    s = patchCustomizationGroup(s, KEY, 0, {
+      name: "Pickles",
+      isRequired: true,
+    });
+    // required_has_min bumps min to 1; the GROUP row still inserts (no "required ⇒ has
+    // option" DB CHECK exists), so this is insertable but not publishable (review #2).
+    expect(customizationInsertIssues(s)).toEqual([]);
+    expect(
+      menuBuilderIssues(s, f.catalogItems, NOW)
+        .map((issue) => issue.message)
+        .join(" "),
+    ).toMatch(/at least one option/i);
+  });
+
+  it("does not dead-end: a group with a blank option that becomes a text_note is insertable", () => {
+    // The review-#1 dead-end: a blank-label option, then a switch to free-text. The options
+    // editor isn't rendered for text_note, so the option would be unfixable — but the reducer
+    // drops it, so the save is not blocked by an issue the owner can't reach.
+    let s = addCustomizationGroup(oneComponentState(), KEY, "single_select");
+    s = patchCustomizationGroup(s, KEY, 0, { name: "Sauce" });
+    s = addCustomizationOption(s, KEY, 0); // blank label
+    expect(customizationInsertIssues(s).join(" ")).toMatch(/needs a label/i);
+    s = changeCustomizationType(s, KEY, 0, "text_note");
+    expect(s.components[0]!.customizationGroups[0]!.options).toEqual([]);
+    expect(customizationInsertIssues(s)).toEqual([]);
+  });
+
+  it("flags an option whose max quantity is below its min", () => {
+    let s = addCustomizationGroup(
+      oneComponentState(),
+      KEY,
+      "quantity_increment",
+    );
+    s = patchCustomizationGroup(s, KEY, 0, { name: "Extra" });
+    s = addCustomizationOption(s, KEY, 0);
+    s = patchCustomizationOption(s, KEY, 0, 0, {
+      label: "More",
+      minimumQuantity: 5,
+      maximumQuantity: 2,
+    });
+    expect(customizationInsertIssues(s).join(" ")).toMatch(
+      /maximum quantity can't be smaller/i,
+    );
+  });
+});
+
+describe("customization round-trip (create input + preview)", () => {
+  /** A publishable state with a single-select sauce on the dal component. */
+  function withSauce(): MenuBuilderState {
+    let s = publishableState();
+    s = addCustomizationGroup(s, "k-dal", "single_select");
+    s = patchCustomizationGroup(s, "k-dal", 0, { name: "Sauce" });
+    s = addCustomizationOption(s, "k-dal", 0);
+    s = patchCustomizationOption(s, "k-dal", 0, 0, {
+      code: "mint",
+      label: "Mint chutney",
+      externalPriceLabel: "+$1",
+    });
+    return s;
+  }
+
+  it("carries the group + option through menuBuilderStateToCreateInput", () => {
+    const input = menuBuilderStateToCreateInput(withSauce());
+    const group = input.components[0]!.customizationGroups![0]!;
+    expect(group.name).toBe("Sauce");
+    expect(group.customizationType).toBe("single_select");
+    expect(group.maximumSelections).toBe(1);
+    expect(group.options[0]).toMatchObject({
+      code: "mint",
+      label: "Mint chutney",
+      externalPriceLabel: "+$1",
+    });
+  });
+
+  it("previews the group so the completeness validator sees it, staying publishable", () => {
+    const preview = previewMenuDayFromBuilder(withSauce(), f.catalogItems);
+    expect(preview.components[0]!.customizationGroups).toHaveLength(1);
+    expect(preview.components[0]!.customizationGroups[0]!.name).toBe("Sauce");
+    // A well-formed single_select sauce doesn't break publishability.
+    expect(isMenuBuilderPublishable(withSauce(), f.catalogItems, NOW)).toBe(
+      true,
+    );
+    expect(customizationInsertIssues(withSauce())).toEqual([]);
   });
 });
