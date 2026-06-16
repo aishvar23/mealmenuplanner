@@ -1,7 +1,7 @@
 "use client";
 
 import { Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,13 +10,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  activeCatalog,
   addComponentDraft,
+  alternativeChoices,
+  catalogById,
   changeComponentDefault,
-  eligibleAlternatives,
+  hasUnavailableSelection,
   isMenuBuilderCreatable,
-  isMenuBuilderPublishable,
   isoToLocalDateTime,
   localDateTimeToIso,
+  MENU_REVISION_WARNING,
   menuBuilderIssues,
   menuBuilderStateToCreateInput,
   menuBuilderStateToEditInput,
@@ -69,12 +72,14 @@ export function MenuBuilderForm({
   menuDayId,
   initialState,
   showRevisionWarning = false,
+  requirePublishable = false,
   now,
   onSaved,
   onCancel,
 }: {
   providerId: string;
-  /** Active catalog items the builder can place (the page filters to active). */
+  /** Catalog the builder can place. For an `edit` it also carries any archived item the
+   *  day still references (flagged `isActive: false`) so a stored selection stays visible. */
   catalog: CatalogItemDto[];
   /** `create` authors a new draft (POST); `edit` revises an existing day (PUT). */
   mode: "create" | "edit";
@@ -84,6 +89,9 @@ export function MenuBuilderForm({
   initialState: MenuBuilderState;
   /** Show the revision/re-confirm consequence banner (editing a PUBLISHED day). */
   showRevisionWarning?: boolean;
+  /** Require the day to be fully PUBLISHABLE before saving (editing a PUBLISHED day). A
+   *  draft edit (or a create) saves with the looser `creatable` gate, matching the server. */
+  requirePublishable?: boolean;
   /** Epoch ms "now" for the completeness/cutoff check (the page passes a fresh value). */
   now: number;
   onSaved: () => void;
@@ -97,16 +105,30 @@ export function MenuBuilderForm({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const groups = groupedCatalog(catalog);
+  // The catalog the owner can ADD/PLACE is active only; the picker additionally surfaces an
+  // already-selected archived item so it can be replaced/unchecked (review #1/#2).
+  const active = useMemo(() => activeCatalog(catalog), [catalog]);
+  const byId = useMemo(() => catalogById(catalog), [catalog]);
+  const activeIds = useMemo(
+    () => new Set(active.map((item) => item.catalogItemId)),
+    [active],
+  );
+  const groups = groupedCatalog(active);
 
-  const issues = menuBuilderIssues(state, catalog, new Date(now));
+  // Compute the completeness issues ONCE; `publishable` is just "no issues" (review #10).
+  const issues = menuBuilderIssues(state, active, new Date(now));
+  const publishable = issues.length === 0;
   const creatable = isMenuBuilderCreatable(state);
-  const publishable = isMenuBuilderPublishable(state, catalog, new Date(now));
-  // Create can save an incomplete DRAFT (publish later); an edit must keep the day
-  // PUBLISHABLE — the edit RPC enforces a future cutoff + valid refs, so a half-finished
-  // edit would just be rejected. So the save gate is the looser `creatable` for create,
-  // the strict `publishable` for edit.
-  const canSave = isEdit ? publishable : creatable;
+  // A selection (default/alt) that's been archived must be replaced before saving — the
+  // edit RPC rejects an inactive ref (review #1/#2).
+  const unavailable = hasUnavailableSelection(state, active);
+  // Create / draft-edit can save an incomplete DRAFT (publish later); editing a PUBLISHED
+  // day must keep it PUBLISHABLE. Either way an archived selection blocks the save, and an
+  // edit with no target id never falls through to a create (review #3/#4).
+  const canSave =
+    (requirePublishable ? publishable : creatable) &&
+    !unavailable &&
+    !(isEdit && !menuDayId);
 
   function patch(next: Partial<MenuBuilderState>) {
     setState((prev) => ({ ...prev, ...next }));
@@ -120,7 +142,7 @@ export function MenuBuilderForm({
   }
 
   function addComponent() {
-    setState((prev) => addComponentDraft(prev, catalog));
+    setState((prev) => addComponentDraft(prev, active));
   }
 
   function removeComponent(key: string) {
@@ -138,6 +160,12 @@ export function MenuBuilderForm({
   }
 
   async function submit() {
+    // An edit MUST target an existing day — never silently fall through to a create, which
+    // would try to author a duplicate day for the (immutable) date (review #4).
+    if (isEdit && !menuDayId) {
+      setError("Couldn't save the menu — the day to edit is missing.");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -175,8 +203,7 @@ export function MenuBuilderForm({
             className="rounded-md border border-saffron/40 bg-saffron/10 px-3 py-2 text-sm text-muted-foreground"
             data-testid="menu-revision-warning"
           >
-            Editing a published menu may create a new revision. Members who have
-            already responded will be asked to re-confirm before the cutoff.
+            {MENU_REVISION_WARNING}
           </p>
         ) : null}
 
@@ -235,7 +262,12 @@ export function MenuBuilderForm({
             </p>
           ) : (
             state.components.map((component, index) => {
-              const alts = eligibleAlternatives(component, catalog);
+              const alts = alternativeChoices(component, catalog);
+              // An archived default (no longer active) is kept VISIBLE as a flagged option so
+              // the owner sees what's stored and must replace it before saving (review #1/#2).
+              const defaultArchived =
+                component.defaultCatalogItemId.length > 0 &&
+                !activeIds.has(component.defaultCatalogItemId);
               return (
                 <div
                   key={component.key}
@@ -257,6 +289,13 @@ export function MenuBuilderForm({
                         }
                         className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm"
                       >
+                        {defaultArchived ? (
+                          <option value={component.defaultCatalogItemId}>
+                            {byId.get(component.defaultCatalogItemId)?.name ??
+                              "Unknown dish"}{" "}
+                            (unavailable)
+                          </option>
+                        ) : null}
                         {groups.map((group) => (
                           <optgroup key={group.label} label={group.label}>
                             {group.items.map((item) => (
@@ -320,6 +359,7 @@ export function MenuBuilderForm({
                               }
                             />
                             {alt.name}
+                            {alt.isActive ? "" : " (unavailable)"}
                           </label>
                         ))}
                       </div>
@@ -332,7 +372,7 @@ export function MenuBuilderForm({
         </div>
 
         {/* Live completeness — what the publish gate will see. */}
-        {creatable && !publishable ? (
+        {(creatable || unavailable) && !publishable ? (
           <div
             className="space-y-1.5 rounded-md border border-saffron/40 bg-saffron/10 p-3"
             data-testid="menu-completeness"
@@ -345,8 +385,17 @@ export function MenuBuilderForm({
                 <li key={message}>{message}</li>
               ))}
             </ul>
+            {unavailable ? (
+              <p
+                className="text-xs text-muted-foreground"
+                data-testid="menu-unavailable-selection"
+              >
+                One or more selected dishes are no longer available — replace
+                them before saving.
+              </p>
+            ) : null}
             <p className="text-xs text-muted-foreground">
-              {isEdit
+              {requirePublishable
                 ? "Fix these before saving — a published menu must stay complete."
                 : "You can still save this as a draft and finish it later."}
             </p>

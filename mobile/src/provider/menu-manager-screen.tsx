@@ -1,11 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import {
   activeCatalog,
-  defaultCutoffIso,
+  defaultCutoffLocalIso,
   dishCountLabel,
+  editCatalog,
   emptyMenuBuilderState,
   formatCutoffCountdown,
   isMenuDayEditable,
@@ -48,6 +49,32 @@ export function MenuManagerScreen({ providerId }: { providerId: string }) {
     return () => clearInterval(id);
   }, []);
 
+  const builderOpen = building || editing !== null;
+  const deviceTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  // Memoize the active catalog so the builder-state/catalog memos below have a stable input
+  // across minute-ticks (catalog.data identity is stable while unchanged).
+  const active = useMemo(
+    () => activeCatalog(catalog.data ?? []),
+    [catalog.data],
+  );
+  // For an edit, surface any archived item the day still references so the owner can
+  // see/replace it instead of it silently vanishing from the picker (review #1/#2).
+  const builderCatalog = useMemo(
+    () => (editing ? editCatalog(active, editing) : active),
+    [editing, active],
+  );
+  // Build the starting state ONLY while the builder is open, so idle minute-ticks don't
+  // deep-map the day's component tree (review #8).
+  const initialState = useMemo<MenuBuilderState | null>(() => {
+    if (!builderOpen) return null;
+    return editing
+      ? menuBuilderStateFromMenuDay(editing)
+      : emptyMenuBuilderState(
+          providerTodayDate(deviceTz, new Date(nowMs)),
+          defaultCutoffLocalIso(new Date(nowMs)),
+        );
+  }, [builderOpen, editing, nowMs, deviceTz]);
+
   if (weeklyMenu.isLoading || catalog.isLoading) return <LoadingState />;
   if (weeklyMenu.error || catalog.error || !weeklyMenu.data || !catalog.data) {
     return (
@@ -61,17 +88,7 @@ export function MenuManagerScreen({ providerId }: { providerId: string }) {
     );
   }
 
-  const active = activeCatalog(catalog.data);
   const days = weeklyMenu.data;
-  const builderOpen = building || editing !== null;
-
-  const deviceTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const initialState: MenuBuilderState = editing
-    ? menuBuilderStateFromMenuDay(editing)
-    : emptyMenuBuilderState(
-        providerTodayDate(deviceTz, new Date(nowMs)),
-        defaultCutoffIso(new Date(nowMs)),
-      );
   // The active write for the open builder — revise when editing a day, else create.
   const saving = editing ? revise : create;
 
@@ -124,12 +141,13 @@ export function MenuManagerScreen({ providerId }: { providerId: string }) {
           </View>
         ) : null}
 
-        {builderOpen ? (
+        {builderOpen && initialState ? (
           <MenuBuilderForm
-            catalog={active}
+            catalog={builderCatalog}
             mode={editing ? "edit" : "create"}
             initialState={initialState}
             showRevisionWarning={editing?.status === "published"}
+            requirePublishable={editing?.status === "published"}
             now={nowMs}
             submitting={saving.isPending}
             error={saving.error instanceof Error ? saving.error.message : null}

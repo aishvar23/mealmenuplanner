@@ -4,16 +4,21 @@ import type { CatalogItemDto } from "./dtos";
 import { providerFixtures as f } from "./index";
 import {
   addComponentDraft,
+  alternativeChoices,
   changeComponentDefault,
   defaultCutoffIso,
+  defaultCutoffLocalIso,
+  editCatalog,
   eligibleAlternatives,
   emptyMenuBuilderState,
+  hasUnavailableSelection,
   isMenuBuilderCreatable,
   isMenuBuilderPublishable,
   isMenuDayEditable,
   isoToLocalDateTime,
   localDateTimeToIso,
   makeComponentDraft,
+  MENU_REVISION_WARNING,
   menuBuilderIssues,
   menuBuilderStateFromMenuDay,
   menuBuilderStateToCreateInput,
@@ -26,6 +31,7 @@ import {
   summarizeMenuIssues,
   toggleComponentAlternative,
   type MenuBuilderState,
+  type MenuComponentDraft,
 } from "./menu-builder";
 
 const NOW = new Date("2026-06-15T09:00:00Z");
@@ -541,5 +547,142 @@ describe("isMenuDayEditable (edit affordance gate)", () => {
     expect(isMenuDayEditable({ ...day, status: "locked" }, beforeCutoff)).toBe(
       false,
     );
+  });
+});
+
+describe("editCatalog (archived-selection visibility on edit)", () => {
+  it("returns the active catalog unchanged when the day references only active items", () => {
+    const result = editCatalog(f.catalogItems, f.publishedMenuDay);
+    expect(result).toHaveLength(f.catalogItems.length);
+    expect(result.every((item) => item.isActive)).toBe(true);
+  });
+
+  it("reconstructs an archived DEFAULT + ALTERNATIVE the day still references, flagged inactive", () => {
+    // Rajma (the dal default) and Chana (its alternative) are no longer in the active
+    // catalog — simulating an archive after the day was authored.
+    const active = f.catalogItems.filter(
+      (item) => item.name !== "Rajma" && item.name !== "Chana Masala",
+    );
+    const result = editCatalog(active, f.publishedMenuDay);
+
+    const rajmaItem = result.find(
+      (item) => item.catalogItemId === rajma.catalogItemId,
+    )!;
+    expect(rajmaItem).toMatchObject({
+      name: "Rajma",
+      componentGroup: "dal_or_legume",
+      canonicalUnit: "oz",
+      defaultQuantity: 16,
+      isActive: false,
+      supportsSpiceLevel: true,
+      supportsSaltLevel: true,
+    });
+    const chanaItem = result.find(
+      (item) => item.catalogItemId === chana.catalogItemId,
+    )!;
+    expect(chanaItem).toMatchObject({
+      name: "Chana Masala",
+      componentGroup: "dal_or_legume",
+      canonicalUnit: "oz",
+      defaultQuantity: 16,
+      isActive: false,
+    });
+    // Active items are kept; only the two missing ones are synthesized.
+    expect(result).toHaveLength(active.length + 2);
+  });
+});
+
+describe("alternativeChoices (edit-aware swap picker)", () => {
+  const dalDraft: MenuComponentDraft = {
+    key: "k-dal",
+    componentGroup: "dal_or_legume",
+    defaultCatalogItemId: rajma.catalogItemId,
+    isRequired: true,
+    alternativeCatalogItemIds: [chana.catalogItemId],
+    customizationGroups: [],
+  };
+
+  it("offers active same-group items other than the default (== eligibleAlternatives for a fresh draft)", () => {
+    const alts = alternativeChoices(dalDraft, f.catalogItems);
+    expect(alts.map((a) => a.name)).toEqual(["Chana Masala"]);
+  });
+
+  it("still offers a SELECTED alternative that has since been archived (so it can be unchecked)", () => {
+    const catalog = f.catalogItems.map((item) =>
+      item.catalogItemId === chana.catalogItemId
+        ? { ...item, isActive: false }
+        : item,
+    );
+    const alts = alternativeChoices(dalDraft, catalog);
+    expect(alts.map((a) => a.catalogItemId)).toContain(chana.catalogItemId);
+  });
+
+  it("hides an archived item that is NOT currently selected", () => {
+    const catalog = f.catalogItems.map((item) =>
+      item.catalogItemId === chana.catalogItemId
+        ? { ...item, isActive: false }
+        : item,
+    );
+    const draftNoAlt = { ...dalDraft, alternativeCatalogItemIds: [] };
+    expect(alternativeChoices(draftNoAlt, catalog)).toHaveLength(0);
+  });
+});
+
+describe("hasUnavailableSelection (archived-ref save gate)", () => {
+  it("is false when every selected default/alternative is active", () => {
+    const state = menuBuilderStateFromMenuDay(f.publishedMenuDay);
+    expect(hasUnavailableSelection(state, f.catalogItems)).toBe(false);
+  });
+
+  it("is true when a default references an archived item", () => {
+    const state = menuBuilderStateFromMenuDay(f.publishedMenuDay);
+    const active = f.catalogItems.filter((item) => item.name !== "Rajma");
+    expect(hasUnavailableSelection(state, active)).toBe(true);
+  });
+
+  it("is true when an alternative references an archived item", () => {
+    const state = menuBuilderStateFromMenuDay(f.publishedMenuDay);
+    const active = f.catalogItems.filter(
+      (item) => item.name !== "Chana Masala",
+    );
+    expect(hasUnavailableSelection(state, active)).toBe(true);
+  });
+
+  it("ignores an empty (unfilled) default slot", () => {
+    const state: MenuBuilderState = {
+      ...emptyMenuBuilderState("2026-06-15", FUTURE_CUTOFF),
+      components: [
+        {
+          key: "k-empty",
+          componentGroup: "sabzi",
+          defaultCatalogItemId: "",
+          isRequired: false,
+          alternativeCatalogItemIds: [],
+          customizationGroups: [],
+        },
+      ],
+    };
+    expect(hasUnavailableSelection(state, f.catalogItems)).toBe(false);
+  });
+});
+
+describe("defaultCutoffLocalIso (fresh-create cutoff, minute-truncated)", () => {
+  it("displays the same minute as the raw default but stores no sub-minute remainder", () => {
+    // A 'now' carrying seconds + millis: the raw ISO keeps them, the local one drops them.
+    const now = new Date("2026-06-15T09:12:43.123Z");
+    const truncated = defaultCutoffLocalIso(now);
+    // Same wall-clock minute the input shows…
+    expect(isoToLocalDateTime(truncated)).toBe(
+      isoToLocalDateTime(defaultCutoffIso(now)),
+    );
+    // …but stored on a whole-minute boundary (no stray seconds to silently persist).
+    expect(Date.parse(truncated) % 60_000).toBe(0);
+  });
+});
+
+describe("MENU_REVISION_WARNING (shared copy)", () => {
+  it("is the single re-confirm consequence sentence used by web + mobile", () => {
+    expect(MENU_REVISION_WARNING).toMatch(/revision/i);
+    expect(MENU_REVISION_WARNING).toMatch(/re-confirm/i);
   });
 });

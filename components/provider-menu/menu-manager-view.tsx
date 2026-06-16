@@ -10,8 +10,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
   activeCatalog,
-  defaultCutoffIso,
+  defaultCutoffLocalIso,
   dishCountLabel,
+  editCatalog,
   emptyMenuBuilderState,
   formatCutoffCountdown,
   formatCutoffDateTime,
@@ -227,16 +228,20 @@ function BuilderPanel({
     ? menuBuilderStateFromMenuDay(editing)
     : emptyMenuBuilderState(
         providerTodayDate(timezone, new Date(nowMs)),
-        defaultCutoffIso(new Date(nowMs)),
+        defaultCutoffLocalIso(new Date(nowMs)),
       );
+  // For an edit, surface any archived item the day still references so the owner can
+  // see/replace it instead of it silently vanishing from the picker (review #1/#2).
+  const builderCatalog = editing ? editCatalog(catalog, editing) : catalog;
   return (
     <MenuBuilderForm
       providerId={providerId}
-      catalog={catalog}
+      catalog={builderCatalog}
       mode={editing ? "edit" : "create"}
       menuDayId={editing?.menuDayId}
       initialState={initialState}
       showRevisionWarning={editing?.status === "published"}
+      requirePublishable={editing?.status === "published"}
       now={nowMs}
       onSaved={onSaved}
       onCancel={onCancel}
