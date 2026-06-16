@@ -100,6 +100,20 @@ export interface ProviderTeam {
     },
   ): Promise<MenuDaySeed>;
   /**
+   * Like `seedMenuDay`, but authors + publishes the day through the PRODUCTION
+   * writer (`create_provider_menu_day` + `publish_provider_menu_day`) signed in as
+   * the owner — NOT via direct table inserts. The catalog stays owner-private, so
+   * the dish names on the menu tree (`default_item_name` / `item_name`) are
+   * populated by the writer's denormalization (MP-A-121), not by the fixture. This
+   * is the only seeder that exercises the writer→read→member-display chain end to
+   * end (ADO #39). Returns the catalog ids the member-display assertions need.
+   */
+  seedMenuDayViaWriter(
+    providerId: string,
+    owner: ProviderUser,
+    opts?: { cutoffHoursFromNow?: number; timezone?: string },
+  ): Promise<WriterMenuDaySeed>;
+  /**
    * Seed the owner's catalog (Rajma + Chana in `dal_or_legume`, Roti in `bread`)
    * WITHOUT any menu day — the precondition for the menu-builder specs, which author
    * a day through the UI. All active. Returns the catalog ids.
@@ -140,6 +154,13 @@ export interface CatalogSeed {
   rajmaCatalogId: string;
   chanaCatalogId: string;
   rotiCatalogId: string;
+}
+
+/** The ids returned by `seedMenuDayViaWriter`, for member-display assertions. */
+export interface WriterMenuDaySeed {
+  menuDayId: string;
+  rajmaCatalogId: string;
+  chanaCatalogId: string;
 }
 
 /** The ids returned by `seedMenuDay`, for assertions + response building. */
@@ -479,6 +500,94 @@ export const test = base.extend<{ providerTeam: ProviderTeam }>({
           chanaCatalogId: idByName("Chana"),
           rotiCatalogId: idByName("Roti"),
         };
+      },
+      async seedMenuDayViaWriter(providerId, owner, opts) {
+        const tz = opts?.timezone ?? "Asia/Kolkata";
+        const cutoffHours = opts?.cutoffHoursFromNow ?? 8;
+        const now = new Date();
+        // "Today" in the provider tz must match getTodayMenu's own computation.
+        const menuDate = new Intl.DateTimeFormat("en-CA", {
+          timeZone: tz,
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).format(now);
+        const cutoffAt = new Date(
+          now.getTime() + cutoffHours * 3_600_000,
+        ).toISOString();
+        const fail = (what: string, message?: string) => {
+          throw new Error(
+            `E2E: seedMenuDayViaWriter ${what} failed: ${message}`,
+          );
+        };
+
+        // ── Owner-private catalog (Rajma default, Chana alternative) ──
+        // Inserted via the service-role admin; pcat_select is owner-only, so the
+        // member can NEVER read these. The writer must denormalize the names onto
+        // the menu tree for the member to see them — which is exactly what #39 proves.
+        const cat = await admin
+          .from("provider_catalog_items")
+          .insert([
+            {
+              provider_id: providerId,
+              name: "Rajma",
+              component_group: "dal_or_legume",
+              canonical_unit: "oz",
+              default_quantity: 16,
+              supports_spice_level: true,
+              supports_salt_level: true,
+            },
+            {
+              provider_id: providerId,
+              name: "Chana",
+              component_group: "dal_or_legume",
+              canonical_unit: "oz",
+              default_quantity: 16,
+              supports_spice_level: false,
+              supports_salt_level: false,
+            },
+          ])
+          .select("id, name");
+        if (cat.error || !cat.data) fail("catalog", cat.error?.message);
+        const byName = (n: string) => {
+          const row = cat.data!.find((r) => r.name === n);
+          if (!row) fail("catalog lookup", `missing ${n}`);
+          return row!.id as string;
+        };
+        const rajmaCatalogId = byName("Rajma");
+        const chanaCatalogId = byName("Chana");
+
+        // ── Author + publish through the PRODUCTION writer as the OWNER ──
+        // The RPCs are owner-gated on auth.uid(), so they must run under the owner's
+        // RLS context, not the service-role admin (whose auth.uid() is null).
+        const ownerClient = await api.signInAs(owner);
+        const created = await ownerClient.rpc("create_provider_menu_day", {
+          p_provider_id: providerId,
+          p_payload: {
+            menuDate,
+            cutoffAt,
+            note: null,
+            components: [
+              {
+                componentGroup: "dal_or_legume",
+                defaultCatalogItemId: rajmaCatalogId,
+                isRequired: true,
+                sortOrder: 0,
+                alternativeCatalogItemIds: [chanaCatalogId],
+                customizationGroups: [],
+              },
+            ],
+          },
+        });
+        if (created.error || !created.data)
+          fail("create", created.error?.message);
+        const menuDayId = created.data as string;
+        const published = await ownerClient.rpc("publish_provider_menu_day", {
+          p_menu_day_id: menuDayId,
+        });
+        if (published.error) fail("publish", published.error.message);
+
+        return { menuDayId, rajmaCatalogId, chanaCatalogId };
       },
       async signInAs(user) {
         const client = await createAuthedClient(user.email, user.password);

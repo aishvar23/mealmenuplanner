@@ -67,6 +67,41 @@ test.describe("Provider member response (MP-B-041)", () => {
     await expect(page.getByText("Confirmed", { exact: true })).toBeVisible();
   });
 
+  test("a member sees real dish names denormalized by the production writer (ADO #39)", async ({
+    page,
+    providerTeam,
+  }) => {
+    const owner = await providerTeam.createUser("writer-owner");
+    const providerId = await providerTeam.createProvider(owner, {
+      name: "Writer Kitchen",
+    });
+    const customer = await providerTeam.createUser("writer-cust");
+    await providerTeam.addCustomer(providerId, customer, "approved");
+    // Author + publish today's menu through the REAL writer (create/publish RPCs),
+    // NOT seedMenuDay's hand-set denorm columns. The catalog is owner-private, so
+    // the member never gets catalog access — yet must see the dish NAMES because
+    // the writer (MP-A-121) denormalized them onto the menu tree. This is the only
+    // E2E that guards the writer→read→member-display chain end to end.
+    await providerTeam.seedMenuDayViaWriter(providerId, owner, {
+      cutoffHoursFromNow: 8,
+    });
+
+    await openToday(page, customer.email, customer.password, providerId);
+
+    await expect(
+      page.getByRole("heading", { name: "Today’s menu" }),
+    ).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText("Dal / legume")).toBeVisible();
+    // Choices are labelled by the writer-populated dish NAME, not "Default" /
+    // "Option N" — the whole point of #39, now proven through the production writer.
+    await expect(
+      page.getByRole("radio", { name: /Rajma/ }).first(),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("radio", { name: /Chana/ }).first(),
+    ).toBeVisible();
+  });
+
   test("a locked menu is read-only with no response controls", async ({
     page,
     providerTeam,
