@@ -29,6 +29,7 @@ import type {
   EditMenuDayInput,
   MenuComponentDto,
   MenuDayDto,
+  UpdateMenuDayNoteInput,
 } from "./dtos";
 import type {
   ProviderComponentGroup,
@@ -736,6 +737,50 @@ export function isMenuDayEditable(day: MenuDayDto, nowMs: number): boolean {
     if (Number.isNaN(cutoffMs) || cutoffMs <= nowMs) return false;
   }
   return true;
+}
+
+/**
+ * The max length of a menu-day note — mirrors the service `NOTE_MAX` (lib/services/provider
+ * menu-edit) so the note-edit field can cap input client-side before the PATCH instead of
+ * relying on the server `VALIDATION_ERROR` round-trip.
+ */
+export const MENU_NOTE_MAX_LENGTH = 500;
+
+/**
+ * Whether a menu day's NOTE can be edited in place — mirrors the
+ * `update_provider_menu_day_note` RPC gate (pmp_20): the day is not superseded and is
+ * `draft`, `published`, or `locked` (a note is harmless even after cutoff and once locked;
+ * an `archived` or `cancelled` day is terminal). Deliberately BROADER than
+ * {@link isMenuDayEditable} — a note edit never starts a revision and stays allowed after
+ * cutoff / once locked — so the owner keeps a lightweight "edit note" affordance on
+ * locked / past-cutoff days where the STRUCTURAL editor is closed.
+ */
+export function isMenuDayNoteEditable(day: MenuDayDto): boolean {
+  if (day.supersededAt !== null) return false;
+  return (
+    day.status === "draft" ||
+    day.status === "published" ||
+    day.status === "locked"
+  );
+}
+
+/**
+ * Normalize a free-text note field into the `UpdateMenuDayNoteInput` the PATCH route
+ * expects: trim surrounding whitespace and collapse an empty/whitespace-only string to
+ * `null` (clearing the note). Mirrors how the builder treats a blank note.
+ */
+export function toUpdateMenuDayNoteInput(raw: string): UpdateMenuDayNoteInput {
+  const trimmed = raw.trim();
+  return { note: trimmed.length > 0 ? trimmed : null };
+}
+
+/**
+ * Whether the (trimmed) note text differs from the day's persisted note — gates the Save
+ * action so an unchanged note is never PATCHed (a no-op write/revision-free round-trip).
+ * Treats "" and a whitespace-only edit as equal to a cleared (`null`) note.
+ */
+export function menuDayNoteChanged(day: MenuDayDto, raw: string): boolean {
+  return toUpdateMenuDayNoteInput(raw).note !== (day.note ?? null);
 }
 
 /**

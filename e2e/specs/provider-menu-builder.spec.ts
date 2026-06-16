@@ -226,6 +226,47 @@ test.describe("Provider menu builder (MP-B-030)", () => {
     ).toHaveValue("Mint chutney");
   });
 
+  test("edits just the day note in place via the lightweight note affordance (no revision)", async ({
+    page,
+    providerTeam,
+  }) => {
+    const owner = await providerTeam.createUser("menu-note-owner");
+    const providerId = await providerTeam.createProvider(owner, {
+      name: "Note Kitchen",
+    });
+    // A published, before-cutoff day with NO note yet — the deterministic note target.
+    await providerTeam.seedMenuDay(providerId, owner, {
+      status: "published",
+      cutoffHoursFromNow: 8,
+    });
+
+    await signIn(page, owner.email, owner.password);
+    await page.goto("/provider/menu");
+
+    await expect(page.getByText("Published")).toBeVisible({ timeout: 30_000 });
+
+    // The day has no note → the affordance reads "Add note" (distinct from the
+    // structural "Edit", which opens the revision-aware builder).
+    await page.getByRole("button", { name: "Add note" }).click();
+
+    // Saving is gated until the note actually changes (no-op guard).
+    await expect(
+      page.getByRole("button", { name: "Save note" }),
+    ).toBeDisabled();
+    await page.getByLabel("Menu day note").fill("Soak rajma 8h tonight");
+    await page.getByRole("button", { name: "Save note" }).click();
+
+    // The note shows on the card and the day stays published. Crucially the note PATCH
+    // applies IN PLACE — the structural revision flow is never triggered (no warning).
+    await expect(page.getByText("Soak rajma 8h tonight")).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(page.getByText("Published", { exact: true })).toBeVisible();
+    await expect(page.getByTestId("menu-revision-warning")).toHaveCount(0);
+    // The affordance now reads "Edit note" since a note exists.
+    await expect(page.getByRole("button", { name: "Edit note" })).toBeVisible();
+  });
+
   test("an incomplete (past-cutoff) draft cannot be published and explains why", async ({
     page,
     providerTeam,

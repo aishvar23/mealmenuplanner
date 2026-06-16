@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Textarea } from "@/components/ui/textarea";
 import {
   activeCatalog,
   defaultCutoffLocalIso,
@@ -17,11 +18,15 @@ import {
   formatCutoffCountdown,
   formatCutoffDateTime,
   isMenuDayEditable,
+  isMenuDayNoteEditable,
   menuBuilderStateFromMenuDay,
+  menuDayNoteChanged,
+  MENU_NOTE_MAX_LENGTH,
   PROVIDER_MENU_STATUS_BADGE_VARIANT,
   providerMenuStatusLabel,
   providerTodayDate,
   summarizeMenuIssues,
+  toUpdateMenuDayNoteInput,
   validateMenuCompleteness,
   type CatalogItemDto,
   type MenuBuilderState,
@@ -29,7 +34,7 @@ import {
 } from "@/packages/shared/provider";
 
 import { MenuBuilderForm } from "./menu-builder-form";
-import { publishMenuDay } from "./menu-client";
+import { publishMenuDay, updateMenuDayNote } from "./menu-client";
 
 /**
  * Owner menu manager (MP-B-030, spec §13.3). Lists the week's menu days the server
@@ -37,9 +42,12 @@ import { publishMenuDay } from "./menu-client";
  * lets the owner author a new DRAFT day via the structured builder and publish a
  * complete draft. Publishing is completeness-gated by the SHARED
  * `validateMenuCompleteness` (the #84 validator), so the button mirrors the server's
- * publish gate. Structural edit/revision + customization authoring are the remainder
- * of #22. A client component so the countdown re-ticks and the builder is interactive;
- * the data itself is server-read and re-fetched via `router.refresh()` after a write.
+ * publish gate. Each non-terminal day also carries a lightweight in-place NOTE editor
+ * (`updateMenuDayNote` / PATCH) — distinct from the structural builder: a note edit never
+ * starts a revision and stays available on locked / past-cutoff days. Member suggestions
+ * UI is the remainder of #22. A client component so the countdown re-ticks and the builder
+ * is interactive; the data itself is server-read and re-fetched via `router.refresh()`
+ * after a write.
  */
 
 // Minute-bucketed client clock (see the dashboard view) — the SERVER snapshot is null
@@ -78,6 +86,7 @@ export function MenuManagerView({
   const [building, setBuilding] = useState(false);
   const [editing, setEditing] = useState<MenuDayDto | null>(null);
   const [publishingId, setPublishingId] = useState<string | null>(null);
+  const [savingNoteId, setSavingNoteId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const active = activeCatalog(catalog);
@@ -95,6 +104,23 @@ export function MenuManagerView({
       );
     } finally {
       setPublishingId(null);
+    }
+  }
+
+  // Save just the day's note via the PATCH route (in place, never a revision). Returns
+  // whether the write landed so the card can close its inline editor only on success.
+  async function onSaveNote(day: MenuDayDto, raw: string): Promise<boolean> {
+    setSavingNoteId(day.menuDayId);
+    setError(null);
+    try {
+      await updateMenuDayNote(day.menuDayId, toUpdateMenuDayNoteInput(raw));
+      router.refresh();
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't save the note.");
+      return false;
+    } finally {
+      setSavingNoteId(null);
     }
   }
 
@@ -193,6 +219,9 @@ export function MenuManagerView({
               setBuilding(false);
               setEditing(day);
             }}
+            noteEditable={!builderOpen && isMenuDayNoteEditable(day)}
+            savingNote={savingNoteId === day.menuDayId}
+            onSaveNote={(raw) => onSaveNote(day, raw)}
           />
         ))}
       </div>
@@ -257,6 +286,9 @@ function MenuDayCard({
   onPublish,
   editable,
   onEdit,
+  noteEditable,
+  savingNote,
+  onSaveNote,
 }: {
   day: MenuDayDto;
   timezone: string;
@@ -265,6 +297,9 @@ function MenuDayCard({
   onPublish: () => void;
   editable: boolean;
   onEdit: () => void;
+  noteEditable: boolean;
+  savingNote: boolean;
+  onSaveNote: (raw: string) => Promise<boolean>;
 }) {
   const countdown =
     nowMs !== null ? formatCutoffCountdown(day.cutoffAt, nowMs) : null;
@@ -274,6 +309,19 @@ function MenuDayCard({
     nowMs !== null ? validateMenuCompleteness(day, new Date(nowMs)) : null;
   const publishable = issues !== null && issues.length === 0;
   const isDraft = day.status === "draft";
+
+  const [editingNote, setEditingNote] = useState(false);
+  const [noteDraft, setNoteDraft] = useState(day.note ?? "");
+
+  function openNoteEditor() {
+    setNoteDraft(day.note ?? "");
+    setEditingNote(true);
+  }
+
+  async function saveNote() {
+    const ok = await onSaveNote(noteDraft);
+    if (ok) setEditingNote(false);
+  }
 
   return (
     <Card>
@@ -305,7 +353,36 @@ function MenuDayCard({
           ) : null}
         </div>
 
-        {day.note ? (
+        {editingNote ? (
+          <div className="space-y-2">
+            <Textarea
+              aria-label="Menu day note"
+              value={noteDraft}
+              maxLength={MENU_NOTE_MAX_LENGTH}
+              placeholder="A note shown to members for this day's menu."
+              onChange={(e) => setNoteDraft(e.target.value)}
+            />
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                onClick={saveNote}
+                disabled={savingNote || !menuDayNoteChanged(day, noteDraft)}
+              >
+                {savingNote ? "Saving…" : "Save note"}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => setEditingNote(false)}
+                disabled={savingNote}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : day.note ? (
           <p className="text-sm text-muted-foreground">{day.note}</p>
         ) : null}
 
@@ -320,7 +397,7 @@ function MenuDayCard({
           </ul>
         ) : null}
 
-        {isDraft || editable ? (
+        {!editingNote && (isDraft || editable || noteEditable) ? (
           <div className="flex flex-wrap gap-2">
             {isDraft ? (
               <Button
@@ -340,6 +417,16 @@ function MenuDayCard({
                 onClick={onEdit}
               >
                 Edit
+              </Button>
+            ) : null}
+            {noteEditable ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={openNoteEditor}
+              >
+                {day.note ? "Edit note" : "Add note"}
               </Button>
             ) : null}
           </div>

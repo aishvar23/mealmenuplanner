@@ -91,6 +91,7 @@ function value(
     create: mutation(),
     publish: mutation(),
     revise: mutation(),
+    updateNote: mutation(),
     ...overrides,
   } as unknown as ReturnType<typeof useMenuManager>;
 }
@@ -349,5 +350,111 @@ describe("MenuManagerScreen (MP-C-030)", () => {
       rajma.catalogItemId,
     );
     expect(arg.input.components[0].alternativeCatalogItemIds).toEqual([]);
+  });
+
+  it("edits just the day note in place via the updateNote (PATCH) mutation", async () => {
+    const updateNote = mutation();
+    // A locked day: the structural editor is closed (no Edit/Publish) but a note is allowed.
+    const locked = makeDay({
+      status: "locked",
+      lockedAt: "2026-06-15T14:00:00Z",
+      cutoffAt: "2026-06-15T14:00:00Z",
+      note: "Old note",
+    });
+    mockUseMenuManager.mockReturnValue(
+      value({ updateNote, weeklyMenu: query<MenuDayDto[]>([locked]) }),
+    );
+    render(<MenuManagerScreen providerId="p1" />);
+
+    // No structural Edit affordance on a locked day, but the note one is present.
+    expect(screen.queryByText("Edit")).toBeNull();
+    fireEvent.press(screen.getByText("Edit note"));
+
+    const field = screen.getByLabelText("Menu day note");
+    fireEvent.changeText(field, "  Updated note  ");
+    fireEvent.press(screen.getByText("Save note"));
+
+    await waitFor(() =>
+      expect(updateNote.mutateAsync).toHaveBeenCalledTimes(1),
+    );
+    expect(updateNote.mutateAsync).toHaveBeenCalledWith({
+      menuDayId: "d1",
+      input: { note: "Updated note" }, // trimmed
+    });
+  });
+
+  it("surfaces a failed note save in the editor (does not swallow the error)", async () => {
+    // The PATCH rejects (e.g. a concurrent lock raced the in-place note edit). The
+    // editor must stay open AND show the message — mirroring the web role=alert banner,
+    // never a silent no-op.
+    const updateNote = mutation({
+      mutateAsync: jest
+        .fn()
+        .mockRejectedValue(new Error("This menu can no longer be edited.")),
+    });
+    const published = makeDay({
+      status: "published",
+      publishedAt: "2026-06-10T00:00:00Z",
+      cutoffAt: "2999-01-01T00:00:00Z",
+      note: "Festive thali",
+    });
+    mockUseMenuManager.mockReturnValue(
+      value({ updateNote, weeklyMenu: query<MenuDayDto[]>([published]) }),
+    );
+    const first = render(<MenuManagerScreen providerId="p1" />);
+
+    fireEvent.press(screen.getByText("Edit note"));
+    fireEvent.changeText(screen.getByLabelText("Menu day note"), "New note");
+    fireEvent.press(screen.getByText("Save note"));
+    await waitFor(() =>
+      expect(updateNote.mutateAsync).toHaveBeenCalledTimes(1),
+    );
+    first.unmount();
+
+    // After the failure react-query exposes the error on the mutation; render with that
+    // state and assert the message shows for THIS day with the editor still open.
+    mockUseMenuManager.mockReturnValue(
+      value({
+        weeklyMenu: query<MenuDayDto[]>([published]),
+        updateNote: mutation({
+          error: new Error("This menu can no longer be edited."),
+          variables: { menuDayId: "d1", input: { note: "New note" } },
+        }),
+      }),
+    );
+    render(<MenuManagerScreen providerId="p1" />);
+    fireEvent.press(screen.getByText("Edit note"));
+    expect(
+      screen.getByText("This menu can no longer be edited."),
+    ).toBeOnTheScreen();
+    // The editor stays open (the field is still mounted) so the owner can retry.
+    expect(screen.getByLabelText("Menu day note")).toBeOnTheScreen();
+  });
+
+  it("disables Save note until the note actually changes (no-op guard)", () => {
+    const updateNote = mutation();
+    const published = makeDay({
+      status: "published",
+      publishedAt: "2026-06-10T00:00:00Z",
+      cutoffAt: "2999-01-01T00:00:00Z",
+      note: "Festive thali",
+    });
+    mockUseMenuManager.mockReturnValue(
+      value({ updateNote, weeklyMenu: query<MenuDayDto[]>([published]) }),
+    );
+    render(<MenuManagerScreen providerId="p1" />);
+
+    fireEvent.press(screen.getByText("Edit note"));
+    // Pre-filled with the current note → unchanged → Save disabled.
+    expect(
+      screen.getByRole("button", { name: "Save note" }).props.accessibilityState
+        ?.disabled,
+    ).toBe(true);
+
+    fireEvent.changeText(screen.getByLabelText("Menu day note"), "Changed");
+    expect(
+      screen.getByRole("button", { name: "Save note" }).props.accessibilityState
+        ?.disabled,
+    ).toBeFalsy();
   });
 });

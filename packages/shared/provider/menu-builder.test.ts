@@ -19,7 +19,11 @@ import {
   isMenuBuilderCreatable,
   isMenuBuilderPublishable,
   isMenuDayEditable,
+  isMenuDayNoteEditable,
   isoToLocalDateTime,
+  MENU_NOTE_MAX_LENGTH,
+  menuDayNoteChanged,
+  toUpdateMenuDayNoteInput,
   localDateTimeToIso,
   makeComponentDraft,
   makeCustomizationGroup,
@@ -559,6 +563,90 @@ describe("isMenuDayEditable (edit affordance gate)", () => {
     expect(isMenuDayEditable({ ...day, status: "locked" }, beforeCutoff)).toBe(
       false,
     );
+  });
+});
+
+describe("note-only edit helpers (PATCH affordance)", () => {
+  const published = f.publishedMenuDay; // published, not superseded
+
+  describe("isMenuDayNoteEditable (in-place note gate)", () => {
+    it("a draft / published / locked day is note-editable", () => {
+      expect(isMenuDayNoteEditable({ ...published, status: "draft" })).toBe(
+        true,
+      );
+      expect(isMenuDayNoteEditable({ ...published, status: "published" })).toBe(
+        true,
+      );
+      expect(isMenuDayNoteEditable({ ...published, status: "locked" })).toBe(
+        true,
+      );
+    });
+
+    it("is BROADER than the structural gate — a locked / past-cutoff day still takes a note", () => {
+      const lockedPastCutoff = {
+        ...published,
+        status: "locked" as const,
+        lockedAt: "2026-06-11T14:30:00Z",
+        cutoffAt: "2026-06-11T14:30:00Z",
+      };
+      // The structural editor is closed here (locked) but the note editor is not.
+      expect(
+        isMenuDayEditable(lockedPastCutoff, Date.parse(NOW.toISOString())),
+      ).toBe(false);
+      expect(isMenuDayNoteEditable(lockedPastCutoff)).toBe(true);
+    });
+
+    it("a superseded or terminal (archived / cancelled) day is NOT note-editable", () => {
+      expect(
+        isMenuDayNoteEditable({
+          ...published,
+          supersededAt: "2026-06-11T12:00:00Z",
+        }),
+      ).toBe(false);
+      expect(isMenuDayNoteEditable({ ...published, status: "archived" })).toBe(
+        false,
+      );
+      expect(isMenuDayNoteEditable({ ...published, status: "cancelled" })).toBe(
+        false,
+      );
+    });
+  });
+
+  describe("toUpdateMenuDayNoteInput (trim / empty->null)", () => {
+    it("trims surrounding whitespace", () => {
+      expect(toUpdateMenuDayNoteInput("  Festive thali  ")).toEqual({
+        note: "Festive thali",
+      });
+    });
+
+    it("collapses an empty / whitespace-only note to null (clears it)", () => {
+      expect(toUpdateMenuDayNoteInput("")).toEqual({ note: null });
+      expect(toUpdateMenuDayNoteInput("   ")).toEqual({ note: null });
+    });
+  });
+
+  describe("menuDayNoteChanged (no-op-save guard)", () => {
+    const day = { ...published, note: "Festive thali" };
+
+    it("false when the trimmed text equals the persisted note", () => {
+      expect(menuDayNoteChanged(day, "Festive thali")).toBe(false);
+      expect(menuDayNoteChanged(day, "  Festive thali  ")).toBe(false);
+    });
+
+    it("true when the text differs", () => {
+      expect(menuDayNoteChanged(day, "New note")).toBe(true);
+    });
+
+    it("clearing a note that exists is a change; clearing an already-empty note is not", () => {
+      expect(menuDayNoteChanged(day, "  ")).toBe(true);
+      expect(menuDayNoteChanged({ ...published, note: null }, "  ")).toBe(
+        false,
+      );
+    });
+  });
+
+  it("MENU_NOTE_MAX_LENGTH mirrors the service NOTE_MAX (500)", () => {
+    expect(MENU_NOTE_MAX_LENGTH).toBe(500);
   });
 });
 

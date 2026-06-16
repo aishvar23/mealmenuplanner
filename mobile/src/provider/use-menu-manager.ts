@@ -5,6 +5,7 @@ import type {
   CreateMenuDayInput,
   EditMenuDayInput,
   MenuDayDto,
+  UpdateMenuDayNoteInput,
 } from "@mmp/shared/provider";
 
 import { providerClient } from "./client";
@@ -14,9 +15,10 @@ import { providerClient } from "./client";
  * Reads this week's menu days + the owner's catalog through the shared
  * `ProviderApiClient` seam, and exposes the owner writes as mutations that invalidate the
  * week list — authoring a draft day (`create`), publishing a complete one (`publish`), and
- * STRUCTURALLY editing an existing day (`revise`, ADR-7 = REVISION). Each reuses the merged
- * writers (PR #57/#58/#59). Customization authoring + member suggestions are the remainder
- * of #22.
+ * STRUCTURALLY editing an existing day (`revise`, ADR-7 = REVISION), and editing just the
+ * day NOTE in place (`updateNote`, PATCH — never a revision, allowed on locked / past-cutoff
+ * days). Each reuses the merged writers (PR #57/#58/#59). Member suggestions UI is the
+ * remainder of #22.
  */
 
 export function weeklyMenuQueryKey(providerId: string) {
@@ -67,5 +69,16 @@ export function useMenuManager(providerId: string) {
     onSuccess: invalidateWeek,
   });
 
-  return { weeklyMenu, catalog, create, publish, revise };
+  const updateNote = useMutation({
+    mutationFn: ({
+      menuDayId,
+      input,
+    }: {
+      menuDayId: string;
+      input: UpdateMenuDayNoteInput;
+    }) => providerClient.updateMenuDayNote(menuDayId, input),
+    onSuccess: invalidateWeek,
+  });
+
+  return { weeklyMenu, catalog, create, publish, revise, updateNote };
 }
