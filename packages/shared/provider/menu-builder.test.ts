@@ -767,6 +767,29 @@ describe("normalizeCustomizationGroup (type-driven bounds)", () => {
     });
     expect(g.minimumSelections).toBe(2);
   });
+
+  it("truncates fractional selection counts to whole numbers (INTEGER columns)", () => {
+    const g = normalizeCustomizationGroup({
+      ...makeCustomizationGroup("multi_select"),
+      minimumSelections: 1.9,
+      maximumSelections: 3.7,
+    });
+    expect(g.minimumSelections).toBe(1);
+    expect(g.maximumSelections).toBe(3);
+    expect(Number.isInteger(g.minimumSelections)).toBe(true);
+    expect(Number.isInteger(g.maximumSelections)).toBe(true);
+  });
+
+  it("drops options when a group becomes a free-text note (no orphaned option)", () => {
+    const g = normalizeCustomizationGroup({
+      ...makeCustomizationGroup("text_note"),
+      options: [
+        { code: "opt_1", label: "" },
+        { code: "opt_2", label: "Mint" },
+      ],
+    });
+    expect(g.options).toEqual([]);
+  });
 });
 
 describe("nextOptionCode / makeCustomizationOption", () => {
@@ -889,32 +912,53 @@ describe("customizationInsertIssues (mirrors the pmp_4 DB CHECKs)", () => {
     expect(customizationInsertIssues(s).join(" ")).toMatch(/unique/i);
   });
 
-  it("flags a quantity add-on with no group/option maximum", () => {
-    // Build a quantity_increment but strip the auto cap to simulate a cleared field.
+  it("does NOT flag a quantity add-on's missing per-option max (publish rule, not a DB CHECK)", () => {
     let s = addCustomizationGroup(
       oneComponentState(),
       KEY,
       "quantity_increment",
     );
-    s = patchCustomizationGroup(s, KEY, 0, {
-      name: "Extra roti",
-      maximumSelections: null,
-    });
+    s = patchCustomizationGroup(s, KEY, 0, { name: "Extra roti" });
     s = addCustomizationOption(s, KEY, 0);
-    s = patchCustomizationOption(s, KEY, 0, 0, { label: "One more" });
-    const issues = customizationInsertIssues(s).join(" ");
-    expect(issues).toMatch(/maximum/i);
+    s = patchCustomizationOption(s, KEY, 0, 0, { label: "One more" }); // no maximumQuantity
+    // The DB has no per-option-max CHECK (qty_order only orders present bounds), so the
+    // group row + option row INSERT fine — the missing cap is a publish-completeness issue,
+    // caught by the publish gate, NOT a draft-save blocker (review #2).
+    expect(customizationInsertIssues(s)).toEqual([]);
+    expect(
+      menuBuilderIssues(s, f.catalogItems, NOW)
+        .map((issue) => issue.message)
+        .join(" "),
+    ).toMatch(/finite maximum quantity/i);
   });
 
-  it("flags a required choice group with no options", () => {
+  it("does NOT flag a required group with no options (publish rule, not a DB CHECK)", () => {
     let s = addCustomizationGroup(oneComponentState(), KEY, "multi_select");
     s = patchCustomizationGroup(s, KEY, 0, {
       name: "Pickles",
       isRequired: true,
     });
-    expect(customizationInsertIssues(s).join(" ")).toMatch(
-      /at least one option/i,
-    );
+    // required_has_min bumps min to 1; the GROUP row still inserts (no "required ⇒ has
+    // option" DB CHECK exists), so this is insertable but not publishable (review #2).
+    expect(customizationInsertIssues(s)).toEqual([]);
+    expect(
+      menuBuilderIssues(s, f.catalogItems, NOW)
+        .map((issue) => issue.message)
+        .join(" "),
+    ).toMatch(/at least one option/i);
+  });
+
+  it("does not dead-end: a group with a blank option that becomes a text_note is insertable", () => {
+    // The review-#1 dead-end: a blank-label option, then a switch to free-text. The options
+    // editor isn't rendered for text_note, so the option would be unfixable — but the reducer
+    // drops it, so the save is not blocked by an issue the owner can't reach.
+    let s = addCustomizationGroup(oneComponentState(), KEY, "single_select");
+    s = patchCustomizationGroup(s, KEY, 0, { name: "Sauce" });
+    s = addCustomizationOption(s, KEY, 0); // blank label
+    expect(customizationInsertIssues(s).join(" ")).toMatch(/needs a label/i);
+    s = changeCustomizationType(s, KEY, 0, "text_note");
+    expect(s.components[0]!.customizationGroups[0]!.options).toEqual([]);
+    expect(customizationInsertIssues(s)).toEqual([]);
   });
 
   it("flags an option whose max quantity is below its min", () => {

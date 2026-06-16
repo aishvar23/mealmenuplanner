@@ -651,6 +651,7 @@ function CustomizationGroupsEditor({
                     aria-label="Minimum selections"
                     type="number"
                     min={0}
+                    step={1}
                     className="w-28"
                     value={group.minimumSelections ?? 0}
                     onChange={(e) =>
@@ -666,6 +667,7 @@ function CustomizationGroupsEditor({
                     aria-label="Maximum selections"
                     type="number"
                     min={0}
+                    step={1}
                     className="w-28"
                     placeholder={
                       group.customizationType === "multi_select"

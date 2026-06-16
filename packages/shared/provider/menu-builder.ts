@@ -224,9 +224,11 @@ export function toggleComponentAlternative(
  * Coerce a customization group's selection bounds to the invariants its type requires
  * (the pmp_4 CHECKs): `single_select`/`boolean` allow exactly one selection (max 1);
  * `quantity_increment` must declare a finite cap (default 1 when unset); `text_note` is
- * a free-text answer with no selection count; a *required* choice-count group needs a
- * minimum of at least one. Keeps `min ≤ max`. Pure — used by the factory and on every
- * type change so the form's state is always insertable on the structural axis.
+ * a free-text answer with no selection count AND no options; a *required* choice-count
+ * group needs a minimum of at least one. Keeps `min ≤ max` and truncates the selection
+ * counts to whole numbers (they are INTEGER columns server-side). Pure — used by the
+ * factory and on every type change so the form's state is always insertable on the
+ * structural axis.
  */
 export function normalizeCustomizationGroup(
   group: CreateMenuCustomizationGroupInput,
@@ -251,10 +253,25 @@ export function normalizeCustomizationGroup(
   ) {
     if (min < 1) min = 1;
   }
+  // Selection counts are INTEGER columns server-side (pmp_4); truncate so a fractional
+  // value typed into the form can never reach the writer's `::int` cast (review #3).
+  min = Math.trunc(min);
+  if (max !== null) max = Math.trunc(max);
   if (min < 0) min = 0;
   if (max !== null && min > max) min = max;
 
-  return { ...group, minimumSelections: min, maximumSelections: max };
+  // A free-text note carries NO options server-side; clear them at this single
+  // type-change chokepoint so an orphaned, un-editable option (the options editor is
+  // not rendered for text_note) can never block the save with an unfixable issue
+  // (review #1 — the dead-end).
+  const options = type === "text_note" ? [] : group.options;
+
+  return {
+    ...group,
+    minimumSelections: min,
+    maximumSelections: max,
+    options,
+  };
 }
 
 /**
@@ -862,10 +879,16 @@ function customizationTypeWord(type: ProviderCustomizationType): string {
  * CHECKs the authoring/edit RPCs rely on (the server maps a violation to
  * `menu_incomplete`, so this is for actionable UX, not safety). Unlike
  * {@link menuBuilderIssues} (publish-completeness), these block even a DRAFT save because
- * the insert fails regardless: a group must be named; a `single_select`/`boolean` allows
- * exactly one selection; a `quantity_increment` needs a finite group + per-option maximum;
- * a *required* choice group needs a minimum ≥ 1 and at least one option; selection/quantity
- * maxima can't be below their minima; and every option needs a unique code + a label.
+ * the insert fails regardless. It mirrors the pmp_4 CHECKs ONE-FOR-ONE — no stricter:
+ * a group must be named (`name_not_blank`); a `single_select`/`boolean` allows exactly
+ * one selection (`single_choice_max`); a `quantity_increment` needs a finite GROUP
+ * maximum (`increment_bounded`); a *required* choice group needs a minimum ≥ 1
+ * (`required_has_min`); selection (`max_order`) and per-option quantity (`qty_order`)
+ * maxima can't be below their minima; and every option needs a unique code
+ * (`unique(group, code)`) + a non-blank code/label (`code_not_blank`/`label_not_blank`).
+ * Rules that are publish-completeness only and NOT DB CHECKs — a required group having
+ * ≥ 1 option, and a quantity add-on's per-option maximum — live in
+ * {@link validateMenuCompleteness}, not here, so a valid-but-incomplete DRAFT still saves.
  * Returns deduped, human-readable messages in first-seen order (empty ⇒ insertable).
  */
 export function customizationInsertIssues(state: MenuBuilderState): string[] {
@@ -902,21 +925,18 @@ export function customizationInsertIssues(state: MenuBuilderState): string[] {
           `${where}: a ${customizationTypeWord(type)} customization allows exactly one selection.`,
         );
       }
+      // required_has_min: a required choice group needs min ≥ 1 (boolean/text_note
+      // are exempt at the DB). NB: "required ⇒ has an option" is a publish rule, NOT a
+      // DB CHECK, so it is deliberately NOT enforced here (review #2).
       if (
         (group.isRequired ?? false) &&
         type !== "boolean" &&
-        type !== "text_note"
+        type !== "text_note" &&
+        min < 1
       ) {
-        if (min < 1) {
-          add(
-            `${where}: a required customization must ask for at least one selection.`,
-          );
-        }
-        if (group.options.length === 0) {
-          add(
-            `${where}: a required customization must offer at least one option.`,
-          );
-        }
+        add(
+          `${where}: a required customization must ask for at least one selection.`,
+        );
       }
 
       const codes = new Set<string>();
@@ -933,16 +953,14 @@ export function customizationInsertIssues(state: MenuBuilderState): string[] {
         } else {
           codes.add(code);
         }
+        // qty_order: a per-option max can't be below its min. The per-option maximum
+        // being PRESENT at all for a quantity add-on is a publish rule, not a DB CHECK,
+        // so it is intentionally NOT enforced here (review #2).
         const omin = option.minimumQuantity ?? null;
         const omax = option.maximumQuantity ?? null;
         if (omin !== null && omax !== null && omax < omin) {
           add(
             `${optWhere}: maximum quantity can't be smaller than the minimum.`,
-          );
-        }
-        if (type === "quantity_increment" && omax === null) {
-          add(
-            `${optWhere}: a quantity add-on option needs a maximum quantity.`,
           );
         }
       });
