@@ -57,6 +57,25 @@ const CUSTOMER_DB_STATUS: Record<ProviderMembershipStatus, string> = {
   removed: "removed",
 };
 
+/**
+ * "Today" in the provider tz as `YYYY-MM-DD`. Load-bearing: it MUST match
+ * getTodayMenu's own computation, so both menu seeders derive it the same way
+ * from one place (a drift here silently seeds a day getTodayMenu won't return).
+ */
+function providerMenuDate(tz: string): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+/** An ISO cutoff `hoursFromNow` from now (negative = already closed). */
+function cutoffIsoFromNow(hoursFromNow: number): string {
+  return new Date(Date.now() + hoursFromNow * 3_600_000).toISOString();
+}
+
 export interface ProviderTeam {
   admin: SupabaseClient;
   /** Mint an ephemeral, email-confirmed user (tracked for teardown). Works today. */
@@ -99,6 +118,21 @@ export interface ProviderTeam {
       timezone?: string;
     },
   ): Promise<MenuDaySeed>;
+  /**
+   * Like `seedMenuDay`, but authors + publishes the day through the PRODUCTION
+   * writer (`create_provider_menu_day` + `publish_provider_menu_day`) signed in as
+   * the owner — NOT via direct table inserts. The catalog stays owner-private, so
+   * the dish names on the menu tree (`default_item_name` / `item_name`) are
+   * populated by the writer's denormalization (MP-A-121), not by the fixture. This
+   * is the only seeder that exercises the writer→read→member-display chain end to
+   * end (ADO #39). The member-display assertions match dishes by NAME, so no ids
+   * are returned.
+   */
+  seedMenuDayViaWriter(
+    providerId: string,
+    owner: ProviderUser,
+    opts?: { cutoffHoursFromNow?: number; timezone?: string },
+  ): Promise<void>;
   /**
    * Seed the owner's catalog (Rajma + Chana in `dal_or_legume`, Roti in `bread`)
    * WITHOUT any menu day — the precondition for the menu-builder specs, which author
@@ -245,18 +279,9 @@ export const test = base.extend<{ providerTeam: ProviderTeam }>({
         const tz = opts?.timezone ?? "Asia/Kolkata";
         const status = opts?.status ?? "published";
         const cutoffHours = opts?.cutoffHoursFromNow ?? 8;
-        const now = new Date();
-        // "Today" in the provider tz must match getTodayMenu's own computation.
-        const menuDate = new Intl.DateTimeFormat("en-CA", {
-          timeZone: tz,
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-        }).format(now);
-        const cutoffAt = new Date(
-          now.getTime() + cutoffHours * 3_600_000,
-        ).toISOString();
-        const nowIso = now.toISOString();
+        const menuDate = providerMenuDate(tz);
+        const cutoffAt = cutoffIsoFromNow(cutoffHours);
+        const nowIso = new Date().toISOString();
         // A draft has not been published yet, so it carries no published_at; the
         // publish RPC (pmp_18) sets it. published/locked days are stamped as before.
         const publishedAt = status === "draft" ? null : nowIso;
@@ -479,6 +504,56 @@ export const test = base.extend<{ providerTeam: ProviderTeam }>({
           chanaCatalogId: idByName("Chana"),
           rotiCatalogId: idByName("Roti"),
         };
+      },
+      async seedMenuDayViaWriter(providerId, owner, opts) {
+        const tz = opts?.timezone ?? "Asia/Kolkata";
+        const cutoffHours = opts?.cutoffHoursFromNow ?? 8;
+        const menuDate = providerMenuDate(tz);
+        const cutoffAt = cutoffIsoFromNow(cutoffHours);
+        const fail = (what: string, message?: string) => {
+          throw new Error(
+            `E2E: seedMenuDayViaWriter ${what} failed: ${message}`,
+          );
+        };
+
+        // ── Owner-private catalog (Rajma default, Chana alternative) ──
+        // seedCatalog inserts these via the service-role admin; pcat_select is
+        // owner-only, so the member can NEVER read them. The writer must denormalize
+        // the names onto the menu tree for the member to see them — which is exactly
+        // what #39 proves. (The unreferenced Roti row seedCatalog also inserts is
+        // harmless: publish only checks components the menu references.)
+        const { rajmaCatalogId, chanaCatalogId } =
+          await api.seedCatalog(providerId);
+
+        // ── Author + publish through the PRODUCTION writer as the OWNER ──
+        // The RPCs are owner-gated on auth.uid(), so they must run under the owner's
+        // RLS context, not the service-role admin (whose auth.uid() is null).
+        const ownerClient = await api.signInAs(owner);
+        const created = await ownerClient.rpc("create_provider_menu_day", {
+          p_provider_id: providerId,
+          p_payload: {
+            menuDate,
+            cutoffAt,
+            note: null,
+            components: [
+              {
+                componentGroup: "dal_or_legume",
+                defaultCatalogItemId: rajmaCatalogId,
+                isRequired: true,
+                sortOrder: 0,
+                alternativeCatalogItemIds: [chanaCatalogId],
+                customizationGroups: [],
+              },
+            ],
+          },
+        });
+        if (created.error || !created.data)
+          fail("create", created.error?.message);
+        const menuDayId = created.data as string;
+        const published = await ownerClient.rpc("publish_provider_menu_day", {
+          p_menu_day_id: menuDayId,
+        });
+        if (published.error) fail("publish", published.error.message);
       },
       async signInAs(user) {
         const client = await createAuthedClient(user.email, user.password);
