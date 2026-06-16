@@ -280,6 +280,16 @@ describe("providerApiClient — menus & response", () => {
     );
   });
 
+  it("listSuggestions GETs the menu-day suggestions route", async () => {
+    mockApiRequest.mockResolvedValue([{ suggestionId: "s1" }]);
+
+    await providerApiClient.listSuggestions("md1");
+
+    expect(mockApiRequest).toHaveBeenCalledWith(
+      "/api/provider-menu-days/md1/suggestions",
+    );
+  });
+
   it("createSuggestion POSTs the text to the menu-day suggestions route", async () => {
     mockApiRequest.mockResolvedValue({ suggestionId: "s1" });
     const body = { suggestionText: "add millet roti" };

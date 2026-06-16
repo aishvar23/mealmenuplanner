@@ -250,6 +250,11 @@ export const providerApiClient: ProviderApiClient = {
   },
 
   // ── Suggestions ──
+  listSuggestions(menuDayId: string): Promise<ProviderSuggestionDto[]> {
+    return apiRequest<ProviderSuggestionDto[]>(
+      `${menuDay(menuDayId)}/suggestions`,
+    );
+  },
   createSuggestion(
     menuDayId: string,
     body: CreateProviderSuggestionRequest,

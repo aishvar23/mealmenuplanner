@@ -4,6 +4,7 @@ import { requireAuthUser } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/db/server";
 import {
   ConflictError,
+  InternalError,
   NotFoundError,
   RateLimitedError,
   ValidationError,
@@ -16,6 +17,7 @@ vi.mock("@/lib/auth", () => ({ requireAuthUser: vi.fn() }));
 import {
   acceptSuggestionAsOption,
   createSuggestion,
+  listSuggestions,
   rejectSuggestion,
   SUGGESTION_RATE_MAX,
 } from "./suggestions";
@@ -291,5 +293,56 @@ describe("acceptSuggestionAsOption / rejectSuggestion", () => {
       NotFoundError,
     );
     expect(from).not.toHaveBeenCalled();
+  });
+});
+
+describe("listSuggestions", () => {
+  it("returns the RLS-scoped rows for the day, mapped to DTOs and ordered newest-first", async () => {
+    const { from, calls } = makeClient({
+      provider_meal_suggestions: [
+        {
+          data: [ROW, { ...ROW, id: "55555555-5555-5555-5555-555555555555" }],
+          error: null,
+        },
+      ],
+    });
+
+    const result = await listSuggestions(MENU_DAY_ID);
+
+    expect(result).toEqual([
+      DTO,
+      { ...DTO, suggestionId: "55555555-5555-5555-5555-555555555555" },
+    ]);
+    expect(from).toHaveBeenCalledWith("provider_meal_suggestions");
+    // Scoped to the route's day; the owner/member split is left entirely to RLS.
+    expect(calls["provider_meal_suggestions.eq"]).toContainEqual([
+      "menu_day_id",
+      MENU_DAY_ID,
+    ]);
+    // Deterministic, triage-friendly ordering.
+    expect(calls["provider_meal_suggestions.order"]).toContainEqual([
+      "created_at",
+      { ascending: false },
+    ]);
+  });
+
+  it("returns [] for a malformed menu-day id without a round trip", async () => {
+    const { from } = makeClient({});
+    await expect(listSuggestions("not-a-uuid")).resolves.toEqual([]);
+    expect(from).not.toHaveBeenCalled();
+  });
+
+  it("returns [] when the day has no visible suggestions", async () => {
+    makeClient({ provider_meal_suggestions: [{ data: [], error: null }] });
+    await expect(listSuggestions(MENU_DAY_ID)).resolves.toEqual([]);
+  });
+
+  it("surfaces a read failure as an InternalError", async () => {
+    makeClient({
+      provider_meal_suggestions: [{ data: null, error: { code: "XX000" } }],
+    });
+    await expect(listSuggestions(MENU_DAY_ID)).rejects.toBeInstanceOf(
+      InternalError,
+    );
   });
 });

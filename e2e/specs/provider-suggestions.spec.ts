@@ -7,8 +7,9 @@ import { signInWithPassword } from "../helpers/auth";
  * Suggestions are a backend-only slice (no provider UI yet — that lands with the
  * owner dashboard), so this spec drives the live `/api/*` routes directly through
  * an authenticated `page.request` (cookies set by the real sign-in form). It
- * proves the member create path (rate-limited), the owner accept/reject
- * resolution, the pending-only guard, and that a non-owner can't resolve.
+ * proves the member create path (rate-limited), the RLS-scoped list read (owner
+ * sees all, member sees only their own), the owner accept/reject resolution, the
+ * pending-only guard, and that a non-owner can't resolve.
  */
 
 /** Sign `email` in and wait for the session to land (so `page.request` is authed). */
@@ -130,6 +131,58 @@ test.describe("Provider suggestions (MP-A-131)", () => {
       }
     }
     expect(sawRateLimit).toBe(true);
+  });
+
+  test("the owner lists every suggestion for the day; a member sees only their own", async ({
+    page,
+    providerTeam,
+  }) => {
+    const owner = await providerTeam.createUser("list-owner");
+    const providerId = await providerTeam.createProvider(owner, {
+      name: "List Kitchen",
+    });
+    const custA = await providerTeam.createUser("list-cust-a");
+    const custB = await providerTeam.createUser("list-cust-b");
+    await providerTeam.addCustomer(providerId, custA, "approved");
+    await providerTeam.addCustomer(providerId, custB, "approved");
+    const { menuDayId } = await providerTeam.seedMenuDay(providerId, owner, {
+      cutoffHoursFromNow: 8,
+    });
+
+    // Two different members each file a suggestion.
+    await signIn(page, custA.email, custA.password);
+    await page.request.post(
+      `/api/provider-menu-days/${menuDayId}/suggestions`,
+      { data: { suggestionText: "From member A" } },
+    );
+    await signIn(page, custB.email, custB.password);
+    await page.request.post(
+      `/api/provider-menu-days/${menuDayId}/suggestions`,
+      { data: { suggestionText: "From member B" } },
+    );
+
+    // Member B sees only their own suggestion (RLS pms_select).
+    const bList = await page.request.get(
+      `/api/provider-menu-days/${menuDayId}/suggestions`,
+    );
+    expect(bList.status()).toBe(200);
+    const bItems = await bList.json();
+    expect(bItems).toHaveLength(1);
+    expect(bItems[0].suggestionText).toBe("From member B");
+
+    // The owner sees every suggestion filed against the day (triage view).
+    await signIn(page, owner.email, owner.password);
+    const ownerList = await page.request.get(
+      `/api/provider-menu-days/${menuDayId}/suggestions`,
+    );
+    expect(ownerList.status()).toBe(200);
+    const ownerItems = await ownerList.json();
+    expect(ownerItems).toHaveLength(2);
+    const texts = ownerItems.map(
+      (s: { suggestionText: string }) => s.suggestionText,
+    );
+    expect(texts).toContain("From member A");
+    expect(texts).toContain("From member B");
   });
 
   test("a suggestion on an unknown menu day is a 404", async ({

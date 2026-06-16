@@ -56,6 +56,7 @@ export {
 export {
   acceptSuggestionAsOption,
   createSuggestion,
+  listSuggestions,
   rejectSuggestion,
   SUGGESTION_RATE_MAX,
   SUGGESTION_RATE_WINDOW_MS,

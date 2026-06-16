@@ -71,6 +71,36 @@ function toSuggestionDto(row: SuggestionRow): ProviderSuggestionDto {
 }
 
 /**
+ * `GET /api/provider-menu-days/{menuDayId}/suggestions` — list the suggestions for
+ * the day that the caller may see (MP-A-131; the read foundation the write flows
+ * lacked). The result is purely RLS-scoped via `pms_select`: the provider **owner**
+ * sees every suggestion filed against their day (the triage view), while a **member**
+ * sees only their own (their status view). No role branch is needed in this code —
+ * the same query returns the right rows for whoever calls it, and a caller with no
+ * access to the day (or an empty day) just gets `[]`. Ordered newest-first
+ * (`created_at desc`) for a deterministic, triage-friendly list. A malformed
+ * `menuDayId` can't name a real day, so it short-circuits to an empty list without a
+ * round trip — symmetric with the existence-hiding 404 the write paths use, but a
+ * list never leaks existence, so `[]` is the natural answer.
+ */
+export async function listSuggestions(
+  menuDayId: string,
+): Promise<ProviderSuggestionDto[]> {
+  await requireAuthUser();
+  if (!isUuid(menuDayId)) return [];
+
+  const supabase: SupabaseClient = await createServerSupabaseClient();
+
+  const { data, error } = await supabase
+    .from("provider_meal_suggestions")
+    .select(SUGGESTION_COLUMNS)
+    .eq("menu_day_id", menuDayId)
+    .order("created_at", { ascending: false });
+  if (error) mapReadError(error, "Failed to load the suggestions.");
+  return (data ?? []).map((row) => toSuggestionDto(row as SuggestionRow));
+}
+
+/**
  * `POST /api/provider-menu-days/{menuDayId}/suggestions` — the caller files a
  * suggestion for the day (UC-SUGGEST-001). The day's `provider_id` is read via RLS
  * (the member can see a published/locked day) — an unreadable/unknown id is an

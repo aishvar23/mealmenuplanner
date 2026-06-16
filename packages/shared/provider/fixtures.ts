@@ -686,6 +686,21 @@ export const rejectedSuggestion: ProviderSuggestionDto = {
   updatedAt: "2026-06-11T10:00:00Z",
 };
 
+/**
+ * The owner's triage list for a menu day (`GET .../suggestions`; MP-A-131) —
+ * newest-first, mixing a still-pending suggestion with an already-resolved one.
+ */
+export const suggestionList: ProviderSuggestionDto[] = [
+  {
+    ...pendingSuggestion,
+    suggestionId: "suggestion-second",
+    suggestionText: "Could we get a low-oil sabzi?",
+    createdAt: "2026-06-11T11:00:00Z",
+    updatedAt: "2026-06-11T11:00:00Z",
+  },
+  acceptedSuggestion,
+];
+
 // ──────────────────────── Workspace discovery ────────────────────────
 
 export const multiWorkspaceDiscovery: WorkspaceDiscovery = {

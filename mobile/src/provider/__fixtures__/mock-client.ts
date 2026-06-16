@@ -252,6 +252,9 @@ export const mockProviderClient: ProviderApiClient = {
   },
 
   // ── Suggestions ──
+  listSuggestions(): Promise<ProviderSuggestionDto[]> {
+    return Promise.resolve(f.suggestionList);
+  },
   createSuggestion(): Promise<ProviderSuggestionDto> {
     return Promise.resolve(f.pendingSuggestion);
   },
