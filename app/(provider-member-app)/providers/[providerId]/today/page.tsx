@@ -2,6 +2,7 @@ import { CalendarDays } from "lucide-react";
 
 import { ProviderComingSoon } from "@/components/provider/provider-coming-soon";
 import { TodayResponseView } from "@/components/provider-member-response/today-response-view";
+import { MemberSuggestions } from "@/components/provider-suggestions/member-suggestions";
 import { getMyResponse, getTodayMenu } from "@/lib/services/provider";
 
 import { requireActiveMember } from "../member-access";
@@ -39,10 +40,16 @@ export default async function ProviderTodayPage({
   const response = await getMyResponse(menu.menuDayId);
 
   return (
-    <TodayResponseView
-      providerName={membership.name}
-      menu={menu}
-      initialResponse={response}
-    />
+    <>
+      <TodayResponseView
+        providerName={membership.name}
+        menu={menu}
+        initialResponse={response}
+      />
+      <MemberSuggestions
+        menuDayId={menu.menuDayId}
+        providerName={membership.name}
+      />
+    </>
   );
 }

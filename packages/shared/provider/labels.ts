@@ -15,6 +15,7 @@ import type {
   ProviderResponseStatus,
   ProviderSaltLevel,
   ProviderSpiceLevel,
+  ProviderSuggestionStatus,
 } from "./enums";
 
 /**
@@ -234,6 +235,56 @@ export const PROVIDER_MENU_STATUS_BADGE_VARIANT: Record<
   archived: "neutral",
   cancelled: "ember",
 };
+
+/**
+ * How a member's meal-suggestion status reads to BOTH the member (their status view)
+ * and the owner (the triage list), so the wording can't drift across the web + mobile
+ * suggestion UI (MP-A-131). `pending` reads as awaiting the owner; `accepted_as_option`
+ * as a win; `rejected` as a soft "not added this time"; `deferred` (reserved) as
+ * "maybe later". Member-facing, so the wording stays warm and non-binding (BR-012).
+ */
+export const PROVIDER_SUGGESTION_STATUS_LABELS: Record<
+  ProviderSuggestionStatus,
+  string
+> = {
+  pending: "Pending review",
+  accepted_as_option: "Accepted as an option",
+  rejected: "Not added",
+  deferred: "Maybe later",
+};
+
+/** Display label for a suggestion status (falls back to the raw value). */
+export function providerSuggestionStatusLabel(
+  status: ProviderSuggestionStatus,
+): string {
+  return PROVIDER_SUGGESTION_STATUS_LABELS[status] ?? status;
+}
+
+/**
+ * The semantic badge variant for each suggestion status — reuses the Forest & Ember
+ * token set (`emerald` accepted, `marigold` pending attention, `ember` rejected,
+ * `neutral` deferred/idle) so the web Badge and the mobile status colour stay in
+ * lockstep and no status falls through to neutral silently.
+ */
+export const PROVIDER_SUGGESTION_STATUS_BADGE_VARIANT: Record<
+  ProviderSuggestionStatus,
+  ProviderResponseBadgeVariant
+> = {
+  pending: "marigold",
+  accepted_as_option: "emerald",
+  rejected: "ember",
+  deferred: "neutral",
+};
+
+/**
+ * Max length of a member's free-text suggestion and of the owner's optional
+ * resolution note — the single source the web + mobile suggestion forms cap their
+ * inputs at. The server validators (`validateCreateSuggestion` /
+ * `validateResolveSuggestion`, MP-A-131) import these so the client cap and the
+ * server bound can never drift; the DB `*_text_not_blank` CHECK is the final backstop.
+ */
+export const SUGGESTION_TEXT_MAX_LENGTH = 1000;
+export const SUGGESTION_RESPONSE_MAX_LENGTH = 1000;
 
 /**
  * The owner dashboard's cutoff countdown (MP-B-060) — pure so the web and mobile
