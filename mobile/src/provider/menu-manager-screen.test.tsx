@@ -241,6 +241,50 @@ describe("MenuManagerScreen (MP-C-030)", () => {
     await waitFor(() => expect(revise.mutateAsync).toHaveBeenCalledTimes(1));
   });
 
+  it("authors a customization group on a component and sends it in the create payload", async () => {
+    const create = mutation();
+    mockUseMenuManager.mockReturnValue(
+      value({ create, weeklyMenu: query<MenuDayDto[]>([]) }),
+    );
+    render(<MenuManagerScreen providerId="p1" />);
+
+    fireEvent.press(screen.getByText("New"));
+    fireEvent.press(screen.getByText("Add")); // a component (first catalog item)
+
+    // Add a customization group — it starts unnamed, so the save is blocked with a reason.
+    fireEvent.press(screen.getByText("Add customization"));
+    expect(
+      screen.getByText("Fix these customizations before saving"),
+    ).toBeOnTheScreen();
+    expect(
+      screen.getByRole("button", { name: "Save draft" }).props
+        .accessibilityState?.disabled,
+    ).toBe(true);
+
+    // Name the group + add and label one option → now insertable.
+    fireEvent.changeText(
+      screen.getByPlaceholderText("e.g. Sauce, Extra roti"),
+      "Sauce",
+    );
+    fireEvent.press(screen.getByText("Add option"));
+    fireEvent.changeText(
+      screen.getByPlaceholderText("Label (e.g. Mint chutney)"),
+      "Mint chutney",
+    );
+
+    const saveBtn = screen.getByRole("button", { name: "Save draft" });
+    expect(saveBtn.props.accessibilityState?.disabled).toBeFalsy();
+    fireEvent.press(saveBtn);
+
+    await waitFor(() => expect(create.mutateAsync).toHaveBeenCalledTimes(1));
+    const input = create.mutateAsync.mock.calls[0]![0];
+    const group = input.components[0].customizationGroups[0];
+    expect(group.name).toBe("Sauce");
+    expect(group.customizationType).toBe("single_select");
+    expect(group.maximumSelections).toBe(1); // single-select normalized to one
+    expect(group.options[0].label).toBe("Mint chutney");
+  });
+
   it("keeps an archived default + alternative visible and blocks save until replaced", async () => {
     const revise = mutation();
     const rajma = CATALOG.find((c) => c.componentGroup === "dal_or_legume")!;

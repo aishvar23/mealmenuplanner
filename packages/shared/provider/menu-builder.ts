@@ -11,11 +11,13 @@
 // server denormalizes every display field off the OWNER-PRIVATE catalog at authoring
 // time (ADO #39), so this model only ever sends catalog item IDS + structure.
 //
-// SCOPE — this slice authors components + alternatives + cutoff + note. Customization
-// groups (extras + price labels) are NOT authored here yet (the remainder of #22); a
-// draft carries an empty `customizationGroups` on create. `previewMenuDayFromBuilder`
-// reuses the #84 `validateMenuCompleteness` validator so the live "publishable" badge
-// the builder shows matches exactly what the publish gate will decide.
+// SCOPE — this model authors components + alternatives + cutoff + note AND the
+// per-component CUSTOMIZATION GROUPS (extras + price labels: a sauce single-select, an
+// "extra roti" quantity add-on, a yes/no, a free-text note). `previewMenuDayFromBuilder`
+// reuses the #84 `validateMenuCompleteness` validator so the live "publishable" badge the
+// builder shows matches exactly what the publish gate will decide; `customizationInsertIssues`
+// additionally mirrors the pmp_4 DB CHECKs so a malformed group is caught BEFORE the write
+// (the server CHECK → `menu_incomplete` is the authoritative backstop).
 
 import type { ValidationIssue } from "../types";
 import type {
@@ -28,7 +30,10 @@ import type {
   MenuComponentDto,
   MenuDayDto,
 } from "./dtos";
-import type { ProviderComponentGroup } from "./enums";
+import type {
+  ProviderComponentGroup,
+  ProviderCustomizationType,
+} from "./enums";
 import { validateMenuCompleteness } from "./menu-completeness";
 
 /**
@@ -204,6 +209,233 @@ export function toggleComponentAlternative(
       };
     }),
   };
+}
+
+// ─────────────── Customization-group authoring (pure reducers) ───────────────
+// A component can offer customization groups — a sauce single-select, an "extra
+// roti" quantity add-on, a yes/no toggle, a free-text note. Groups/options have no
+// stable id on the wire (the server mints them), so they are addressed by their
+// ARRAY INDEX within a component; the web/mobile forms key list rows by index too.
+// Every cross-field bound the DB enforces (pmp_4 CHECKs) is normalized here on type
+// change and surfaced by {@link customizationInsertIssues} so the builder never POSTs
+// a group the writer would reject.
+
+/**
+ * Coerce a customization group's selection bounds to the invariants its type requires
+ * (the pmp_4 CHECKs): `single_select`/`boolean` allow exactly one selection (max 1);
+ * `quantity_increment` must declare a finite cap (default 1 when unset); `text_note` is
+ * a free-text answer with no selection count; a *required* choice-count group needs a
+ * minimum of at least one. Keeps `min ≤ max`. Pure — used by the factory and on every
+ * type change so the form's state is always insertable on the structural axis.
+ */
+export function normalizeCustomizationGroup(
+  group: CreateMenuCustomizationGroupInput,
+): CreateMenuCustomizationGroupInput {
+  const type = group.customizationType;
+  let min = group.minimumSelections ?? 0;
+  let max = group.maximumSelections ?? null;
+
+  if (type === "single_select" || type === "boolean") {
+    max = 1;
+  } else if (type === "quantity_increment") {
+    if (max === null) max = 1;
+  } else if (type === "text_note") {
+    min = 0;
+    max = null;
+  }
+
+  if (
+    (group.isRequired ?? false) &&
+    type !== "boolean" &&
+    type !== "text_note"
+  ) {
+    if (min < 1) min = 1;
+  }
+  if (min < 0) min = 0;
+  if (max !== null && min > max) min = max;
+
+  return { ...group, minimumSelections: min, maximumSelections: max };
+}
+
+/**
+ * A fresh customization group of `type` — empty name, no options, sensible defaults
+ * (included in price, not required), with the selection bounds {@link normalizeCustomizationGroup}
+ * forces for that type. The owner fills the name + adds options.
+ */
+export function makeCustomizationGroup(
+  type: ProviderCustomizationType = "single_select",
+): CreateMenuCustomizationGroupInput {
+  return normalizeCustomizationGroup({
+    name: "",
+    customizationType: type,
+    includedInPrice: true,
+    isRequired: false,
+    minimumSelections: 0,
+    maximumSelections: null,
+    options: [],
+  });
+}
+
+/** The next unique option code for a group — `opt_<n>`, skipping any already in use. */
+export function nextOptionCode(options: readonly { code: string }[]): string {
+  const used = new Set(options.map((option) => option.code));
+  let n = options.length + 1;
+  let code = `opt_${n}`;
+  while (used.has(code)) {
+    n += 1;
+    code = `opt_${n}`;
+  }
+  return code;
+}
+
+/** A fresh option for a group — an auto-derived unique `code` and an empty label the owner fills. */
+export function makeCustomizationOption(
+  options: readonly { code: string }[],
+): CreateMenuCustomizationGroupInput["options"][number] {
+  return {
+    code: nextOptionCode(options),
+    label: "",
+    quantityDelta: null,
+    canonicalUnit: null,
+    externalPriceLabel: null,
+    minimumQuantity: null,
+    maximumQuantity: null,
+  };
+}
+
+/** Apply `fn` to the group at `groupIndex` of the component keyed `componentKey` (no-op if absent). */
+function mapCustomizationGroup(
+  state: MenuBuilderState,
+  componentKey: string,
+  groupIndex: number,
+  fn: (
+    group: CreateMenuCustomizationGroupInput,
+  ) => CreateMenuCustomizationGroupInput,
+): MenuBuilderState {
+  return {
+    ...state,
+    components: state.components.map((component) => {
+      if (component.key !== componentKey) return component;
+      return {
+        ...component,
+        customizationGroups: component.customizationGroups.map(
+          (group, index) => (index === groupIndex ? fn(group) : group),
+        ),
+      };
+    }),
+  };
+}
+
+/** Append a fresh customization group (of `type`) to a component (no-op if the component is absent). */
+export function addCustomizationGroup(
+  state: MenuBuilderState,
+  componentKey: string,
+  type: ProviderCustomizationType = "single_select",
+): MenuBuilderState {
+  return {
+    ...state,
+    components: state.components.map((component) =>
+      component.key === componentKey
+        ? {
+            ...component,
+            customizationGroups: [
+              ...component.customizationGroups,
+              makeCustomizationGroup(type),
+            ],
+          }
+        : component,
+    ),
+  };
+}
+
+/** Drop the customization group at `groupIndex` of a component. */
+export function removeCustomizationGroup(
+  state: MenuBuilderState,
+  componentKey: string,
+  groupIndex: number,
+): MenuBuilderState {
+  return {
+    ...state,
+    components: state.components.map((component) =>
+      component.key === componentKey
+        ? {
+            ...component,
+            customizationGroups: component.customizationGroups.filter(
+              (_group, index) => index !== groupIndex,
+            ),
+          }
+        : component,
+    ),
+  };
+}
+
+/**
+ * Shallow-merge `patch` into a customization group, then re-normalize its selection
+ * bounds — so toggling `isRequired` on a choice group bumps its minimum, etc. (The
+ * caller must NOT change `customizationType` through here; use {@link changeCustomizationType}.)
+ */
+export function patchCustomizationGroup(
+  state: MenuBuilderState,
+  componentKey: string,
+  groupIndex: number,
+  patch: Partial<Omit<CreateMenuCustomizationGroupInput, "customizationType">>,
+): MenuBuilderState {
+  return mapCustomizationGroup(state, componentKey, groupIndex, (group) =>
+    normalizeCustomizationGroup({ ...group, ...patch }),
+  );
+}
+
+/** Switch a customization group's type and re-normalize its bounds for the new type. */
+export function changeCustomizationType(
+  state: MenuBuilderState,
+  componentKey: string,
+  groupIndex: number,
+  type: ProviderCustomizationType,
+): MenuBuilderState {
+  return mapCustomizationGroup(state, componentKey, groupIndex, (group) =>
+    normalizeCustomizationGroup({ ...group, customizationType: type }),
+  );
+}
+
+/** Append a fresh option (auto-coded, blank label) to a customization group. */
+export function addCustomizationOption(
+  state: MenuBuilderState,
+  componentKey: string,
+  groupIndex: number,
+): MenuBuilderState {
+  return mapCustomizationGroup(state, componentKey, groupIndex, (group) => ({
+    ...group,
+    options: [...group.options, makeCustomizationOption(group.options)],
+  }));
+}
+
+/** Drop the option at `optionIndex` of a customization group. */
+export function removeCustomizationOption(
+  state: MenuBuilderState,
+  componentKey: string,
+  groupIndex: number,
+  optionIndex: number,
+): MenuBuilderState {
+  return mapCustomizationGroup(state, componentKey, groupIndex, (group) => ({
+    ...group,
+    options: group.options.filter((_option, index) => index !== optionIndex),
+  }));
+}
+
+/** Shallow-merge `patch` into the option at `optionIndex` of a customization group. */
+export function patchCustomizationOption(
+  state: MenuBuilderState,
+  componentKey: string,
+  groupIndex: number,
+  optionIndex: number,
+  patch: Partial<CreateMenuCustomizationGroupInput["options"][number]>,
+): MenuBuilderState {
+  return mapCustomizationGroup(state, componentKey, groupIndex, (group) => ({
+    ...group,
+    options: group.options.map((option, index) =>
+      index === optionIndex ? { ...option, ...patch } : option,
+    ),
+  }));
 }
 
 /** Index a catalog list by id for O(1) denormalization lookups. */
@@ -607,6 +839,117 @@ export function isMenuBuilderCreatable(state: MenuBuilderState): boolean {
     (draft) => draft.defaultCatalogItemId.length > 0,
   );
   return dateOk && cutoffOk && components.length > 0;
+}
+
+/** A short human label for a customization type, for the insert-issue messages. */
+function customizationTypeWord(type: ProviderCustomizationType): string {
+  switch (type) {
+    case "single_select":
+      return "single-select";
+    case "boolean":
+      return "yes/no";
+    case "multi_select":
+      return "multi-select";
+    case "quantity_increment":
+      return "quantity add-on";
+    case "text_note":
+      return "free-text";
+  }
+}
+
+/**
+ * The customization problems that would make the WRITE fail — a mirror of the pmp_4 DB
+ * CHECKs the authoring/edit RPCs rely on (the server maps a violation to
+ * `menu_incomplete`, so this is for actionable UX, not safety). Unlike
+ * {@link menuBuilderIssues} (publish-completeness), these block even a DRAFT save because
+ * the insert fails regardless: a group must be named; a `single_select`/`boolean` allows
+ * exactly one selection; a `quantity_increment` needs a finite group + per-option maximum;
+ * a *required* choice group needs a minimum ≥ 1 and at least one option; selection/quantity
+ * maxima can't be below their minima; and every option needs a unique code + a label.
+ * Returns deduped, human-readable messages in first-seen order (empty ⇒ insertable).
+ */
+export function customizationInsertIssues(state: MenuBuilderState): string[] {
+  const messages: string[] = [];
+  const seen = new Set<string>();
+  const add = (message: string): void => {
+    if (!seen.has(message)) {
+      seen.add(message);
+      messages.push(message);
+    }
+  };
+
+  state.components.forEach((component, ci) => {
+    component.customizationGroups.forEach((group, gi) => {
+      const where = `Customization ${gi + 1} on component ${ci + 1}`;
+      const type = group.customizationType;
+      const min = group.minimumSelections ?? 0;
+      const max = group.maximumSelections ?? null;
+
+      if ((group.name ?? "").trim().length === 0) {
+        add(`${where} needs a name.`);
+      }
+      if (min < 0) {
+        add(`${where}: minimum selections can't be negative.`);
+      }
+      if (max !== null && max < min) {
+        add(`${where}: maximum selections can't be smaller than the minimum.`);
+      }
+      if (type === "quantity_increment" && max === null) {
+        add(`${where}: a ${customizationTypeWord(type)} needs a maximum.`);
+      }
+      if ((type === "single_select" || type === "boolean") && max !== 1) {
+        add(
+          `${where}: a ${customizationTypeWord(type)} customization allows exactly one selection.`,
+        );
+      }
+      if (
+        (group.isRequired ?? false) &&
+        type !== "boolean" &&
+        type !== "text_note"
+      ) {
+        if (min < 1) {
+          add(
+            `${where}: a required customization must ask for at least one selection.`,
+          );
+        }
+        if (group.options.length === 0) {
+          add(
+            `${where}: a required customization must offer at least one option.`,
+          );
+        }
+      }
+
+      const codes = new Set<string>();
+      group.options.forEach((option, oi) => {
+        const optWhere = `${where}, option ${oi + 1}`;
+        if ((option.label ?? "").trim().length === 0) {
+          add(`${optWhere} needs a label.`);
+        }
+        const code = (option.code ?? "").trim();
+        if (code.length === 0) {
+          add(`${optWhere} needs a code.`);
+        } else if (codes.has(code)) {
+          add(`${where}: option codes must be unique ("${code}" is repeated).`);
+        } else {
+          codes.add(code);
+        }
+        const omin = option.minimumQuantity ?? null;
+        const omax = option.maximumQuantity ?? null;
+        if (omin !== null && omax !== null && omax < omin) {
+          add(
+            `${optWhere}: maximum quantity can't be smaller than the minimum.`,
+          );
+        }
+        if (type === "quantity_increment" && omax === null) {
+          add(
+            `${optWhere}: a quantity add-on option needs a maximum quantity.`,
+          );
+        }
+      });
+    });
+  });
+
+  return messages;
 }
 
 /**

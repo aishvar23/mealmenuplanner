@@ -174,6 +174,58 @@ test.describe("Provider menu builder (MP-B-030)", () => {
     await expect(page.getByText("Published", { exact: true })).toBeVisible();
   });
 
+  test("authors a customization group on a component and it round-trips on edit", async ({
+    page,
+    providerTeam,
+  }) => {
+    const owner = await providerTeam.createUser("menu-custom-owner");
+    const providerId = await providerTeam.createProvider(owner, {
+      name: "Customize Kitchen",
+    });
+    await providerTeam.seedCatalog(providerId);
+
+    await signIn(page, owner.email, owner.password);
+    await page.goto("/provider/menu");
+    await expect(
+      page.getByRole("heading", { name: "Weekly menu" }),
+    ).toBeVisible({ timeout: 30_000 });
+
+    await page.getByRole("button", { name: "New menu day" }).click();
+    await page.getByRole("button", { name: "Add component" }).click();
+    await expect(page.getByTestId("menu-component")).toHaveCount(1);
+
+    // Add a customization group — it starts unnamed, so the save is blocked with a reason.
+    await page.getByRole("button", { name: "Add customization" }).click();
+    await expect(page.getByTestId("customization-group")).toHaveCount(1);
+    await expect(page.getByTestId("menu-customization-issues")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Save draft" }),
+    ).toBeDisabled();
+
+    // Name the group + add a labeled option → now insertable AND publishable.
+    await page.getByLabel("Customization name").fill("Sauce");
+    await page.getByRole("button", { name: "Add option" }).click();
+    await page
+      .getByLabel("Option 1 label", { exact: true })
+      .fill("Mint chutney");
+    await expect(page.getByTestId("menu-customization-issues")).toBeHidden();
+    await expect(page.getByText("Ready to publish")).toBeVisible();
+
+    await page.getByRole("button", { name: "Save draft" }).click();
+
+    // Reopen the saved draft via Edit — the customization must survive the writer, the
+    // menu read, and the builder load (menuBuilderStateFromMenuDay).
+    const edit = page.getByRole("button", { name: "Edit", exact: true });
+    await expect(edit).toBeEnabled({ timeout: 30_000 });
+    await edit.click();
+    await expect(page.getByLabel("Customization name")).toHaveValue("Sauce", {
+      timeout: 30_000,
+    });
+    await expect(
+      page.getByLabel("Option 1 label", { exact: true }),
+    ).toHaveValue("Mint chutney");
+  });
+
   test("an incomplete (past-cutoff) draft cannot be published and explains why", async ({
     page,
     providerTeam,
