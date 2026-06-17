@@ -3034,6 +3034,12 @@ export type Database = {
       };
       is_active_member: { Args: { h: string }; Returns: boolean };
       is_active_provider_member: { Args: { p: string }; Returns: boolean };
+      is_provider_menu_day_open: {
+        Args: {
+          d: Database["public"]["Tables"]["provider_menu_days"]["Row"];
+        };
+        Returns: boolean;
+      };
       is_provider_owner: { Args: { p: string }; Returns: boolean };
       list_household_food_preferences: {
         Args: { p_household_id: string };

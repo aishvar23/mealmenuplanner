@@ -1733,6 +1733,129 @@ test.describe("Provider integration — member removal cancels pending responses
       .eq("recipient_user_id", customer.id);
     expect(notes.data?.length).toBe(0);
   });
+
+  test("after a menu REVISION, removal cancels only the LIVE response — the orphaned response on the archived/superseded prior day is left untouched (count = 1, not 2)", async ({
+    providerTeam,
+  }) => {
+    // Regression for the over-cancellation bug: a revision (pmp_20) carries the live
+    // response forward onto a new published day and stamps the PRIOR day
+    // status='archived', superseded_at=now() while LEAVING the prior day's confirmed
+    // response row in place (with the prior day's still-future cutoff). The removal
+    // cancel gate must only ever touch the LIVE published day, never the superseded one.
+    const owner = await providerTeam.createUser("rm-rev-owner");
+    const providerId = await providerTeam.createProvider(owner, {
+      name: "Removal Revision Kitchen",
+    });
+    const customer = await providerTeam.createUser("rm-rev-cust");
+    await providerTeam.addCustomer(providerId, customer, "approved");
+
+    // A published, open day (cutoff +8h) with a confirmed response.
+    const seed = await providerTeam.seedMenuDay(providerId, owner, {
+      status: "published",
+      cutoffHoursFromNow: 8,
+    });
+    await providerTeam.seedConfirmedResponse(providerId, seed, customer);
+    const priorDayId = seed.menuDayId;
+
+    // Edit the published day through the production writer. A LIVE response exists, so
+    // this takes the REVISION branch: a new published day is created (response carried
+    // forward) and the prior day is archived + superseded.
+    const ownerClient = await providerTeam.signInAs(owner);
+    const futureCutoff = new Date(
+      Date.now() + 8 * 60 * 60 * 1000,
+    ).toISOString();
+    const revised = await ownerClient.rpc("edit_provider_menu_day", {
+      p_menu_day_id: priorDayId,
+      p_payload: {
+        cutoffAt: futureCutoff,
+        note: null,
+        components: [
+          {
+            componentGroup: "dal_or_legume",
+            defaultCatalogItemId: seed.rajmaCatalogId,
+            isRequired: true,
+            sortOrder: 0,
+            alternativeCatalogItemIds: [seed.chanaCatalogId],
+            customizationGroups: [],
+          },
+        ],
+      },
+    });
+    expect(revised.error).toBeNull();
+    const liveDayId = revised.data as string;
+    expect(liveDayId).not.toBe(priorDayId);
+
+    // Sanity: the prior day is archived + superseded, the live day is the new published
+    // revision, and BOTH carry a draft/confirmed response row for the customer.
+    const priorDay = await providerTeam.admin
+      .from("provider_menu_days")
+      .select("status, superseded_at")
+      .eq("id", priorDayId)
+      .single();
+    expect(priorDay.data?.status).toBe("archived");
+    expect(priorDay.data?.superseded_at).not.toBeNull();
+
+    const priorRespBefore = await providerTeam.admin
+      .from("provider_member_responses")
+      .select("id, status, version")
+      .eq("menu_day_id", priorDayId)
+      .eq("member_user_id", customer.id)
+      .single();
+    expect(["draft", "confirmed"]).toContain(priorRespBefore.data?.status);
+
+    // Remove the member.
+    const membership = await providerTeam.admin
+      .from("provider_memberships")
+      .select("id")
+      .eq("provider_id", providerId)
+      .eq("user_id", customer.id)
+      .eq("role", "customer")
+      .single();
+    const memberId = membership.data?.id as string;
+    const removed = await ownerClient.rpc("remove_provider_member", {
+      p_provider_id: providerId,
+      p_member_id: memberId,
+    });
+    expect(removed.error).toBeNull();
+
+    // The LIVE day's response is cancelled.
+    const liveResp = await providerTeam.admin
+      .from("provider_member_responses")
+      .select("status")
+      .eq("menu_day_id", liveDayId)
+      .eq("member_user_id", customer.id)
+      .single();
+    expect(liveResp.data?.status).toBe("cancelled");
+
+    // The orphaned response on the ARCHIVED/SUPERSEDED prior day is UNTOUCHED — same
+    // status and same version as before the removal (the buggy broad gate would have
+    // cancelled it and bumped its version too).
+    const priorRespAfter = await providerTeam.admin
+      .from("provider_member_responses")
+      .select("status, version")
+      .eq("id", priorRespBefore.data?.id as string)
+      .single();
+    expect(priorRespAfter.data?.status).toBe(priorRespBefore.data?.status);
+    expect(priorRespAfter.data?.version).toBe(priorRespBefore.data?.version);
+
+    // Exactly ONE live order was cancelled — the count must not double-count the
+    // superseded day, and menuDayIds must reference only the live day.
+    const events = await providerTeam.admin
+      .from("provider_activity_events")
+      .select("event_type, new_value")
+      .eq("provider_id", providerId)
+      .eq("entity_id", memberId)
+      .eq("event_type", "provider_member_responses_cancelled");
+    const cancelEvent = events.data?.[0];
+    expect(
+      (cancelEvent?.new_value as { cancelledResponseCount: number })
+        ?.cancelledResponseCount,
+    ).toBe(1);
+    const menuDayIds = (cancelEvent?.new_value as { menuDayIds: string[] })
+      ?.menuDayIds;
+    expect(menuDayIds).toContain(liveDayId);
+    expect(menuDayIds).not.toContain(priorDayId);
+  });
 });
 
 test.describe("Provider integration — membership invariant", () => {

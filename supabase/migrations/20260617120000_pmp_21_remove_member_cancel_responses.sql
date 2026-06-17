@@ -12,9 +12,28 @@
 -- This supersedes the MVP posture where removal was a pure membership flip and the
 -- removed member's open-day orders lingered until the cutoff filter (#24) dropped them.
 --
--- ── What "not-yet-locked" means here (mirrors the response-RPC open-menu gate) ──
+-- ── What "still open for member mutation" means here (the LIVE open-day gate) ──
 -- A response is cancellable iff its day is still OPEN for member mutation: the day is
--- NOT locked (status <> 'locked' AND locked_at is null) AND its cutoff is in the future.
+-- the LIVE revision (superseded_at is null), is PUBLISHED (status = 'published', so not
+-- draft / locked / archived / cancelled), is not locked (locked_at is null), AND its
+-- cutoff is in the future. This is exactly the save-path open-day gate, factored into the
+-- shared predicate `public.is_provider_menu_day_open(provider_menu_days)` below so the
+-- definition lives in ONE place (the member save/confirm/cancel RPCs in pmp_10 still
+-- inline their own copy — retrofitting those proven RPCs onto this helper is a deferred,
+-- separate cleanup; we do NOT re-validate them in this PR).
+--
+-- The `status = 'published'` + `superseded_at is null` clauses MATTER: a menu REVISION
+-- (pmp_20 edit_provider_menu_day, UC-MENU-005) carries each live response FORWARD onto a
+-- new published revision day and stamps the PRIOR day `status = 'archived', superseded_at
+-- = now()` while LEAVING that prior day's draft/confirmed response rows in place (with the
+-- prior day's original — still-future — cutoff_at). A plain `status <> 'locked' AND
+-- cutoff_at > now()` gate would therefore match BOTH the live response on the new day AND
+-- the orphaned response on the archived/superseded day, double-counting the cancellation
+-- and notifying the member about an order on a day their own UI never shows (member reads
+-- filter superseded_at is null). Restricting to the LIVE published day cancels exactly the
+-- one real order. (No flow currently sets a day to 'cancelled', but excluding it is free
+-- and future-proof.)
+--
 -- A day past its cutoff (or already locked) is immutable — its responses have either
 -- been folded into a preparation batch or transitioned to a post-cutoff status
 -- (locked / auto_accepted / provider_overridden); we leave them exactly as the cutoff
@@ -53,7 +72,28 @@
 -- fully-qualified names, auth.uid() schema-qualified, now() from pg_catalog, owner-gated.
 --
 -- Rollback: re-create the pmp_14 version of remove_provider_member (drop the cancellation
--- block + the second emit). Already-cancelled response rows stay cancelled (auditable).
+-- block + the second emit) and `drop function public.is_provider_menu_day_open(...)`.
+-- Already-cancelled response rows stay cancelled (auditable).
+
+-- ── Shared LIVE open-day predicate (finding #3: single source of truth) ──────────────
+-- "Open for member mutation": the LIVE revision (superseded_at is null) of a PUBLISHED,
+-- not-yet-locked day whose cutoff is still in the future. Pure/STABLE row predicate (reads
+-- only the passed row, no table access), so it carries no RLS surface; search_path is
+-- pinned and now() is taken from pg_catalog for parity with the rest of the provider RPCs.
+create or replace function public.is_provider_menu_day_open(d public.provider_menu_days)
+returns boolean
+language sql
+stable
+set search_path = ''
+as $$
+  select d.status = 'published'
+     and d.locked_at is null
+     and d.superseded_at is null
+     and d.cutoff_at > pg_catalog.now();
+$$;
+
+revoke execute on function public.is_provider_menu_day_open(public.provider_menu_days) from public, anon;
+grant  execute on function public.is_provider_menu_day_open(public.provider_menu_days) to authenticated, service_role;
 
 create or replace function public.remove_provider_member(
   p_provider_id uuid, p_member_id uuid
@@ -98,9 +138,10 @@ begin
   where id = p_member_id;
 
   -- ── Proactively cancel the removed member's still-pending responses (#37) ──
-  -- Only draft/confirmed rows on a day that is still open (not locked, cutoff in the
-  -- future). Past-cutoff / locked days are immutable — left exactly as the cutoff left
-  -- them. version++ keeps optimistic concurrency honest if the member had the row open.
+  -- Only draft/confirmed rows on a LIVE open day (is_provider_menu_day_open: published,
+  -- not superseded, not locked, cutoff in the future). Past-cutoff / locked / archived /
+  -- superseded days are immutable — left exactly as they are. version++ keeps optimistic
+  -- concurrency honest if the member had the row open.
   with cancelled as (
     update public.provider_member_responses r
     set status       = 'cancelled',
@@ -111,9 +152,7 @@ begin
       and r.member_user_id = v_member_user_id
       and r.menu_day_id    = md.id
       and r.status in ('draft', 'confirmed')
-      and md.status <> 'locked'
-      and md.locked_at is null
-      and md.cutoff_at > pg_catalog.now()
+      and public.is_provider_menu_day_open(md)
     returning r.menu_day_id
   )
   select count(*)::int, coalesce(jsonb_agg(distinct menu_day_id), '[]'::jsonb)
