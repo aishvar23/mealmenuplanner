@@ -407,10 +407,14 @@ client-sent price/name/unit/limit values are ignored (§11.6).
 
 Events written to `provider_activity_events` (+ optional notification fan-out):
 `provider_created`, `provider_member_invited`, `provider_member_approved`,
-`provider_member_rejected`, `provider_member_removed`, `provider_menu_published`,
+`provider_member_rejected`, `provider_member_removed`,
+`provider_member_responses_cancelled`, `provider_menu_published`,
 `provider_response_confirmed`, `provider_response_cancelled`,
 `provider_cutoff_processed`, `provider_batch_generated`,
 `provider_override_applied`, `provider_email_sent`, `provider_email_failed`.
+(`provider_member_responses_cancelled` — pmp_21/ADO #85: fired when removing a member
+proactively cancels ≥1 of their pending orders on a live open menu day; carries
+`{ cancelledResponseCount, menuDayIds }` and notifies the removed member.)
 
 Payload shape (mirrors household envelope): `{ providerId, actorUserId|null,
 eventType, entityType, entityId|null, oldValue|null, newValue|null, createdAt }`.
