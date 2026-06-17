@@ -1543,6 +1543,198 @@ test.describe("Provider integration — menu edit/revision (MP-A-012E + MP-A-121
   });
 });
 
+test.describe("Provider integration — member removal cancels pending responses (ADO #85 / decision #37)", () => {
+  test("removing a member cancels their draft + confirmed responses on still-open days, leaves locked-day responses immutable, and notifies the member", async ({
+    providerTeam,
+  }) => {
+    const owner = await providerTeam.createUser("rm-cancel-owner");
+    const providerId = await providerTeam.createProvider(owner, {
+      name: "Removal Cancel Kitchen",
+    });
+    const customer = await providerTeam.createUser("rm-cancel-cust");
+    await providerTeam.addCustomer(providerId, customer, "approved");
+
+    // An OPEN day (cutoff in the future) with a CONFIRMED response → must be cancelled.
+    const openSeed = await providerTeam.seedMenuDay(providerId, owner, {
+      status: "published",
+      cutoffHoursFromNow: 8,
+    });
+    const confirmedId = await providerTeam.seedConfirmedResponse(
+      providerId,
+      openSeed,
+      customer,
+    );
+
+    // A second OPEN day with a DRAFT response → must also be cancelled (draft is pending).
+    const draftSeed = await providerTeam.seedMenuDay(providerId, owner, {
+      status: "published",
+      cutoffHoursFromNow: 8,
+    });
+    const draftResp = await providerTeam.admin
+      .from("provider_member_responses")
+      .insert({
+        provider_id: providerId,
+        menu_day_id: draftSeed.menuDayId,
+        member_user_id: customer.id,
+        status: "draft",
+        version: 1,
+      })
+      .select("id")
+      .single();
+    expect(draftResp.error).toBeNull();
+    const draftId = draftResp.data?.id as string;
+    const draftItem = await providerTeam.admin
+      .from("provider_member_response_items")
+      .insert({
+        response_id: draftId,
+        menu_component_id: draftSeed.dalComponentId,
+        selected_catalog_item_id: draftSeed.rajmaCatalogId,
+        quantity: 16,
+        canonical_unit: "oz",
+      });
+    expect(draftItem.error).toBeNull();
+
+    // A LOCKED day (cutoff passed) with a CONFIRMED response → immutable, must be LEFT.
+    const lockedSeed = await providerTeam.seedMenuDay(providerId, owner, {
+      status: "locked",
+      cutoffHoursFromNow: -1,
+    });
+    const lockedId = await providerTeam.seedConfirmedResponse(
+      providerId,
+      lockedSeed,
+      customer,
+    );
+
+    // Resolve the customer's membership id (addCustomer doesn't return it).
+    const membership = await providerTeam.admin
+      .from("provider_memberships")
+      .select("id")
+      .eq("provider_id", providerId)
+      .eq("user_id", customer.id)
+      .eq("role", "customer")
+      .single();
+    expect(membership.error).toBeNull();
+    const memberId = membership.data?.id as string;
+
+    // The owner removes the member (the RPC self-gates on is_provider_owner).
+    const ownerClient = await providerTeam.signInAs(owner);
+    const removed = await ownerClient.rpc("remove_provider_member", {
+      p_provider_id: providerId,
+      p_member_id: memberId,
+    });
+    expect(removed.error).toBeNull();
+
+    // Membership is removed.
+    const after = await providerTeam.admin
+      .from("provider_memberships")
+      .select("status, removed_at")
+      .eq("id", memberId)
+      .single();
+    expect(after.data?.status).toBe("removed");
+    expect(after.data?.removed_at).not.toBeNull();
+
+    // The two open-day responses (confirmed + draft) are now cancelled, version bumped.
+    const open = await providerTeam.admin
+      .from("provider_member_responses")
+      .select("status, cancelled_at, version")
+      .in("id", [confirmedId, draftId]);
+    expect(open.data?.length).toBe(2);
+    for (const r of open.data ?? []) {
+      expect(r.status).toBe("cancelled");
+      expect(r.cancelled_at).not.toBeNull();
+      expect(r.version).toBe(2); // 1 → 2
+    }
+
+    // The locked-day response is untouched (past-cutoff days are immutable).
+    const locked = await providerTeam.admin
+      .from("provider_member_responses")
+      .select("status, version")
+      .eq("id", lockedId)
+      .single();
+    expect(locked.data?.status).toBe("confirmed");
+    expect(locked.data?.version).toBe(1);
+
+    // Both the removal audit AND the removal-driven cancellation event were written.
+    const events = await providerTeam.admin
+      .from("provider_activity_events")
+      .select("event_type, new_value")
+      .eq("provider_id", providerId)
+      .eq("entity_id", memberId);
+    const types = (events.data ?? []).map((e) => e.event_type);
+    expect(types).toContain("provider_member_removed");
+    expect(types).toContain("provider_member_responses_cancelled");
+    const cancelEvent = (events.data ?? []).find(
+      (e) => e.event_type === "provider_member_responses_cancelled",
+    );
+    expect(
+      (cancelEvent?.new_value as { cancelledResponseCount: number })
+        ?.cancelledResponseCount,
+    ).toBe(2);
+
+    // The removed member was notified about the cancelled orders (decision #37).
+    const notes = await providerTeam.admin
+      .from("provider_notifications")
+      .select("recipient_user_id, title")
+      .eq("provider_id", providerId)
+      .eq("event_type", "provider_member_responses_cancelled");
+    expect((notes.data ?? []).map((n) => n.recipient_user_id)).toContain(
+      customer.id,
+    );
+    expect(notes.data?.[0]?.title).toBe("Orders cancelled");
+  });
+
+  test("removing a member with no open-day orders is audit-only — no cancellation event, no member notification", async ({
+    providerTeam,
+  }) => {
+    const owner = await providerTeam.createUser("rm-noop-owner");
+    const providerId = await providerTeam.createProvider(owner, {
+      name: "Removal No-Op Kitchen",
+    });
+    const customer = await providerTeam.createUser("rm-noop-cust");
+    await providerTeam.addCustomer(providerId, customer, "approved");
+
+    // Only a LOCKED-day confirmed response exists — nothing cancellable.
+    const lockedSeed = await providerTeam.seedMenuDay(providerId, owner, {
+      status: "locked",
+      cutoffHoursFromNow: -1,
+    });
+    await providerTeam.seedConfirmedResponse(providerId, lockedSeed, customer);
+
+    const membership = await providerTeam.admin
+      .from("provider_memberships")
+      .select("id")
+      .eq("provider_id", providerId)
+      .eq("user_id", customer.id)
+      .eq("role", "customer")
+      .single();
+    const memberId = membership.data?.id as string;
+
+    const ownerClient = await providerTeam.signInAs(owner);
+    const removed = await ownerClient.rpc("remove_provider_member", {
+      p_provider_id: providerId,
+      p_member_id: memberId,
+    });
+    expect(removed.error).toBeNull();
+
+    // Removal audit was written, but NO cancellation event and NO member notification.
+    const events = await providerTeam.admin
+      .from("provider_activity_events")
+      .select("event_type")
+      .eq("provider_id", providerId)
+      .eq("entity_id", memberId);
+    const types = (events.data ?? []).map((e) => e.event_type);
+    expect(types).toContain("provider_member_removed");
+    expect(types).not.toContain("provider_member_responses_cancelled");
+
+    const notes = await providerTeam.admin
+      .from("provider_notifications")
+      .select("id")
+      .eq("provider_id", providerId)
+      .eq("recipient_user_id", customer.id);
+    expect(notes.data?.length).toBe(0);
+  });
+});
+
 test.describe("Provider integration — membership invariant", () => {
   test("the one-live-membership partial-unique constraint blocks a second live row", async ({
     providerTeam,

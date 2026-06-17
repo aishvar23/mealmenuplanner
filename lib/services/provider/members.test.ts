@@ -117,6 +117,26 @@ describe("member lifecycle", () => {
     );
   });
 
+  it("removes then reads back the now-removed member via the single-member RPC", async () => {
+    // The proactive response-cancellation (ADO #85) lives entirely in the RPC; the
+    // service still just calls remove then re-reads. This pins that contract: the
+    // removed DTO is what the route returns.
+    const rpc = stubRpcByName({
+      remove_provider_member: { data: null, error: null },
+      get_provider_member: {
+        data: [{ ...MEMBER_ROW, status: "removed", joined_at: null }],
+        error: null,
+      },
+    });
+    const result = await removeProviderMember("prov-1", MEMBER_ID);
+    expect(result.memberId).toBe(MEMBER_ID);
+    expect(result.status).toBe("removed");
+    expect(rpc).toHaveBeenCalledWith("remove_provider_member", {
+      p_provider_id: "prov-1",
+      p_member_id: MEMBER_ID,
+    });
+  });
+
   it("maps remove 23514 (not removable) to Conflict member_not_removable", async () => {
     stubRpcByName({
       remove_provider_member: { data: null, error: { code: "23514" } },
