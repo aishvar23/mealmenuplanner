@@ -1,11 +1,12 @@
 "use client";
 
 import { CalendarRange, ChefHat, Clock, Plus } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useSyncExternalStore } from "react";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Textarea } from "@/components/ui/textarea";
@@ -166,6 +167,11 @@ export function MenuManagerView({
               icon={ChefHat}
               title="Add catalog items first"
               description="Your menu is built from your catalog. Add dishes to your catalog before building a day's menu."
+              action={
+                <Link href="/provider/catalog" className={buttonVariants()}>
+                  Go to catalog
+                </Link>
+              }
             />
           </CardContent>
         </Card>

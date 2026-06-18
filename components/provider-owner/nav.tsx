@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   Settings,
   Soup,
+  UtensilsCrossed,
   Users,
 } from "lucide-react";
 
@@ -37,6 +38,12 @@ const OWNER_LINKS: readonly ProviderNavLink[] = [
     label: "Menu",
     description: "Weekly menu",
     icon: CalendarRange,
+  },
+  {
+    href: "/provider/catalog",
+    label: "Catalog",
+    description: "Dish library",
+    icon: UtensilsCrossed,
   },
   {
     href: "/provider/members",

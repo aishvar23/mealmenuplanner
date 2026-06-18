@@ -25,10 +25,13 @@ export { PROVIDER_COMPONENT_GROUPS };
  * field-scoped issues instead of a Postgres error mapped to a 500.
  */
 
-const NAME_MAX = 120;
-const UNIT_MAX = 40;
-const ALLERGY_MAX = 200;
-const IMAGE_URL_MAX = 2048;
+// Exported so the shared client gate (`packages/shared/provider/catalog-form.ts`,
+// which can't import this server module) is held in lockstep by a drift test — see
+// `catalog-validation.test.ts`. These remain the authoritative bounds.
+export const NAME_MAX = 120;
+export const UNIT_MAX = 40;
+export const ALLERGY_MAX = 200;
+export const IMAGE_URL_MAX = 2048;
 
 /** The catalog columns (snake_case) for a DB insert — `provider_id` is added by
  * the service from the route, never the client (plan § 9). */

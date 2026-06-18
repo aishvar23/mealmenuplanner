@@ -4,6 +4,7 @@ import {
   ClipboardList,
   LayoutDashboard,
   Soup,
+  UtensilsCrossed,
   Users,
 } from "lucide-react-native";
 
@@ -65,6 +66,15 @@ function OwnerTabs({ membership }: { membership: ProviderSummaryDto }) {
           title: "Menu",
           tabBarIcon: ({ color, size }) => (
             <CalendarRange color={color} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="catalog"
+        options={{
+          title: "Catalog",
+          tabBarIcon: ({ color, size }) => (
+            <UtensilsCrossed color={color} size={size} />
           ),
         }}
       />
