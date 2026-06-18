@@ -48,6 +48,7 @@ function mutation() {
   return {
     mutate: jest.fn(),
     mutateAsync: jest.fn().mockResolvedValue(undefined),
+    reset: jest.fn(),
     isPending: false,
     error: null as unknown,
   };
@@ -157,5 +158,48 @@ describe("CatalogScreen", () => {
     fireEvent.press(screen.getByText("Edit"));
     expect(screen.getByText("Edit dish")).toBeOnTheScreen();
     expect(screen.getByDisplayValue("Rajma")).toBeOnTheScreen();
+  });
+
+  it("clears stale mutation errors when opening the add form (no banner leak)", () => {
+    // A prior archive failed, so update.error is set and the banner shows it.
+    update.error = new Error("Couldn't archive the dish.");
+    setCatalog([RAJMA]);
+    render(<CatalogScreen providerId="p1" />);
+    expect(screen.getByText("Couldn't archive the dish.")).toBeOnTheScreen();
+
+    // Opening an unrelated add form must reset both mutations so the stale archive
+    // error doesn't leak onto the fresh form.
+    fireEvent.press(screen.getByText("Add dish"));
+    expect(create.reset).toHaveBeenCalled();
+    expect(update.reset).toHaveBeenCalled();
+  });
+
+  it("clears stale mutation errors when opening the edit form", () => {
+    create.error = new Error("Couldn't add the dish.");
+    setCatalog([RAJMA]);
+    render(<CatalogScreen providerId="p1" />);
+    fireEvent.press(screen.getByText("Edit"));
+    expect(create.reset).toHaveBeenCalled();
+    expect(update.reset).toHaveBeenCalled();
+  });
+
+  it("clears stale mutation errors when cancelling the form", () => {
+    setCatalog([RAJMA]);
+    render(<CatalogScreen providerId="p1" />);
+    fireEvent.press(screen.getByText("Add dish"));
+    create.reset.mockClear();
+    update.reset.mockClear();
+    fireEvent.press(screen.getByText("Cancel"));
+    expect(create.reset).toHaveBeenCalled();
+    expect(update.reset).toHaveBeenCalled();
+  });
+
+  it("resets prior errors before an archive toggle", () => {
+    create.error = new Error("Couldn't add the dish.");
+    setCatalog([RAJMA]);
+    render(<CatalogScreen providerId="p1" />);
+    fireEvent.press(screen.getByText("Archive"));
+    expect(create.reset).toHaveBeenCalled();
+    expect(update.reset).toHaveBeenCalled();
   });
 });

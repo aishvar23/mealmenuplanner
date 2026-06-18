@@ -17,7 +17,6 @@ import {
   catalogFormToUpdateRequest,
   emptyCatalogForm,
   groupCatalogByComponent,
-  isCatalogFormValid,
   providerComponentGroupLabel,
   PROVIDER_COMPONENT_GROUP_OPTIONS,
   type CatalogFormState,
@@ -161,6 +160,7 @@ export function CatalogManagerView({
                 key={item.catalogItemId}
                 item={item}
                 disabled={mode !== null}
+                archiving={archivingId !== null}
                 busy={archivingId === item.catalogItemId}
                 onEdit={() => setMode({ kind: "edit", item })}
                 onArchive={() => onArchiveToggle(item)}
@@ -194,10 +194,12 @@ export function CatalogManagerView({
                   type="button"
                   size="sm"
                   variant="outline"
-                  disabled={mode !== null || archivingId === item.catalogItemId}
+                  disabled={mode !== null || archivingId !== null}
                   onClick={() => onArchiveToggle(item)}
                 >
-                  Restore
+                  {archivingId === item.catalogItemId
+                    ? "Restoring…"
+                    : "Restore"}
                 </Button>
               </li>
             ))}
@@ -211,12 +213,16 @@ export function CatalogManagerView({
 function CatalogItemRow({
   item,
   disabled,
+  archiving,
   busy,
   onEdit,
   onArchive,
 }: {
   item: CatalogItemDto;
   disabled: boolean;
+  /** Some archive/restore call is in flight (any row) — block all toggles. */
+  archiving: boolean;
+  /** This specific row is the one being archived (for the inline label). */
   busy: boolean;
   onEdit: () => void;
   onArchive: () => void;
@@ -255,10 +261,10 @@ function CatalogItemRow({
           size="sm"
           variant="ghost"
           onClick={onArchive}
-          disabled={disabled || busy}
+          disabled={disabled || archiving}
           aria-label={`Archive ${item.name}`}
         >
-          Archive
+          {busy ? "Archiving…" : "Archive"}
         </Button>
       </div>
     </li>
@@ -281,7 +287,7 @@ function CatalogForm({
   const [showErrors, setShowErrors] = useState(false);
 
   const issues = catalogFormIssues(state);
-  const valid = isCatalogFormValid(state);
+  const valid = Object.keys(issues).length === 0;
 
   function set<K extends keyof CatalogFormState>(
     key: K,

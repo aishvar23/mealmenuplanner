@@ -109,6 +109,57 @@ test.describe("Provider catalog management (ADO #88)", () => {
     ).toBeAttached();
   });
 
+  test("while one archive is in flight, the other rows' archive buttons are disabled", async ({
+    page,
+    providerTeam,
+  }) => {
+    const owner = await providerTeam.createUser("catalog-race-owner");
+    const providerId = await providerTeam.createProvider(owner, {
+      name: "Race Catalog Kitchen",
+    });
+    // Rajma + Chana (dal) + Roti (bread).
+    await providerTeam.seedCatalog(providerId);
+
+    await signIn(page, owner.email, owner.password);
+
+    // Hold the archive PATCH open so the in-flight state stays observable.
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route("**/catalog/**", async (route) => {
+      if (route.request().method() === "PATCH") {
+        await held;
+      }
+      await route.continue();
+    });
+
+    await page.goto("/provider/catalog");
+    await expect(page.getByText("Rajma")).toBeVisible({ timeout: 30_000 });
+
+    const chanaArchive = page
+      .getByRole("listitem")
+      .filter({ hasText: "Chana" })
+      .getByRole("button", { name: "Archive" });
+    await expect(chanaArchive).toBeEnabled();
+
+    // Start archiving Rajma; its request is held open by the route above.
+    await page
+      .getByRole("listitem")
+      .filter({ hasText: "Rajma" })
+      .getByRole("button", { name: "Archive" })
+      .click();
+
+    // While Rajma's archive is in flight, a second archive must NOT be silently
+    // dropped — Chana's button is disabled rather than a no-op click.
+    await expect(chanaArchive).toBeDisabled();
+
+    // Release the held request and confirm the toggle settles.
+    release();
+    await expect(page.getByText("Archived")).toBeVisible({ timeout: 30_000 });
+    await expect(chanaArchive).toBeEnabled();
+  });
+
   test("a non-owner customer cannot reach the owner catalog page", async ({
     page,
     providerTeam,

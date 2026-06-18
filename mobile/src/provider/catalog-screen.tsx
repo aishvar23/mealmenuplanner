@@ -9,7 +9,6 @@ import {
   catalogFormToUpdateRequest,
   emptyCatalogForm,
   groupCatalogByComponent,
-  isCatalogFormValid,
   providerComponentGroupLabel,
   PROVIDER_COMPONENT_GROUP_OPTIONS,
   type CatalogFormState,
@@ -53,7 +52,32 @@ export function CatalogScreen({ providerId }: { providerId: string }) {
   const acting = create.isPending || update.isPending;
   const actionError = create.error ?? update.error;
 
+  // TanStack keeps a mutation's `error` set until the next call or an explicit reset.
+  // Clear both before starting (or abandoning) any action so a failed archive/edit
+  // never leaks its banner into the next, unrelated one. The web view's local error
+  // state is reset the same way at the start of each action.
+  function clearActionErrors() {
+    create.reset();
+    update.reset();
+  }
+
+  function openAdd() {
+    clearActionErrors();
+    setMode({ kind: "add" });
+  }
+
+  function openEdit(item: CatalogItemDto) {
+    clearActionErrors();
+    setMode({ kind: "edit", item });
+  }
+
+  function closeForm() {
+    clearActionErrors();
+    setMode(null);
+  }
+
   async function onArchiveToggle(item: CatalogItemDto) {
+    clearActionErrors();
     await update
       .mutateAsync({
         catalogItemId: item.catalogItemId,
@@ -102,9 +126,7 @@ export function CatalogScreen({ providerId }: { providerId: string }) {
       >
         <View className="flex-row items-center justify-between">
           <Text className="text-2xl font-bold text-gray-900">Catalog</Text>
-          {mode === null ? (
-            <Button label="Add dish" onPress={() => setMode({ kind: "add" })} />
-          ) : null}
+          {mode === null ? <Button label="Add dish" onPress={openAdd} /> : null}
         </View>
 
         {actionError && mode === null ? (
@@ -124,7 +146,7 @@ export function CatalogScreen({ providerId }: { providerId: string }) {
             submitting={acting}
             error={actionError instanceof Error ? actionError.message : null}
             onSubmit={onSubmit}
-            onCancel={() => setMode(null)}
+            onCancel={closeForm}
           />
         ) : null}
 
@@ -146,7 +168,7 @@ export function CatalogScreen({ providerId }: { providerId: string }) {
                 key={item.catalogItemId}
                 item={item}
                 disabled={mode !== null || acting}
-                onEdit={() => setMode({ kind: "edit", item })}
+                onEdit={() => openEdit(item)}
                 onArchive={() => void onArchiveToggle(item)}
               />
             ))}
@@ -258,7 +280,7 @@ function CatalogForm({
   const [showErrors, setShowErrors] = useState(false);
 
   const issues = catalogFormIssues(state);
-  const valid = isCatalogFormValid(state);
+  const valid = Object.keys(issues).length === 0;
 
   function set<K extends keyof CatalogFormState>(
     key: K,

@@ -193,6 +193,18 @@ describe("catalogFormToCreateRequest", () => {
       supportsSaltLevel: false,
     });
   });
+
+  it("throws (rather than silently sending 0) when the quantity can't be parsed", () => {
+    // Defensive: callers must gate with isCatalogFormValid first; an ungated submit
+    // is a programmer error and should fail loudly, not coerce to a bogus 0 the
+    // server would only reject with a confusing 400.
+    expect(() =>
+      catalogFormToCreateRequest(validForm({ defaultQuantity: "" })),
+    ).toThrow(/isCatalogFormValid/);
+    expect(() =>
+      catalogFormToCreateRequest(validForm({ defaultQuantity: "abc" })),
+    ).toThrow(/isCatalogFormValid/);
+  });
 });
 
 describe("groupCatalogByComponent", () => {

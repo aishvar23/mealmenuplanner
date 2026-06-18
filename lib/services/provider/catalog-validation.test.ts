@@ -1,11 +1,24 @@
 import { describe, expect, it } from "vitest";
 
 import { ValidationError } from "@/lib/errors";
+import {
+  CATALOG_ALLERGY_MAX,
+  CATALOG_IMAGE_URL_MAX,
+  CATALOG_NAME_MAX,
+  CATALOG_QUANTITY_MAX,
+  CATALOG_QUANTITY_SCALE,
+  CATALOG_UNIT_MAX,
+} from "@/packages/shared/provider";
 
 import {
+  ALLERGY_MAX,
+  IMAGE_URL_MAX,
+  NAME_MAX,
+  UNIT_MAX,
   validateCreateCatalogItem,
   validateUpdateCatalogItem,
 } from "./catalog-validation";
+import { QUANTITY_MAX, QUANTITY_SCALE } from "./field-validators";
 
 const VALID = {
   name: "Rajma",
@@ -26,6 +39,24 @@ function issuesOf(fn: () => unknown): { field?: string; rule?: string }[] {
   }
   throw new Error("expected a ValidationError");
 }
+
+// The shared client gate (`packages/shared/provider/catalog-form.ts`) mirrors these
+// server/column bounds so the owner sees the same limits inline before submitting. It
+// can't import this server module, so its copies are a justified duplication — this
+// test fails the moment the two drift, keeping them in lockstep.
+describe("shared catalog-form bounds stay in lockstep with the server validator", () => {
+  it("matches the text-field maxima", () => {
+    expect(CATALOG_NAME_MAX).toBe(NAME_MAX);
+    expect(CATALOG_UNIT_MAX).toBe(UNIT_MAX);
+    expect(CATALOG_ALLERGY_MAX).toBe(ALLERGY_MAX);
+    expect(CATALOG_IMAGE_URL_MAX).toBe(IMAGE_URL_MAX);
+  });
+
+  it("matches the numeric(10,3) quantity range and scale", () => {
+    expect(CATALOG_QUANTITY_MAX).toBe(QUANTITY_MAX);
+    expect(CATALOG_QUANTITY_SCALE).toBe(QUANTITY_SCALE);
+  });
+});
 
 describe("validateCreateCatalogItem", () => {
   it("normalizes a valid body to DB column values with defaults", () => {

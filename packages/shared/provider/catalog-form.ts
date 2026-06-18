@@ -161,15 +161,26 @@ export function isCatalogFormValid(state: CatalogFormState): boolean {
   return Object.keys(catalogFormIssues(state)).length === 0;
 }
 
-/** Serialize the form into the `POST .../catalog` request (blank optionals → null). */
+/**
+ * Serialize the form into the `POST .../catalog` request (blank optionals → null).
+ * The caller MUST gate with {@link isCatalogFormValid} first; an unparseable quantity
+ * here is a programmer error (an ungated submit), so we throw loudly rather than
+ * silently coercing to a bogus `0` the server would only reject with a confusing 400.
+ */
 export function catalogFormToCreateRequest(
   state: CatalogFormState,
 ): CreateCatalogItemRequest {
+  const defaultQuantity = parseCatalogQuantity(state.defaultQuantity);
+  if (defaultQuantity === null) {
+    throw new Error(
+      "catalogFormToCreateRequest called with an invalid quantity — gate the form with isCatalogFormValid first.",
+    );
+  }
   return {
     name: state.name.trim(),
     componentGroup: state.componentGroup,
     canonicalUnit: state.canonicalUnit.trim(),
-    defaultQuantity: parseCatalogQuantity(state.defaultQuantity) ?? 0,
+    defaultQuantity,
     imageUrl: state.imageUrl.trim() || null,
     allergyWarning: state.allergyWarning.trim() || null,
     supportsSpiceLevel: state.supportsSpiceLevel,
