@@ -18,6 +18,7 @@ export * from "./http";
 export * from "./onboarding-form";
 export * from "./menu-completeness";
 export * from "./menu-builder";
+export * from "./catalog-form";
 export * from "./response-form";
 export * from "./preparation-order";
 export * from "./csv";

@@ -1,3 +1,4 @@
+import { useRouter, type Href } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -51,6 +52,7 @@ function noteErrorMessage(error: unknown): string | null {
 }
 
 export function MenuManagerScreen({ providerId }: { providerId: string }) {
+  const router = useRouter();
   const { weeklyMenu, catalog, create, publish, revise, updateNote } =
     useMenuManager(providerId);
   const [building, setBuilding] = useState(false);
@@ -165,6 +167,16 @@ export function MenuManagerScreen({ providerId }: { providerId: string }) {
             <EmptyState
               title="Add catalog items first"
               hint="Your menu is built from your catalog. Add dishes before building a day's menu."
+              action={
+                <Button
+                  label="Go to catalog"
+                  onPress={() =>
+                    router.push(
+                      `/(provider-owner)/${providerId}/catalog` as Href,
+                    )
+                  }
+                />
+              }
             />
           </View>
         ) : null}
