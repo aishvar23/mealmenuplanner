@@ -21,8 +21,21 @@ type Mode = "sign-in" | "sign-up";
  * for the synchronous paths — password sign-in and an immediately-active
  * sign-up. When the project requires email confirmation, the link lands on
  * `/auth/callback`, which redirects to the default app route.
+ *
+ * `idPrefix` namespaces the field ids/`htmlFor`. The two-panel sign-in (ADR-86)
+ * renders this form twice on one page; without a prefix both copies would share
+ * `id="email"`/`id="password"`, breaking label association. Unprefixed (the
+ * default) keeps the original ids for any single-form usage.
  */
-export function EmailPasswordForm({ next }: { next?: string }) {
+export function EmailPasswordForm({
+  next,
+  idPrefix,
+}: {
+  next?: string;
+  idPrefix?: string;
+}) {
+  const emailId = idPrefix ? `${idPrefix}-email` : "email";
+  const passwordId = idPrefix ? `${idPrefix}-password` : "password";
   const [mode, setMode] = useState<Mode>("sign-in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -87,9 +100,9 @@ export function EmailPasswordForm({ next }: { next?: string }) {
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-3" noValidate>
       <div className="flex flex-col gap-2">
-        <Label htmlFor="email">Email</Label>
+        <Label htmlFor={emailId}>Email</Label>
         <Input
-          id="email"
+          id={emailId}
           name="email"
           type="email"
           autoComplete="email"
@@ -102,9 +115,9 @@ export function EmailPasswordForm({ next }: { next?: string }) {
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="password">Password</Label>
+        <Label htmlFor={passwordId}>Password</Label>
         <Input
-          id="password"
+          id={passwordId}
           name="password"
           type="password"
           autoComplete={isSignIn ? "current-password" : "new-password"}

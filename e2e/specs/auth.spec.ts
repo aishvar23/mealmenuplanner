@@ -65,6 +65,29 @@ test("AUTH-004: anonymous user is redirected from private pages", async ({
   }
 });
 
+test("AUTH-008: sign-in shows side-by-side household + provider panels", async ({
+  page,
+}) => {
+  await page.context().clearCookies();
+  await page.goto("/sign-in");
+
+  const householdPanel = page.getByRole("region", { name: "For households" });
+  const providerPanel = page.getByRole("region", {
+    name: "For meal providers",
+  });
+  await expect(householdPanel).toBeVisible();
+  await expect(providerPanel).toBeVisible();
+
+  // Each panel carries its own credential form (same Supabase auth).
+  await expect(householdPanel.getByLabel("Email")).toBeVisible();
+  await expect(providerPanel.getByLabel("Email")).toBeVisible();
+
+  // The provider panel links a brand-new provider to onboarding.
+  await expect(
+    providerPanel.getByRole("link", { name: /set up a provider workspace/i }),
+  ).toHaveAttribute("href", "/provider-onboarding");
+});
+
 // AUTH-005/006/007 exercise Google OAuth (sign in, cancel, account linking).
 // They require a mocked/test OAuth provider; the app uses real Supabase Google
 // OAuth, which can't be driven headlessly without one. Deferred.

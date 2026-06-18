@@ -17,8 +17,14 @@ import { createBrowserSupabaseClient } from "@/lib/db/browser";
  *
  * The link round-trips through email, so it always lands on the default app
  * route — there is no in-session `next` to preserve here.
+ *
+ * `idPrefix` namespaces the field id/`htmlFor` so the two-panel sign-in
+ * (ADR-86) can render this form twice without colliding on `magic-link-email`.
  */
-export function MagicLinkForm() {
+export function MagicLinkForm({ idPrefix }: { idPrefix?: string }) {
+  const emailId = idPrefix
+    ? `${idPrefix}-magic-link-email`
+    : "magic-link-email";
   const [email, setEmail] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,9 +68,9 @@ export function MagicLinkForm() {
   return (
     <form onSubmit={onSubmit} className="space-y-3" noValidate>
       <div className="space-y-1.5">
-        <Label htmlFor="magic-link-email">Email</Label>
+        <Label htmlFor={emailId}>Email</Label>
         <Input
-          id="magic-link-email"
+          id={emailId}
           name="email"
           type="email"
           autoComplete="email"

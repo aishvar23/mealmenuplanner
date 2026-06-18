@@ -17,7 +17,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         className="absolute inset-0 -z-20 object-cover opacity-30"
       />
       <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,oklch(0.985_0.012_92/0.98),oklch(0.985_0.012_92/0.86))]" />
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-md lg:max-w-4xl">
         <Link
           href="/"
           className="mb-8 flex items-center justify-center gap-2 font-heading text-lg font-bold tracking-tight"

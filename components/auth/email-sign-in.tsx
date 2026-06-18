@@ -12,16 +12,25 @@ type Method = "password" | "magic-link";
  * create-account) and the passwordless magic-link form. Kept as one small
  * client component so the sign-in page stays a server component and only this
  * island ships interactivity.
+ *
+ * `idPrefix` is forwarded to the inner forms so the two-panel sign-in (ADR-86)
+ * can mount this island twice on one page without duplicate field ids.
  */
-export function EmailSignIn({ next }: { next?: string }) {
+export function EmailSignIn({
+  next,
+  idPrefix,
+}: {
+  next?: string;
+  idPrefix?: string;
+}) {
   const [method, setMethod] = useState<Method>("password");
 
   return (
     <div className="space-y-3">
       {method === "password" ? (
-        <EmailPasswordForm next={next} />
+        <EmailPasswordForm next={next} idPrefix={idPrefix} />
       ) : (
-        <MagicLinkForm />
+        <MagicLinkForm idPrefix={idPrefix} />
       )}
 
       <button
