@@ -80,10 +80,16 @@ base branch with the board/user** (mobile work has historically used a
 `mobile-main` trunk per the project memory, but only `main` is currently on
 origin and `mobile/` already lives in `main` — verify with
 `git ls-remote --heads origin` before branching), `npm install` at the root
-(npm workspaces installs `mobile/` too), copy `.env.example` → `.env.local`
-(cloud-dev Supabase creds), and confirm `npm run dev` serves the API the app
-talks to. For simulator runs that hit a local API, point the dev profile at the
-running host (`:3100`) or `npm run dev` and tunnel as needed.
+(npm workspaces installs `mobile/` too). The repo **commits a working
+`.env.local`** pointing at the cloud-dev Supabase project, so a fresh clone
+already has it — **verify it is present and do NOT overwrite it**; only copy
+`.env.example` → `.env.local` if `.env.local` is genuinely missing (overwriting
+it with the placeholder template breaks every authenticated `/api` flow the
+simulator hits). Then start the dev server on **port 3100** (`npx next dev -p
+3100`) so it matches the EAS `development` profile's
+`EXPO_PUBLIC_API_BASE_URL=http://localhost:3100` — the iOS simulator can reach
+the host's `localhost`, so a dev-client build talks to it directly (plain
+`npm run dev` serves `:3000`, which the dev profile does NOT point at).
 
 ## The work queue — Azure DevOps (source of truth)
 
